@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Seguimiento MP — GET{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul:  #002D6E;
+      --verde: #80AE3F;
+      --cielo: #1E88E5;
+      --ambar: #E67E22;
+      --rojo:  #dc2626;
+      --fondo: #F0F2F5;
+      --texto: #111827;
+      --gris:  #6b7280;
+      --borde: #e5e7eb;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--fondo);
+      color: var(--texto);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--azul);
+      display: flex;
+      align-items: center;
+      height: 56px;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+      gap: 0;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      color: #fff;
+      letter-spacing: -0.2px;
+      flex-shrink: 0;
+    }
+    .topbar-brand svg {
+      width: 22px; height: 22px;
+      stroke: var(--verde); fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .topbar-nav {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 28px;
+      flex: 1;
+    }
+    .topbar-nav a {
+      color: rgba(255,255,255,0.72);
+      text-decoration: none;
+      padding: 6px 13px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .topbar-nav a:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .topbar-nav a.active { background: rgba(255,255,255,0.16); color: #fff; }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .topbar-user {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.2;
+    }
+    .topbar-user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .topbar-user-rol {
+      font-size: 10.5px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .topbar-logout {
+      color: rgba(255,255,255,0.78);
+      text-decoration: none;
+      padding: 5px 12px;
+      border: 1px solid rgba(255,255,255,0.24);
+      border-radius: 6px;
+      font-size: 12.5px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .topbar-logout:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    /* ── Main content wrapper ── */
+    main { flex: 1; width: 100%; }
+
+    /* ── Flash alerts ── */
+    .flash-container {
+      max-width: 1360px;
+      margin: 18px auto 0;
+      padding: 0 28px;
+    }
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      margin-bottom: 10px;
+      line-height: 1.45;
+    }
+    .alert svg {
+      flex-shrink: 0; width: 16px; height: 16px;
+      fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+      margin-top: 2px;
+    }
+    .alert-success { background:#f0fdf4; border:1px solid #86efac; border-left:4px solid var(--verde); color:#14532d; }
+    .alert-success svg { stroke:#16a34a; }
+    .alert-error   { background:#fff2f2; border:1px solid #fca5a5; border-left:4px solid var(--rojo);  color:#991b1b; }
+    .alert-error svg { stroke:var(--rojo); }
+    .alert-info    { background:#eff6ff; border:1px solid #93c5fd; border-left:4px solid var(--cielo); color:#1e40af; }
+    .alert-info svg { stroke:var(--cielo); }
+    .alert-warning { background:#fffbeb; border:1px solid #fcd34d; border-left:4px solid var(--ambar); color:#92400e; }
+    .alert-warning svg { stroke:var(--ambar); }
+
+    /* ── Footer ── */
+    .site-footer {
+      background: var(--azul);
+      color: rgba(255,255,255,0.45);
+      text-align: center;
+      padding: 13px 24px;
+      font-size: 12px;
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+    .site-footer strong { color: rgba(255,255,255,0.7); font-weight: 600; }
+  </style>
+  {% block styles %}{% endblock %}
+</head>
+<body>
+
+  <nav class="topbar">
+    <a class="topbar-brand" href="{{ url_for('dashboard_redirect') }}">
+      <svg viewBox="0 0 24 24">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>
+      Seguimiento MP — GET
+    </a>
+
+    <div class="topbar-nav">
+      {% if current_user.rol == 'admin' %}
+        <a href="{{ url_for('admin_dashboard') }}"
+           {% if request.endpoint == 'admin_dashboard' %}class="active"{% endif %}>Dashboard</a>
+        <a href="{{ url_for('admin_sync') }}"
+           {% if request.endpoint == 'admin_sync' %}class="active"{% endif %}>Sincronizar</a>
+        <a href="#">Historial</a>
+        <a href="#">Usuarios</a>
+      {% elif current_user.rol == 'cio' %}
+        <a href="{{ url_for('cio_dashboard') }}"
+           {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
+        <a href="{{ url_for('cio_mis_solicitudes') }}"
+           {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
+      {% endif %}
+    </div>
+
+    <div class="topbar-right">
+      <div class="topbar-user">
+        <span class="topbar-user-name">{{ current_user.nombre_completo }}</span>
+        <span class="topbar-user-rol">{{ current_user.rol }}</span>
+      </div>
+      <a href="{{ url_for('logout') }}" class="topbar-logout">Cerrar sesión</a>
+    </div>
+  </nav>
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-container">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {% if category == 'success' %}
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            {% elif category == 'error' %}
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {% elif category == 'warning' %}
+              <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {% else %}
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            {% endif %}
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <strong>Gerencia GET</strong> · Talma Servicios Aeroportuarios · 2026
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

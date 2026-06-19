@@ -76,6 +76,11 @@ def _log_actividad(conn, usuario_id, accion_tipo, detalle):
     )
 
 
+def _current_sync_id(conn):
+    row = conn.execute("SELECT MAX(sync_id) AS sync_id FROM equipos").fetchone()
+    return row['sync_id'] if row and row['sync_id'] else None
+
+
 _ALLOWED_EXCEL = {'xlsx', 'xls'}
 
 def _allowed_excel(filename):
@@ -135,7 +140,7 @@ def logout():
 def dashboard_redirect():
     destinos = {
         'admin': 'admin_dashboard',
-        'cio': 'cio_dashboard',
+        'cio':   'cio_dashboard',
     }
     return redirect(url_for(destinos.get(current_user.rol, 'login')))
 
@@ -147,7 +152,50 @@ def dashboard_redirect():
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    return render_template('admin/dashboard.html')
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    total_equipos = 0
+    solicitados   = 0
+    respondidos   = 0
+
+    if sync_id:
+        total_equipos = conn.execute(
+            "SELECT COUNT(*) AS c FROM equipos WHERE sync_id = ?", (sync_id,)
+        ).fetchone()['c']
+
+        solicitados = conn.execute(
+            "SELECT COUNT(*) AS c FROM solicitudes WHERE sync_id = ?", (sync_id,)
+        ).fetchone()['c']
+
+        respondidos = conn.execute(
+            """SELECT COUNT(*) AS c FROM respuestas r
+               JOIN solicitudes s ON s.id = r.solicitud_id
+               WHERE s.sync_id = ?""",
+            (sync_id,)
+        ).fetchone()['c']
+
+    pendientes = max(0, solicitados - respondidos)
+
+    ultimas_sync = conn.execute(
+        """SELECT l.timestamp, l.detalle, u.nombre_completo
+           FROM log_actividad l
+           LEFT JOIN usuarios u ON u.id = l.usuario_id
+           WHERE l.accion_tipo = 'sync'
+           ORDER BY l.timestamp DESC
+           LIMIT 10"""
+    ).fetchall()
+
+    conn.close()
+
+    return render_template('admin/dashboard.html',
+        total_equipos=total_equipos,
+        solicitados=solicitados,
+        respondidos=respondidos,
+        pendientes=pendientes,
+        ultimas_sync=ultimas_sync,
+        current_sync_id=sync_id,
+    )
 
 
 @app.route('/admin/sync', methods=['GET', 'POST'])
@@ -212,7 +260,191 @@ def admin_sync():
 @app.route('/cio')
 @cio_required
 def cio_dashboard():
-    return render_template('cio/dashboard.html')
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    equipos = []
+    familias = []
+    estados  = []
+
+    if sync_id:
+        equipos = conn.execute(
+            """SELECT * FROM equipos
+               WHERE sync_id = ?
+               ORDER BY ind_desviacion DESC""",
+            (sync_id,)
+        ).fetchall()
+
+        familias = [r['familia'] for r in conn.execute(
+            """SELECT DISTINCT familia FROM equipos
+               WHERE sync_id = ? AND familia IS NOT NULL
+               ORDER BY familia""",
+            (sync_id,)
+        ).fetchall()]
+
+        estados = [r['estado_mp'] for r in conn.execute(
+            """SELECT DISTINCT estado_mp FROM equipos
+               WHERE sync_id = ? AND estado_mp IS NOT NULL
+               ORDER BY estado_mp""",
+            (sync_id,)
+        ).fetchall()]
+
+    vencidos  = sum(1 for e in equipos if e['estado_mp'] and 'vencido' in e['estado_mp'].lower())
+    proximos  = sum(1 for e in equipos if e['estado_mp'] and ('próximo' in e['estado_mp'].lower() or 'proximo' in e['estado_mp'].lower()))
+
+    solicitados_ids = set()
+    if sync_id:
+        solicitados_ids = {
+            r['equipo_id'] for r in conn.execute(
+                "SELECT equipo_id FROM solicitudes WHERE sync_id = ?", (sync_id,)
+            ).fetchall()
+        }
+
+    conn.close()
+
+    return render_template('cio/dashboard.html',
+        equipos=equipos,
+        familias=familias,
+        estados=estados,
+        total=len(equipos),
+        vencidos=vencidos,
+        proximos=proximos,
+        ya_solicitados=len(solicitados_ids),
+        solicitados_ids=solicitados_ids,
+        current_sync_id=sync_id,
+    )
+
+
+@app.route('/cio/solicitar', methods=['POST'])
+@cio_required
+def cio_solicitar():
+    equipo_ids = request.form.getlist('equipo_ids')
+    if not equipo_ids:
+        flash('No seleccionaste ningún equipo.', 'error')
+        return redirect(url_for('cio_dashboard'))
+
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+    ahora   = datetime.now().isoformat()
+    registrados = 0
+
+    for raw_id in equipo_ids:
+        try:
+            eid = int(raw_id)
+        except ValueError:
+            continue
+
+        existing = conn.execute(
+            "SELECT id FROM solicitudes WHERE equipo_id = ? AND sync_id = ?",
+            (eid, sync_id)
+        ).fetchone()
+
+        if not existing:
+            conn.execute(
+                """INSERT INTO solicitudes
+                       (equipo_id, solicitado_por, fecha_solicitud, sync_id, estado)
+                   VALUES (?, ?, ?, ?, 'pendiente')""",
+                (eid, current_user.id, ahora, sync_id)
+            )
+            registrados += 1
+
+    _log_actividad(conn, current_user.id, 'solicitud',
+                   f'Solicitud de {registrados} equipo(s) (ciclo {sync_id})')
+    conn.commit()
+    conn.close()
+
+    if registrados:
+        flash(f'{registrados} equipo(s) solicitados exitosamente. '
+              'Notifica a Operaciones para coordinar la entrega.', 'success')
+    else:
+        flash('Los equipos seleccionados ya estaban solicitados en este ciclo.', 'warning')
+
+    return redirect(url_for('cio_dashboard'))
+
+
+@app.route('/cio/mis-solicitudes')
+@cio_required
+def cio_mis_solicitudes():
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    solicitudes = conn.execute(
+        """SELECT s.id, s.fecha_solicitud, s.estado, e.vehiculo, e.familia,
+                  e.rutina, e.estado_mp,
+                  r.accion, r.timestamp AS resp_timestamp,
+                  m.descripcion AS motivo, r.comentario_libre
+           FROM solicitudes s
+           JOIN equipos e ON e.id = s.equipo_id
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+           WHERE s.solicitado_por = ?
+           ORDER BY s.fecha_solicitud DESC
+           LIMIT 100""",
+        (current_user.id,)
+    ).fetchall()
+
+    conn.close()
+
+    return render_template('cio/mis_solicitudes.html',
+        solicitudes=solicitudes,
+        current_sync_id=sync_id,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Equipo detalle (accesible por ambos roles)
+# ---------------------------------------------------------------------------
+
+@app.route('/equipo/<vehiculo>')
+@login_required
+def equipo_detalle(vehiculo):
+    vehiculo = vehiculo.upper().strip()
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    rutinas = conn.execute(
+        """SELECT * FROM equipos
+           WHERE UPPER(vehiculo) = ? AND sync_id = ?
+           ORDER BY ind_desviacion DESC""",
+        (vehiculo, sync_id)
+    ).fetchall() if sync_id else []
+
+    filtros = conn.execute(
+        """SELECT * FROM filtros_equipo
+           WHERE UPPER(equipo) = ?
+           ORDER BY tipo_filtro, nombre_articulo""",
+        (vehiculo,)
+    ).fetchall()
+
+    historial = conn.execute(
+        """SELECT s.fecha_solicitud, s.estado,
+                  u.nombre_completo AS solicitado_por,
+                  r.accion, r.timestamp AS resp_timestamp,
+                  m.descripcion AS motivo, r.comentario_libre
+           FROM solicitudes s
+           JOIN equipos e ON e.id = s.equipo_id
+           JOIN usuarios u ON u.id = s.solicitado_por
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+           WHERE UPPER(e.vehiculo) = ?
+           ORDER BY s.fecha_solicitud DESC
+           LIMIT 20""",
+        (vehiculo,)
+    ).fetchall()
+
+    conn.close()
+
+    if not rutinas:
+        flash(f'No se encontraron datos para el vehículo {vehiculo} en el ciclo actual.', 'warning')
+        return redirect(url_for('dashboard_redirect'))
+
+    return render_template('equipo_detalle.html',
+        vehiculo=vehiculo,
+        equipo=rutinas[0],
+        rutinas=rutinas,
+        filtros=filtros,
+        historial=historial,
+    )
 
 
 # ---------------------------------------------------------------------------
