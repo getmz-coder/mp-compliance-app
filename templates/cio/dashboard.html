@@ -43,11 +43,12 @@
   /* ── KPI grid ── */
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     margin-bottom: 24px;
   }
-  @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 1000px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 700px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
   .kpi-card {
     background: #fff;
@@ -59,10 +60,11 @@
     flex-direction: column;
     gap: 2px;
   }
-  .kpi-card.kpi-blue  { border-color: var(--azul); }
-  .kpi-card.kpi-red   { border-color: var(--rojo); }
-  .kpi-card.kpi-amber { border-color: var(--ambar); }
-  .kpi-card.kpi-green { border-color: var(--verde); }
+  .kpi-card.kpi-blue   { border-color: var(--azul); }
+  .kpi-card.kpi-red    { border-color: var(--rojo); }
+  .kpi-card.kpi-amber  { border-color: var(--ambar); }
+  .kpi-card.kpi-green  { border-color: var(--verde); }
+  .kpi-card.kpi-sky    { border-color: var(--cielo); }
 
   .kpi-value {
     font-size: 32px;
@@ -74,6 +76,7 @@
   .kpi-card.kpi-red   .kpi-value { color: var(--rojo); }
   .kpi-card.kpi-amber .kpi-value { color: var(--ambar); }
   .kpi-card.kpi-green .kpi-value { color: var(--verde); }
+  .kpi-card.kpi-sky   .kpi-value { color: var(--cielo); }
 
   .kpi-label {
     font-size: 12.5px;
@@ -89,7 +92,7 @@
     margin-top: 2px;
   }
 
-  /* ── Toolbar (filtros) ── */
+  /* ── Toolbar ── */
   .toolbar {
     background: #fff;
     border-radius: 10px;
@@ -124,10 +127,7 @@
     border-color: var(--cielo);
     background: #fff;
   }
-  .toolbar-search {
-    position: relative;
-    margin-left: auto;
-  }
+  .toolbar-search { position: relative; margin-left: auto; }
   .toolbar-search svg {
     position: absolute;
     left: 10px; top: 50%;
@@ -172,15 +172,19 @@
     letter-spacing: 0.4px;
     white-space: nowrap;
   }
-  table.data-table th.th-check { width: 42px; text-align: center; }
+  table.data-table th.th-check { width: 38px; text-align: center; }
   table.data-table td {
     padding: 10px 14px;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
   }
   table.data-table tbody tr:hover { background: #f8fafc; }
-  table.data-table tbody tr.row-solicitado { background: #f6fbf0; }
-  table.data-table tbody tr.row-solicitado:hover { background: #eef6e4; }
+  table.data-table tbody tr.row-solicitado  { background: #fefce8; }
+  table.data-table tbody tr.row-solicitado:hover { background: #fef9c3; }
+  table.data-table tbody tr.row-entregado   { background: #f0fdf4; }
+  table.data-table tbody tr.row-entregado:hover  { background: #dcfce7; }
+  table.data-table tbody tr.row-no-entregado { background: #fff7f7; }
+  table.data-table tbody tr.row-no-entregado:hover { background: #ffe4e6; }
 
   .td-check { text-align: center; }
   .td-check input[type="checkbox"] {
@@ -188,7 +192,14 @@
     accent-color: var(--azul);
     cursor: pointer;
   }
-  .td-check input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.6; }
+  .dot-sol {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ambar);
+    vertical-align: middle;
+    title: "Solicitado";
+  }
 
   .vehiculo-link {
     font-weight: 600;
@@ -211,31 +222,87 @@
   .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
   .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
-  .badge-sol {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 9px;
-    border-radius: 12px;
-    font-size: 11.5px;
-    font-weight: 600;
-    background: #f6fbf0;
-    color: #3a7d1e;
-    border: 1px solid #86efac;
-  }
-  .badge-sol svg {
-    width: 10px; height: 10px;
-    stroke: #16a34a; fill: none;
-    stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
-  }
-
   .ind-pos  { color: var(--rojo);  font-weight: 600; }
   .ind-neg  { color: var(--verde); }
   .ind-zero { color: var(--gris); }
 
   .rutina-cell {
-    max-width: 280px;
+    max-width: 250px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Response buttons ── */
+  .resp-btns {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn-ent {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-ent:hover  { background: #6d9a32; }
+  .btn-ent:active { transform: scale(0.97); }
+
+  .btn-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    background: #fff;
+    color: var(--rojo);
+    border: 1.5px solid var(--rojo);
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+  .btn-no:hover  { background: var(--rojo); color: #fff; }
+  .btn-no:active { transform: scale(0.97); }
+
+  /* ── Result badges ── */
+  .badge-resp-ent {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #86efac;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-resp-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #fff7f7;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 220px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -310,8 +377,148 @@
   }
   .btn-clear-sel:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-  tr.row-selected            { background: #eff6ff !important; }
-  tr.row-selected:hover      { background: #dbeafe !important; }
+  tr.row-selected       { background: #eff6ff !important; }
+  tr.row-selected:hover { background: #dbeafe !important; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,45,110,0.2);
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    animation: modal-in 0.18s ease;
+  }
+  @keyframes modal-in {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--borde);
+    background: #fff7f7;
+  }
+  .modal-hdr h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--rojo);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--gris);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background 0.12s;
+  }
+  .modal-close:hover { background: #f3f4f6; color: var(--texto); }
+  .modal-body { padding: 20px 22px; }
+  .modal-body > p {
+    font-size: 13.5px;
+    color: var(--gris);
+    margin-bottom: 16px;
+  }
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    resize: vertical;
+  }
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: var(--rojo);
+    background: #fff;
+  }
+  .form-group select.error { border-color: var(--rojo); background: #fff7f7; }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--borde);
+  }
+  .btn-modal-cancel {
+    padding: 9px 20px;
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-cancel:hover { background: #e5e7eb; }
+  .btn-modal-confirm {
+    padding: 9px 22px;
+    background: var(--rojo);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-modal-confirm:hover  { background: #b91c1c; }
+  .btn-modal-confirm:active { transform: scale(0.98); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 80px; right: 24px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 2000;
+    animation: toast-in 0.2s ease;
+    pointer-events: none;
+  }
+  .toast.toast-ok  { background: var(--verde); }
+  .toast.toast-err { background: var(--rojo); }
+  @keyframes toast-in {
+    from { transform: translateY(10px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
 </style>
 {% endblock %}
 
@@ -321,7 +528,7 @@
   <div class="page-hdr">
     <div class="page-hdr-left">
       <h1>Equipos para Mantenimiento Preventivo</h1>
-      <p>Selecciona los equipos que solicitarás a Operaciones para el taller</p>
+      <p>Solicita equipos a Operaciones y registra el resultado de cada entrega</p>
     </div>
     {% if current_sync_id %}
       <span class="sync-badge">Ciclo #{{ current_sync_id }}</span>
@@ -348,7 +555,12 @@
     <div class="kpi-card kpi-green">
       <div class="kpi-value">{{ ya_solicitados }}</div>
       <div class="kpi-label">Solicitados</div>
-      <div class="kpi-sub">en este ciclo</div>
+      <div class="kpi-sub">a Operaciones</div>
+    </div>
+    <div class="kpi-card kpi-sky">
+      <div class="kpi-value">{{ respondidos }}</div>
+      <div class="kpi-label">Respondidos</div>
+      <div class="kpi-sub">resultado registrado</div>
     </div>
   </div>
 
@@ -381,6 +593,14 @@
       {% endfor %}
     </select>
 
+    <label for="fil-sol">Solicitud</label>
+    <select id="fil-sol">
+      <option value="">Todos</option>
+      <option value="pendiente">Pendiente respuesta</option>
+      <option value="respondido">Respondido</option>
+      <option value="no-solicitado">No solicitado</option>
+    </select>
+
     <div class="toolbar-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" id="fil-buscar" placeholder="Buscar vehículo..." autocomplete="off">
@@ -406,21 +626,26 @@
               <th>Desviación</th>
               <th>Ind. Desv.</th>
               <th>Estado MP</th>
+              <th>Resultado</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="equipos-body">
             {% for equipo in equipos %}
-            {% set is_sol = equipo.id in solicitados_ids %}
+            {% set sol = solicitudes_map.get(equipo.id) %}
+            {% set is_sol = sol is not none %}
             <tr
               data-familia="{{ equipo.familia or '' }}"
               data-estado="{{ equipo.estado_mp or '' }}"
               data-vehiculo="{{ equipo.vehiculo or '' }}"
-              class="{% if is_sol %}row-solicitado{% endif %}"
+              data-sol-estado="{% if is_sol %}{{ sol.estado }}{% else %}no-solicitado{% endif %}"
+              class="{% if is_sol %}{% if sol.estado == 'respondido' %}{% if sol.accion == 'entregado' %}row-entregado{% else %}row-no-entregado{% endif %}{% else %}row-solicitado{% endif %}{% endif %}"
             >
               <td class="td-check">
                 {% if not is_sol %}
                   <input type="checkbox" name="equipo_ids" value="{{ equipo.id }}" class="row-check">
+                {% else %}
+                  <span class="dot-sol" title="Solicitado a Operaciones"></span>
                 {% endif %}
               </td>
               <td>
@@ -438,21 +663,34 @@
                 {% else %}—{% endif %}
               </td>
               <td>
-                {% if is_sol %}
-                  <span class="badge-sol">
-                    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                    Solicitado
-                  </span>
+                {% set em = (equipo.estado_mp or '')|lower %}
+                {% if 'vencido' in em %}
+                  <span class="badge-estado badge-vencido">{{ equipo.estado_mp }}</span>
+                {% elif 'próximo' in em or 'proximo' in em %}
+                  <span class="badge-estado badge-proximo">{{ equipo.estado_mp }}</span>
+                {% elif 'hoy' in em %}
+                  <span class="badge-estado badge-hoy">{{ equipo.estado_mp }}</span>
                 {% else %}
-                  {% set em = (equipo.estado_mp or '')|lower %}
-                  {% if 'vencido' in em %}
-                    <span class="badge-estado badge-vencido">{{ equipo.estado_mp }}</span>
-                  {% elif 'próximo' in em or 'proximo' in em %}
-                    <span class="badge-estado badge-proximo">{{ equipo.estado_mp }}</span>
-                  {% elif 'hoy' in em %}
-                    <span class="badge-estado badge-hoy">{{ equipo.estado_mp }}</span>
-                  {% else %}
-                    <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
+                  <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
+                {% endif %}
+              </td>
+              <td style="min-width:200px;">
+                {% if is_sol %}
+                  {% if sol.estado == 'pendiente' %}
+                    <div class="resp-btns" data-sol-id="{{ sol.id }}">
+                      <button type="button" class="btn-ent"
+                              onclick="responderEntregado({{ sol.id }}, this)">✓ Entregado</button>
+                      <button type="button" class="btn-no"
+                              onclick="abrirModal({{ sol.id }})">✗ No entregado</button>
+                    </div>
+                  {% elif sol.estado == 'respondido' %}
+                    {% if sol.accion == 'entregado' %}
+                      <span class="badge-resp-ent">✓ Entregado</span>
+                    {% else %}
+                      {% set motivo_label = sol.motivo_desc or sol.comentario_libre or 'Sin motivo' %}
+                      <span class="badge-resp-no"
+                            title="{{ motivo_label }}">✗ {{ motivo_label[:30] }}{% if motivo_label|length > 30 %}…{% endif %}</span>
+                    {% endif %}
                   {% endif %}
                 {% endif %}
               </td>
@@ -492,99 +730,280 @@
   {% endif %}
 
 </div>
+
+<!-- ══ Modal: No entregado ══ -->
+<div id="modal-no-ent" class="modal-overlay" style="display:none;" onclick="overlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3>✗ Registrar No Entregado</h3>
+      <button type="button" class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Indica el motivo por el que Operaciones no entregó el equipo al taller.</p>
+      <div class="form-group">
+        <label for="modal-motivo">Motivo <span style="color:var(--rojo)">*</span></label>
+        <select id="modal-motivo">
+          <option value="">— Selecciona un motivo —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="modal-comentario">Comentario adicional <span style="color:#9ca3af;font-weight:400;text-transform:none;">(opcional)</span></label>
+        <textarea id="modal-comentario" rows="3"
+                  placeholder="Observación libre sobre la situación..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button type="button" class="btn-modal-confirm" onclick="confirmarNoEntregado()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-  (function () {
-    var checks    = document.querySelectorAll('.row-check');
-    var selAll    = document.getElementById('sel-all');
-    var countEl   = document.getElementById('sel-count');
-    var bar       = document.getElementById('action-bar');
-    var btnClear  = document.getElementById('btn-clear');
-    var filFam    = document.getElementById('fil-familia');
-    var filEst    = document.getElementById('fil-estado');
-    var filBus    = document.getElementById('fil-buscar');
-    var rows      = document.querySelectorAll('#equipos-body tr');
-    var noRes     = document.getElementById('no-results');
-    var toolCount = document.getElementById('toolbar-count');
+(function () {
+  /* ── Selection / filtros ── */
+  var checks    = document.querySelectorAll('.row-check');
+  var selAll    = document.getElementById('sel-all');
+  var countEl   = document.getElementById('sel-count');
+  var bar       = document.getElementById('action-bar');
+  var btnClear  = document.getElementById('btn-clear');
+  var filFam    = document.getElementById('fil-familia');
+  var filEst    = document.getElementById('fil-estado');
+  var filSol    = document.getElementById('fil-sol');
+  var filBus    = document.getElementById('fil-buscar');
+  var rows      = document.querySelectorAll('#equipos-body tr');
+  var noRes     = document.getElementById('no-results');
+  var toolCount = document.getElementById('toolbar-count');
 
-    function updateCounter() {
-      var n = document.querySelectorAll('.row-check:checked').length;
-      if (countEl) countEl.textContent = n;
-      if (bar) bar.classList.toggle('visible', n > 0);
-    }
+  function updateCounter() {
+    var n = document.querySelectorAll('.row-check:checked').length;
+    if (countEl) countEl.textContent = n;
+    if (bar) bar.classList.toggle('visible', n > 0);
+  }
 
-    function applyFilters() {
-      var fam = filFam ? filFam.value.toLowerCase() : '';
-      var est = filEst ? filEst.value.toLowerCase() : '';
-      var bus = filBus ? filBus.value.trim().toLowerCase() : '';
-      var visible = 0;
+  function applyFilters() {
+    var fam    = filFam ? filFam.value.toLowerCase() : '';
+    var est    = filEst ? filEst.value.toLowerCase() : '';
+    var solEst = filSol ? filSol.value : '';
+    var bus    = filBus ? filBus.value.trim().toLowerCase() : '';
+    var visible = 0;
 
-      rows.forEach(function (tr) {
-        var rowFam = (tr.dataset.familia || '').toLowerCase();
-        var rowEst = (tr.dataset.estado  || '').toLowerCase();
-        var rowVeh = (tr.dataset.vehiculo|| '').toLowerCase();
-        var ok = true;
-        if (fam && rowFam !== fam)        ok = false;
-        if (est && !rowEst.includes(est)) ok = false;
-        if (bus && !rowVeh.includes(bus)) ok = false;
-        tr.style.display = ok ? '' : 'none';
-        if (ok) visible++;
-      });
-
-      if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
-      if (toolCount) toolCount.textContent = visible + ' equipo(s) mostrados';
-    }
-
-    checks.forEach(function (cb) {
-      cb.addEventListener('change', function () {
-        var tr = cb.closest('tr');
-        if (tr) tr.classList.toggle('row-selected', cb.checked);
-        updateCounter();
-        if (selAll) selAll.indeterminate = true;
-      });
+    rows.forEach(function (tr) {
+      var rowFam    = (tr.dataset.familia   || '').toLowerCase();
+      var rowEst    = (tr.dataset.estado    || '').toLowerCase();
+      var rowVeh    = (tr.dataset.vehiculo  || '').toLowerCase();
+      var rowSolEst = (tr.dataset.solEstado || '');
+      var ok = true;
+      if (fam    && rowFam !== fam)           ok = false;
+      if (est    && !rowEst.includes(est))    ok = false;
+      if (bus    && !rowVeh.includes(bus))    ok = false;
+      if (solEst && rowSolEst !== solEst)     ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visible++;
     });
 
-    if (selAll) {
-      selAll.addEventListener('change', function () {
-        rows.forEach(function (tr) {
-          if (tr.style.display === 'none') return;
-          var cb = tr.querySelector('.row-check');
-          if (!cb) return;
-          cb.checked = selAll.checked;
-          tr.classList.toggle('row-selected', selAll.checked);
-        });
-        selAll.indeterminate = false;
-        updateCounter();
+    if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
+    if (toolCount) toolCount.textContent = visible + ' equipo(s) mostrados';
+  }
+
+  checks.forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var tr = cb.closest('tr');
+      if (tr) tr.classList.toggle('row-selected', cb.checked);
+      updateCounter();
+      if (selAll) selAll.indeterminate = true;
+    });
+  });
+
+  if (selAll) {
+    selAll.addEventListener('change', function () {
+      rows.forEach(function (tr) {
+        if (tr.style.display === 'none') return;
+        var cb = tr.querySelector('.row-check');
+        if (!cb) return;
+        cb.checked = selAll.checked;
+        tr.classList.toggle('row-selected', selAll.checked);
       });
-    }
+      selAll.indeterminate = false;
+      updateCounter();
+    });
+  }
 
-    if (btnClear) {
-      btnClear.addEventListener('click', function () {
-        checks.forEach(function (cb) {
-          cb.checked = false;
-          var tr = cb.closest('tr');
-          if (tr) tr.classList.remove('row-selected');
-        });
-        if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
-        updateCounter();
+  if (btnClear) {
+    btnClear.addEventListener('click', function () {
+      checks.forEach(function (cb) {
+        cb.checked = false;
+        var tr = cb.closest('tr');
+        if (tr) tr.classList.remove('row-selected');
       });
-    }
+      if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
+      updateCounter();
+    });
+  }
 
-    if (filFam) filFam.addEventListener('change', applyFilters);
-    if (filEst) filEst.addEventListener('change', applyFilters);
-    if (filBus) filBus.addEventListener('input',  applyFilters);
+  if (filFam) filFam.addEventListener('change', applyFilters);
+  if (filEst) filEst.addEventListener('change', applyFilters);
+  if (filSol) filSol.addEventListener('change', applyFilters);
+  if (filBus) filBus.addEventListener('input',  applyFilters);
 
-    var form = document.getElementById('solicitar-form');
-    if (form) {
-      form.addEventListener('submit', function (e) {
-        if (document.querySelectorAll('.row-check:checked').length === 0) {
-          e.preventDefault();
-          alert('Selecciona al menos un equipo antes de solicitar.');
+  var form = document.getElementById('solicitar-form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (document.querySelectorAll('.row-check:checked').length === 0) {
+        e.preventDefault();
+        alert('Selecciona al menos un equipo antes de solicitar.');
+      }
+    });
+  }
+
+  /* ── Toast ── */
+  function mostrarToast(msg, tipo) {
+    var c = document.getElementById('toast-container');
+    var t = document.createElement('div');
+    t.className = 'toast toast-' + (tipo || 'ok');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(function () {
+      t.style.transition = 'opacity 0.3s';
+      t.style.opacity = '0';
+      setTimeout(function () { c.removeChild(t); }, 350);
+    }, 3000);
+  }
+
+  /* ── Modal state ── */
+  var currentSolId = null;
+  var motivosCache = null;
+
+  window.overlayClick = function (e) {
+    if (e.target === document.getElementById('modal-no-ent')) cerrarModal();
+  };
+
+  function cargarMotivos(callback) {
+    if (motivosCache) { callback(motivosCache); return; }
+    fetch('/cio/motivos')
+      .then(function (r) { return r.json(); })
+      .then(function (data) { motivosCache = data; callback(data); })
+      .catch(function () { mostrarToast('Error al cargar motivos.', 'err'); });
+  }
+
+  window.abrirModal = function (solId) {
+    currentSolId = solId;
+    cargarMotivos(function (motivos) {
+      var sel = document.getElementById('modal-motivo');
+      sel.innerHTML = '<option value="">— Selecciona un motivo —</option>';
+      motivos.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.descripcion;
+        sel.appendChild(opt);
+      });
+      sel.classList.remove('error');
+      document.getElementById('modal-comentario').value = '';
+      var modal = document.getElementById('modal-no-ent');
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      sel.focus();
+    });
+  };
+
+  window.cerrarModal = function () {
+    document.getElementById('modal-no-ent').style.display = 'none';
+    document.body.style.overflow = '';
+    currentSolId = null;
+  };
+
+  /* ── Responder (fetch) ── */
+  function enviarRespuesta(solId, accion, motivoId, motivoDesc, comentario) {
+    var payload = { solicitud_id: solId, accion: accion };
+    if (motivoId)   payload.motivo_id       = parseInt(motivoId, 10);
+    if (comentario) payload.comentario_libre = comentario;
+
+    fetch('/cio/responder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.success) {
+        mostrarToast(data.error || 'Error al registrar.', 'err');
+        return;
+      }
+      /* Actualizar fila visualmente */
+      var container = document.querySelector('.resp-btns[data-sol-id="' + solId + '"]');
+      if (!container) return;
+      var tr = container.closest('tr');
+
+      if (accion === 'entregado') {
+        container.outerHTML = '<span class="badge-resp-ent">✓ Entregado</span>';
+        if (tr) {
+          tr.classList.remove('row-solicitado', 'row-no-entregado');
+          tr.classList.add('row-entregado');
+          tr.dataset.solEstado = 'respondido';
         }
-      });
+        mostrarToast('Entregado registrado correctamente.', 'ok');
+      } else {
+        var label = motivoDesc || comentario || 'Sin motivo';
+        var labelCorto = label.length > 30 ? label.substring(0, 30) + '…' : label;
+        container.outerHTML =
+          '<span class="badge-resp-no" title="' + escHtml(label) + '">✗ ' + escHtml(labelCorto) + '</span>';
+        if (tr) {
+          tr.classList.remove('row-solicitado', 'row-entregado');
+          tr.classList.add('row-no-entregado');
+          tr.dataset.solEstado = 'respondido';
+        }
+        mostrarToast('No entregado registrado correctamente.', 'ok');
+      }
+
+      /* Actualizar KPI respondidos */
+      var kpiEl = document.querySelector('.kpi-card.kpi-sky .kpi-value');
+      if (kpiEl) kpiEl.textContent = parseInt(kpiEl.textContent || '0', 10) + 1;
+    })
+    .catch(function () {
+      mostrarToast('Error de conexión. Intenta nuevamente.', 'err');
+    });
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  window.responderEntregado = function (solId) {
+    if (!confirm('¿Confirmar que Operaciones entregó este equipo al taller?')) return;
+    enviarRespuesta(solId, 'entregado', null, null, null);
+  };
+
+  window.confirmarNoEntregado = function () {
+    var sel     = document.getElementById('modal-motivo');
+    var motivoId = sel.value;
+    if (!motivoId) {
+      sel.classList.add('error');
+      sel.focus();
+      setTimeout(function () { sel.classList.remove('error'); }, 1800);
+      return;
     }
-  })();
+    var motivoDesc  = sel.options[sel.selectedIndex].textContent;
+    var comentario  = document.getElementById('modal-comentario').value.trim() || null;
+    var solId = currentSolId;
+    cerrarModal();
+    enviarRespuesta(solId, 'no_entregado', motivoId, motivoDesc, comentario);
+  };
+
+  /* Cerrar modal con Escape */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') cerrarModal();
+  });
+
+})();
 </script>
 {% endblock %}

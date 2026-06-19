@@ -2,7 +2,7 @@ import os
 from functools import wraps
 from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     login_required, current_user
@@ -292,13 +292,28 @@ def cio_dashboard():
     vencidos  = sum(1 for e in equipos if e['estado_mp'] and 'vencido' in e['estado_mp'].lower())
     proximos  = sum(1 for e in equipos if e['estado_mp'] and ('próximo' in e['estado_mp'].lower() or 'proximo' in e['estado_mp'].lower()))
 
-    solicitados_ids = set()
+    solicitudes_map = {}
     if sync_id:
-        solicitados_ids = {
-            r['equipo_id'] for r in conn.execute(
-                "SELECT equipo_id FROM solicitudes WHERE sync_id = ?", (sync_id,)
-            ).fetchall()
-        }
+        rows_sol = conn.execute(
+            """SELECT s.id, s.equipo_id, s.estado, s.solicitado_por,
+                      r.accion, m.descripcion AS motivo_desc, r.comentario_libre
+               FROM solicitudes s
+               LEFT JOIN respuestas r ON r.solicitud_id = s.id
+               LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+               WHERE s.sync_id = ?""",
+            (sync_id,)
+        ).fetchall()
+        for row in rows_sol:
+            solicitudes_map[row['equipo_id']] = {
+                'id':             row['id'],
+                'estado':         row['estado'],
+                'solicitado_por': row['solicitado_por'],
+                'accion':         row['accion'],
+                'motivo_desc':    row['motivo_desc'],
+                'comentario_libre': row['comentario_libre'],
+            }
+
+    respondidos = sum(1 for s in solicitudes_map.values() if s['estado'] == 'respondido')
 
     conn.close()
 
@@ -309,8 +324,9 @@ def cio_dashboard():
         total=len(equipos),
         vencidos=vencidos,
         proximos=proximos,
-        ya_solicitados=len(solicitados_ids),
-        solicitados_ids=solicitados_ids,
+        ya_solicitados=len(solicitudes_map),
+        respondidos=respondidos,
+        solicitudes_map=solicitudes_map,
         current_sync_id=sync_id,
     )
 
@@ -360,6 +376,74 @@ def cio_solicitar():
         flash('Los equipos seleccionados ya estaban solicitados en este ciclo.', 'warning')
 
     return redirect(url_for('cio_dashboard'))
+
+
+@app.route('/cio/motivos')
+@cio_required
+def cio_motivos():
+    conn = get_db()
+    motivos = conn.execute(
+        "SELECT id, descripcion FROM catalogo_motivos WHERE activo = 1 ORDER BY orden"
+    ).fetchall()
+    conn.close()
+    return jsonify([{'id': m['id'], 'descripcion': m['descripcion']} for m in motivos])
+
+
+@app.route('/cio/responder', methods=['POST'])
+@cio_required
+def cio_responder():
+    data = request.get_json(force=True) or {}
+    solicitud_id  = data.get('solicitud_id')
+    accion        = data.get('accion')
+    motivo_id     = data.get('motivo_id')
+    comentario    = (data.get('comentario_libre') or '').strip() or None
+
+    if not solicitud_id or accion not in ('entregado', 'no_entregado'):
+        return jsonify({'success': False, 'error': 'Datos inválidos.'}), 400
+
+    if accion == 'no_entregado' and not motivo_id:
+        return jsonify({'success': False, 'error': 'Motivo obligatorio para "No entregado".'}), 400
+
+    conn = get_db()
+    solicitud = conn.execute(
+        "SELECT * FROM solicitudes WHERE id = ?", (solicitud_id,)
+    ).fetchone()
+
+    if not solicitud:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Solicitud no encontrada.'}), 404
+
+    if solicitud['solicitado_por'] != current_user.id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Sin permiso para esta solicitud.'}), 403
+
+    if solicitud['estado'] == 'respondido':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Solicitud ya respondida.'}), 409
+
+    ahora = datetime.now().isoformat()
+    conn.execute(
+        """INSERT INTO respuestas
+               (solicitud_id, respondido_por, accion, motivo_id, comentario_libre, timestamp, ip_address)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (solicitud_id, current_user.id, accion, motivo_id or None, comentario, ahora, request.remote_addr)
+    )
+    conn.execute("UPDATE solicitudes SET estado = 'respondido' WHERE id = ?", (solicitud_id,))
+
+    motivo_desc = None
+    if motivo_id:
+        m = conn.execute(
+            "SELECT descripcion FROM catalogo_motivos WHERE id = ?", (motivo_id,)
+        ).fetchone()
+        if m:
+            motivo_desc = m['descripcion']
+
+    _log_actividad(conn, current_user.id, 'respuesta',
+                   f'Respuesta solicitud #{solicitud_id}: {accion}'
+                   + (f' — {motivo_desc}' if motivo_desc else ''))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
 
 
 @app.route('/cio/mis-solicitudes')

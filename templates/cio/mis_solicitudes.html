@@ -5,15 +5,83 @@
 {% block styles %}
 <style>
   .sol-page {
-    max-width: 1200px;
+    max-width: 1300px;
     margin: 0 auto;
     padding: 28px 28px 60px;
   }
 
   .page-hdr { margin-bottom: 24px; }
-  .page-hdr h1 { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
-  .page-hdr p  { font-size: 13px; color: var(--gris); margin-top: 3px; }
+  .page-hdr h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-hdr p { font-size: 13px; color: var(--gris); margin-top: 3px; }
 
+  /* ── Toolbar ── */
+  .toolbar {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .toolbar label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .toolbar select, .toolbar input[type="date"], .toolbar input[type="text"] {
+    padding: 7px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 140px;
+    font-family: inherit;
+  }
+  .toolbar select:focus, .toolbar input:focus {
+    border-color: var(--cielo);
+    background: #fff;
+  }
+  .toolbar-search { position: relative; margin-left: auto; }
+  .toolbar-search svg {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    stroke: #9ca3af; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .toolbar-search input { padding-left: 32px !important; min-width: 180px; }
+  .toolbar-count { font-size: 12px; color: var(--gris); white-space: nowrap; padding: 6px 0; }
+
+  .btn-reset-fil {
+    padding: 7px 14px;
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-reset-fil:hover { background: #e5e7eb; }
+
+  /* ── Table ── */
   .table-card {
     background: #fff;
     border-radius: 12px;
@@ -49,6 +117,14 @@
   table.sol-table tbody tr:last-child td { border-bottom: none; }
   table.sol-table tbody tr:hover { background: #f8fafc; }
 
+  table.sol-table tbody tr.row-entregado    { background: #f0fdf4; }
+  table.sol-table tbody tr.row-entregado:hover { background: #dcfce7; }
+  table.sol-table tbody tr.row-no-ent      { background: #fff7f7; }
+  table.sol-table tbody tr.row-no-ent:hover { background: #ffe4e6; }
+  table.sol-table tbody tr.row-pendiente   { background: #fefce8; }
+  table.sol-table tbody tr.row-pendiente:hover { background: #fef9c3; }
+
+  /* ── Badges ── */
   .badge-estado {
     display: inline-block;
     padding: 3px 9px;
@@ -61,8 +137,50 @@
   .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
   .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
-  .accion-ent { color: var(--verde); font-weight: 600; }
-  .accion-no  { color: var(--rojo);  font-weight: 600; }
+  .badge-sol-estado {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-pendiente  { background:#fefce8; color:#92400e; border:1px solid #fde68a; }
+  .badge-respondido { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+
+  .badge-resp-ent {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #86efac;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-resp-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #fff7f7;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .motivo-cell {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+    color: var(--gris);
+  }
 
   .empty-state {
     padding: 60px 24px;
@@ -75,7 +193,30 @@
     stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
     margin-bottom: 12px;
   }
+  .empty-state h3 { font-size: 16px; color: #374151; margin-bottom: 6px; }
   .empty-state p { font-size: 13.5px; }
+
+  /* ── Stats strip ── */
+  .stats-strip {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .stat-pill.total    { background:#eff6ff; color:var(--azul); border:1px solid #93c5fd; }
+  .stat-pill.pend     { background:#fefce8; color:#92400e;     border:1px solid #fde68a; }
+  .stat-pill.ent      { background:#f0fdf4; color:#166534;     border:1px solid #86efac; }
+  .stat-pill.no-ent   { background:#fff7f7; color:#991b1b;     border:1px solid #fca5a5; }
 </style>
 {% endblock %}
 
@@ -84,28 +225,80 @@
 
   <div class="page-hdr">
     <h1>Mis Solicitudes</h1>
-    <p>Equipos que has solicitado a Operaciones en todos los ciclos</p>
+    <p>Historial de equipos solicitados a Operaciones con el resultado de cada entrega</p>
+  </div>
+
+  {% if solicitudes %}
+
+  <!-- Stats strip -->
+  {% set total_s   = solicitudes|length %}
+  {% set total_pend = solicitudes|selectattr('estado','equalto','pendiente')|list|length %}
+  {% set total_ent  = solicitudes|selectattr('accion','equalto','entregado')|list|length %}
+  {% set total_no   = solicitudes|selectattr('accion','equalto','no_entregado')|list|length %}
+  <div class="stats-strip">
+    <span class="stat-pill total">{{ total_s }} total</span>
+    <span class="stat-pill pend">{{ total_pend }} pendiente(s)</span>
+    <span class="stat-pill ent">{{ total_ent }} entregado(s)</span>
+    <span class="stat-pill no-ent">{{ total_no }} no entregado(s)</span>
+  </div>
+
+  <!-- Toolbar filtros -->
+  <div class="toolbar">
+    <label for="fil-sol-estado">Estado</label>
+    <select id="fil-sol-estado">
+      <option value="">Todos los estados</option>
+      <option value="pendiente">Pendiente</option>
+      <option value="respondido">Respondido</option>
+    </select>
+
+    <label for="fil-resultado">Resultado</label>
+    <select id="fil-resultado">
+      <option value="">Todos los resultados</option>
+      <option value="entregado">Entregado</option>
+      <option value="no_entregado">No entregado</option>
+    </select>
+
+    <label for="fil-fecha-desde">Desde</label>
+    <input type="date" id="fil-fecha-desde">
+
+    <label for="fil-fecha-hasta">Hasta</label>
+    <input type="date" id="fil-fecha-hasta">
+
+    <div class="toolbar-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="fil-buscar" placeholder="Buscar vehículo...">
+    </div>
+
+    <button type="button" class="btn-reset-fil" id="btn-reset">Limpiar filtros</button>
+    <span class="toolbar-count" id="toolbar-count">{{ solicitudes|length }} solicitud(es)</span>
   </div>
 
   <div class="table-card">
-    {% if solicitudes %}
     <div class="table-scroll">
-      <table class="sol-table">
+      <table class="sol-table" id="sol-table">
         <thead>
           <tr>
             <th>Fecha Solicitud</th>
             <th>Vehículo</th>
             <th>Familia</th>
             <th>Estado MP</th>
-            <th>Estado Solicitud</th>
+            <th>Estado</th>
             <th>Resultado</th>
-            <th>Motivo</th>
+            <th>Motivo / Comentario</th>
             <th>Fecha Respuesta</th>
+            <th></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="sol-body">
           {% for s in solicitudes %}
-          <tr>
+          {% set fecha_iso = s.fecha_solicitud[:10] if s.fecha_solicitud else '' %}
+          <tr
+            data-estado="{{ s.estado or '' }}"
+            data-resultado="{{ s.accion or '' }}"
+            data-vehiculo="{{ s.vehiculo or '' }}"
+            data-fecha="{{ fecha_iso }}"
+            class="{% if s.accion == 'entregado' %}row-entregado{% elif s.accion == 'no_entregado' %}row-no-ent{% elif s.estado == 'pendiente' %}row-pendiente{% endif %}"
+          >
             <td style="color:var(--gris);font-size:12.5px;white-space:nowrap;">
               {{ s.fecha_solicitud[:16].replace('T', ' ') if s.fecha_solicitud else '—' }}
             </td>
@@ -128,36 +321,124 @@
             </td>
             <td>
               {% if s.estado == 'respondido' %}
-                <span style="color:var(--verde);font-weight:600;font-size:12.5px;">Respondido</span>
+                <span class="badge-sol-estado badge-respondido">Respondido</span>
               {% else %}
-                <span style="color:var(--ambar);font-weight:600;font-size:12.5px;">Pendiente</span>
+                <span class="badge-sol-estado badge-pendiente">Pendiente</span>
               {% endif %}
             </td>
             <td>
               {% if s.accion == 'entregado' %}
-                <span class="accion-ent">Entregado</span>
+                <span class="badge-resp-ent">✓ Entregado</span>
               {% elif s.accion == 'no_entregado' %}
-                <span class="accion-no">No entregado</span>
-              {% else %}—{% endif %}
+                <span class="badge-resp-no">✗ No entregado</span>
+              {% else %}
+                <span style="color:#9ca3af;font-size:12px;">—</span>
+              {% endif %}
             </td>
-            <td style="font-size:12.5px;color:var(--gris);">
-              {{ s.motivo or (s.comentario_libre or '—') }}
+            <td class="motivo-cell" title="{{ s.motivo or s.comentario_libre or '' }}">
+              {% if s.motivo %}
+                {{ s.motivo }}{% if s.comentario_libre %} <span style="color:#9ca3af;">· {{ s.comentario_libre }}</span>{% endif %}
+              {% elif s.comentario_libre %}
+                {{ s.comentario_libre }}
+              {% else %}
+                <span style="color:#9ca3af;">—</span>
+              {% endif %}
             </td>
             <td style="color:var(--gris);font-size:12.5px;white-space:nowrap;">
               {{ s.resp_timestamp[:16].replace('T', ' ') if s.resp_timestamp else '—' }}
+            </td>
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=s.vehiculo) }}"
+                 style="color:var(--cielo);font-size:12px;text-decoration:none;">Ver →</a>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}
-    <div class="empty-state">
-      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      <p>Aún no has realizado solicitudes.<br>Ve a <a href="{{ url_for('cio_dashboard') }}" style="color:var(--cielo);font-weight:600;">Equipos MP</a> para seleccionar equipos.</p>
+    <div id="no-results" style="display:none;">
+      <div class="empty-state" style="padding:40px 24px;">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <h3>Sin resultados</h3>
+        <p>Ninguna solicitud coincide con los filtros aplicados.</p>
+      </div>
     </div>
-    {% endif %}
   </div>
 
+  {% else %}
+  <div class="table-card">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <h3>Sin solicitudes aún</h3>
+      <p>Ve a <a href="{{ url_for('cio_dashboard') }}"
+                  style="color:var(--cielo);font-weight:600;">Equipos MP</a>
+         para seleccionar equipos y solicitar a Operaciones.</p>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var rows      = document.querySelectorAll('#sol-body tr');
+  var noRes     = document.getElementById('no-results');
+  var toolCount = document.getElementById('toolbar-count');
+
+  var filEst    = document.getElementById('fil-sol-estado');
+  var filRes    = document.getElementById('fil-resultado');
+  var filDesde  = document.getElementById('fil-fecha-desde');
+  var filHasta  = document.getElementById('fil-fecha-hasta');
+  var filBus    = document.getElementById('fil-buscar');
+  var btnReset  = document.getElementById('btn-reset');
+
+  function applyFilters() {
+    var est    = filEst   ? filEst.value   : '';
+    var res    = filRes   ? filRes.value   : '';
+    var desde  = filDesde ? filDesde.value : '';
+    var hasta  = filHasta ? filHasta.value : '';
+    var bus    = filBus   ? filBus.value.trim().toLowerCase() : '';
+    var visible = 0;
+
+    rows.forEach(function (tr) {
+      var rowEst  = tr.dataset.estado    || '';
+      var rowRes  = tr.dataset.resultado || '';
+      var rowVeh  = (tr.dataset.vehiculo || '').toLowerCase();
+      var rowFech = tr.dataset.fecha     || '';
+      var ok = true;
+
+      if (est   && rowEst !== est)         ok = false;
+      if (res   && rowRes !== res)         ok = false;
+      if (bus   && !rowVeh.includes(bus))  ok = false;
+      if (desde && rowFech < desde)        ok = false;
+      if (hasta && rowFech > hasta)        ok = false;
+
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    });
+
+    if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
+    if (toolCount) toolCount.textContent = visible + ' solicitud(es)';
+  }
+
+  if (filEst)   filEst.addEventListener('change', applyFilters);
+  if (filRes)   filRes.addEventListener('change', applyFilters);
+  if (filDesde) filDesde.addEventListener('change', applyFilters);
+  if (filHasta) filHasta.addEventListener('change', applyFilters);
+  if (filBus)   filBus.addEventListener('input',   applyFilters);
+
+  if (btnReset) {
+    btnReset.addEventListener('click', function () {
+      if (filEst)   filEst.value   = '';
+      if (filRes)   filRes.value   = '';
+      if (filDesde) filDesde.value = '';
+      if (filHasta) filHasta.value = '';
+      if (filBus)   filBus.value   = '';
+      applyFilters();
+    });
+  }
+})();
+</script>
 {% endblock %}
