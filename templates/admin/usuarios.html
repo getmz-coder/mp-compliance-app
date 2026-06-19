@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios — Seguimiento MP GET{% endblock %}
+
+{% block styles %}
+<style>
+  .usr-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+
+  .page-hdr {
+    margin-bottom: 28px;
+  }
+  .page-hdr h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-hdr p { font-size: 13px; color: var(--gris); margin-top: 3px; }
+
+  /* ── Layout dos columnas ── */
+  .usr-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .usr-layout { grid-template-columns: 1fr; } }
+
+  /* ── Cards ── */
+  .content-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .card-hdr {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--borde);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-hdr h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .card-hdr h2 svg {
+    width: 15px; height: 15px;
+    stroke: var(--cielo); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .count-badge {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--gris);
+    background: #f3f4f6;
+    border: 1px solid var(--borde);
+    padding: 2px 9px;
+    border-radius: 12px;
+  }
+
+  /* ── Table ── */
+  table.usr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.usr-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.usr-table th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.usr-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.usr-table tbody tr:last-child td { border-bottom: none; }
+  table.usr-table tbody tr:hover { background: #f8fafc; }
+
+  .badge-rol {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-admin { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
+  .badge-cio   { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+
+  .badge-activo {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge-si  { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-no  { background: #fff7f7; color: #991b1b; border: 1px solid #fca5a5; }
+
+  .btn-toggle {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .btn-toggle.activar {
+    color: var(--verde);
+    border-color: var(--verde);
+    background: #f0fdf4;
+  }
+  .btn-toggle.activar:hover { background: var(--verde); color: #fff; }
+  .btn-toggle.desactivar {
+    color: var(--rojo);
+    border-color: var(--rojo);
+    background: #fff7f7;
+  }
+  .btn-toggle.desactivar:hover { background: var(--rojo); color: #fff; }
+  .btn-toggle:disabled {
+    color: #d1d5db;
+    border-color: #d1d5db;
+    background: #fafafa;
+    cursor: not-allowed;
+  }
+
+  .td-ts { color: var(--gris); font-size: 12px; white-space: nowrap; }
+  .td-username { font-family: 'Courier New', monospace; font-weight: 600; font-size: 13px; }
+  .yo-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--cielo);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1px 5px;
+    margin-left: 5px;
+    vertical-align: middle;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Formulario crear usuario ── */
+  .form-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); overflow: hidden; }
+  .form-card-hdr {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .form-card-hdr h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .form-card-hdr h2 svg {
+    width: 15px; height: 15px;
+    stroke: var(--verde); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .form-body { padding: 20px 22px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+  }
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--verde);
+    background: #fff;
+  }
+  .field-hint {
+    font-size: 11.5px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+
+  .btn-crear {
+    width: 100%;
+    padding: 11px;
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    letter-spacing: 0.1px;
+    margin-top: 4px;
+  }
+  .btn-crear:hover  { background: #001f4e; }
+  .btn-crear:active { transform: scale(0.99); }
+
+  .empty-state {
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--gris);
+  }
+  .empty-state svg {
+    width: 40px; height: 40px;
+    stroke: #d1d5db; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin-bottom: 12px;
+  }
+  .empty-state p { font-size: 13.5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="usr-page">
+
+  <div class="page-hdr">
+    <h1>Gestión de Usuarios</h1>
+    <p>Administra los accesos al sistema de seguimiento MP</p>
+  </div>
+
+  <div class="usr-layout">
+
+    <!-- Tabla de usuarios -->
+    <div class="content-card">
+      <div class="card-hdr">
+        <h2>
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Usuarios del sistema
+        </h2>
+        <span class="count-badge">{{ usuarios|length }} usuario(s)</span>
+      </div>
+
+      {% if usuarios %}
+      <div style="overflow-x:auto;">
+        <table class="usr-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Nombre Completo</th>
+              <th>Rol</th>
+              <th>Activo</th>
+              <th>Creado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in usuarios %}
+            <tr>
+              <td>
+                <span class="td-username">{{ u.username }}</span>
+                {% if u.id == current_user.id %}
+                  <span class="yo-badge">TÚ</span>
+                {% endif %}
+              </td>
+              <td>{{ u.nombre_completo }}</td>
+              <td>
+                {% if u.rol == 'admin' %}
+                  <span class="badge-rol badge-admin">Admin</span>
+                {% else %}
+                  <span class="badge-rol badge-cio">CIO</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if u.activo %}
+                  <span class="badge-activo badge-si">Sí</span>
+                {% else %}
+                  <span class="badge-activo badge-no">No</span>
+                {% endif %}
+              </td>
+              <td class="td-ts">
+                {{ u.created_at[:10] if u.created_at else '—' }}
+              </td>
+              <td>
+                <form method="POST" action="{{ url_for('admin_usuarios') }}"
+                      style="display:inline;">
+                  <input type="hidden" name="action" value="toggle">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+                  {% if u.id == current_user.id %}
+                    <button type="button" class="btn-toggle" disabled title="No puedes modificar tu propia cuenta">—</button>
+                  {% elif u.activo %}
+                    <button type="submit" class="btn-toggle desactivar"
+                            onclick="return confirm('¿Desactivar al usuario {{ u.username }}?')">
+                      Desactivar
+                    </button>
+                  {% else %}
+                    <button type="submit" class="btn-toggle activar">
+                      Activar
+                    </button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <p>No hay usuarios registrados.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Formulario crear usuario -->
+    <div class="form-card">
+      <div class="form-card-hdr">
+        <h2>
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Crear nuevo usuario
+        </h2>
+      </div>
+      <div class="form-body">
+        <form method="POST" action="{{ url_for('admin_usuarios') }}">
+          <input type="hidden" name="action" value="crear">
+
+          <div class="form-group">
+            <label for="username">Username <span style="color:var(--rojo)">*</span></label>
+            <input type="text" id="username" name="username"
+                   placeholder="ej: cio_bog2"
+                   autocomplete="off" autocapitalize="none" spellcheck="false" required>
+            <p class="field-hint">Solo letras minúsculas, números y guiones bajos.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="nombre_completo">Nombre completo <span style="color:var(--rojo)">*</span></label>
+            <input type="text" id="nombre_completo" name="nombre_completo"
+                   placeholder="ej: Juan Pérez" required>
+          </div>
+
+          <div class="form-group">
+            <label for="rol">Rol <span style="color:var(--rojo)">*</span></label>
+            <select id="rol" name="rol" required>
+              <option value="">— Selecciona un rol —</option>
+              <option value="cio">CIO — Jefe de Infraestructura y Operaciones</option>
+              <option value="admin">Admin — Planeación</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Contraseña inicial <span style="color:var(--rojo)">*</span></label>
+            <input type="password" id="password" name="password"
+                   placeholder="Mínimo 6 caracteres" required minlength="6">
+            <p class="field-hint">El usuario deberá cambiarla en su primer acceso.</p>
+          </div>
+
+          <button type="submit" class="btn-crear">Crear Usuario</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

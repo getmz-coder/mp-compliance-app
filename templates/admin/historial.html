@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}Historial Solicitudes — Seguimiento MP GET{% endblock %}
+
+{% block styles %}
+<style>
+  .hist-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+
+  .page-hdr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-hdr h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-hdr p { font-size: 13px; color: var(--gris); margin-top: 3px; }
+
+  .btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 20px;
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+    cursor: pointer;
+  }
+  .btn-export svg {
+    width: 15px; height: 15px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .btn-export:hover  { background: #6d9a32; }
+  .btn-export:active { transform: scale(0.98); }
+
+  /* ── Filtros ── */
+  .filter-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+  @media (max-width: 1100px) { .filter-grid { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (max-width: 700px)  { .filter-grid { grid-template-columns: 1fr 1fr; } }
+
+  .filter-group label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 5px;
+  }
+  .filter-group input,
+  .filter-group select {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-group input:focus,
+  .filter-group select:focus {
+    border-color: var(--cielo);
+    background: #fff;
+  }
+
+  .btn-filtrar {
+    padding: 9px 20px;
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    height: 38px;
+    align-self: end;
+  }
+  .btn-filtrar:hover { background: #001f4e; }
+
+  .btn-limpiar {
+    padding: 9px 14px;
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    align-self: end;
+    transition: background 0.15s;
+  }
+  .btn-limpiar:hover { background: #e5e7eb; color: var(--texto); }
+
+  /* ── Count row ── */
+  .count-row {
+    font-size: 13px;
+    color: var(--gris);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .count-row strong { color: var(--texto); }
+
+  /* ── Table ── */
+  .table-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.data-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.data-table th {
+    padding: 10px 13px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 9px 13px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.data-table tbody tr:hover { background: #f8fafc; }
+  table.data-table tbody tr:last-child td { border-bottom: none; }
+
+  .vehiculo-link {
+    font-weight: 600;
+    color: var(--cielo);
+    text-decoration: none;
+  }
+  .vehiculo-link:hover { text-decoration: underline; }
+
+  .badge-estado {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+
+  .badge-sol-estado {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge-sol-pendiente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-sol-respondido { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+
+  .badge-accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge-ent { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+  .badge-no  { background:#fff7f7; color:#991b1b; border:1px solid #fca5a5; }
+
+  .td-rutina {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .td-motivo {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--gris);
+    font-size: 12.5px;
+  }
+  .td-ts { color: var(--gris); font-size: 12px; white-space: nowrap; }
+
+  /* ── Paginación ── */
+  .pag-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-top: 1px solid var(--borde);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pag-info { font-size: 12.5px; color: var(--gris); }
+  .pag-links { display: flex; gap: 4px; }
+  .pag-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px; height: 34px;
+    padding: 0 8px;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    font-size: 13px;
+    text-decoration: none;
+    color: var(--texto);
+    background: #fff;
+    transition: background 0.12s, border-color 0.12s;
+    white-space: nowrap;
+  }
+  .pag-link:hover { background: #f0f2f5; border-color: var(--cielo); color: var(--cielo); }
+  .pag-link.active {
+    background: var(--azul);
+    border-color: var(--azul);
+    color: #fff;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .pag-link.disabled {
+    color: #d1d5db;
+    pointer-events: none;
+    background: #fafafa;
+  }
+
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--gris);
+  }
+  .empty-state svg {
+    width: 44px; height: 44px;
+    stroke: #d1d5db; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin-bottom: 14px;
+  }
+  .empty-state h3 { font-size: 15px; color: #374151; margin-bottom: 6px; }
+  .empty-state p  { font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hist-page">
+
+  <div class="page-hdr">
+    <div>
+      <h1>Historial de Solicitudes y Respuestas</h1>
+      <p>Trazabilidad completa de todos los equipos solicitados al taller</p>
+    </div>
+    <a href="{{ url_for('admin_export') }}" class="btn-export">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filter-card">
+    <form method="GET" action="{{ url_for('admin_historial') }}">
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label>Fecha desde</label>
+          <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
+        </div>
+        <div class="filter-group">
+          <label>Fecha hasta</label>
+          <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
+        </div>
+        <div class="filter-group">
+          <label>Acción</label>
+          <select name="accion">
+            <option value="">Todas</option>
+            <option value="entregado"    {% if accion_fil == 'entregado'    %}selected{% endif %}>Entregado</option>
+            <option value="no_entregado" {% if accion_fil == 'no_entregado' %}selected{% endif %}>No entregado</option>
+            <option value="pendiente"    {% if accion_fil == 'pendiente'    %}selected{% endif %}>Pendiente</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Familia</label>
+          <select name="familia">
+            <option value="">Todas</option>
+            {% for f in familias %}
+              <option value="{{ f }}" {% if familia_fil == f %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Buscar vehículo</label>
+          <input type="text" name="vehiculo" placeholder="Ej: TTT 04"
+                 value="{{ vehiculo_fil }}" autocomplete="off">
+        </div>
+        <div style="display:flex;gap:8px;align-items:end;">
+          <button type="submit" class="btn-filtrar">Filtrar</button>
+          <a href="{{ url_for('admin_historial') }}" class="btn-limpiar">Limpiar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="count-row">
+    <strong>{{ total }}</strong> registro(s) encontrado(s)
+    {% if total > per_page %}
+      &mdash; página {{ page }} de {{ total_pages }}
+    {% endif %}
+  </div>
+
+  <div class="table-card">
+    {% if filas %}
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Fecha Solicitud</th>
+            <th>Vehículo</th>
+            <th>Familia</th>
+            <th>Rutina</th>
+            <th>Desviación</th>
+            <th>Solicitado por</th>
+            <th>Estado</th>
+            <th>Fecha Respuesta</th>
+            <th>Acción</th>
+            <th>Motivo / Comentario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in filas %}
+          <tr>
+            <td class="td-ts">
+              {{ f.fecha_solicitud[:16].replace('T', ' ') if f.fecha_solicitud else '—' }}
+            </td>
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=f.vehiculo) }}"
+                 class="vehiculo-link">{{ f.vehiculo }}</a>
+            </td>
+            <td style="white-space:nowrap;">{{ f.familia or '—' }}</td>
+            <td class="td-rutina" title="{{ f.rutina or '' }}">{{ f.rutina or '—' }}</td>
+            <td style="white-space:nowrap;">{{ f.desviacion or '—' }}</td>
+            <td style="white-space:nowrap;">{{ f.solicitado_por or '—' }}</td>
+            <td>
+              {% if f.estado == 'pendiente' %}
+                <span class="badge-sol-estado badge-sol-pendiente">Pendiente</span>
+              {% else %}
+                <span class="badge-sol-estado badge-sol-respondido">Respondido</span>
+              {% endif %}
+            </td>
+            <td class="td-ts">
+              {{ f.fecha_respuesta[:16].replace('T', ' ') if f.fecha_respuesta else '—' }}
+            </td>
+            <td>
+              {% if f.accion == 'entregado' %}
+                <span class="badge-accion badge-ent">✓ Entregado</span>
+              {% elif f.accion == 'no_entregado' %}
+                <span class="badge-accion badge-no">✗ No entregado</span>
+              {% else %}
+                <span style="color:#9ca3af;font-size:12px;">—</span>
+              {% endif %}
+            </td>
+            <td class="td-motivo"
+                title="{{ (f.motivo or '') + (' — ' + f.comentario_libre if f.comentario_libre else '') }}">
+              {% if f.motivo %}
+                {{ f.motivo }}{% if f.comentario_libre %} — {{ f.comentario_libre }}{% endif %}
+              {% elif f.comentario_libre %}
+                {{ f.comentario_libre }}
+              {% else %}
+                <span style="color:#d1d5db;">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if total_pages > 1 %}
+    <div class="pag-row">
+      <span class="pag-info">
+        Mostrando {{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total]|min }} de {{ total }}
+      </span>
+      <div class="pag-links">
+        {% set base_url = url_for('admin_historial', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, accion=accion_fil, familia=familia_fil, vehiculo=vehiculo_fil) %}
+        <a href="{{ base_url }}&page={{ page - 1 }}"
+           class="pag-link {% if page <= 1 %}disabled{% endif %}">← Ant.</a>
+
+        {% set start_p = [1, page - 2]|max %}
+        {% set end_p   = [total_pages, page + 2]|min %}
+        {% if start_p > 1 %}
+          <a href="{{ base_url }}&page=1" class="pag-link">1</a>
+          {% if start_p > 2 %}<span class="pag-link disabled">…</span>{% endif %}
+        {% endif %}
+
+        {% for p in range(start_p, end_p + 1) %}
+          <a href="{{ base_url }}&page={{ p }}"
+             class="pag-link {% if p == page %}active{% endif %}">{{ p }}</a>
+        {% endfor %}
+
+        {% if end_p < total_pages %}
+          {% if end_p < total_pages - 1 %}<span class="pag-link disabled">…</span>{% endif %}
+          <a href="{{ base_url }}&page={{ total_pages }}" class="pag-link">{{ total_pages }}</a>
+        {% endif %}
+
+        <a href="{{ base_url }}&page={{ page + 1 }}"
+           class="pag-link {% if page >= total_pages %}disabled{% endif %}">Sig. →</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <h3>Sin registros</h3>
+      <p>No hay solicitudes que coincidan con los filtros aplicados.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

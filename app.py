@@ -2,12 +2,12 @@ import os
 from functools import wraps
 from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     login_required, current_user
 )
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 import config
@@ -251,6 +251,260 @@ def admin_sync():
     conn.commit()
     conn.close()
     return redirect(url_for('admin_sync'))
+
+
+# ---------------------------------------------------------------------------
+# Admin — historial, export, usuarios
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/historial')
+@admin_required
+def admin_historial():
+    page        = max(1, request.args.get('page', 1, type=int))
+    per_page    = 50
+    fecha_desde = request.args.get('fecha_desde', '').strip()
+    fecha_hasta = request.args.get('fecha_hasta', '').strip()
+    accion_fil  = request.args.get('accion', '').strip()
+    familia_fil = request.args.get('familia', '').strip()
+    vehiculo_fil = request.args.get('vehiculo', '').strip()
+
+    where_parts, params = [], []
+
+    if fecha_desde:
+        where_parts.append("s.fecha_solicitud >= ?")
+        params.append(fecha_desde)
+    if fecha_hasta:
+        where_parts.append("s.fecha_solicitud <= ?")
+        params.append(fecha_hasta + 'T23:59:59')
+    if accion_fil == 'pendiente':
+        where_parts.append("s.estado = 'pendiente'")
+    elif accion_fil in ('entregado', 'no_entregado'):
+        where_parts.append("r.accion = ?")
+        params.append(accion_fil)
+    if familia_fil:
+        where_parts.append("e.familia = ?")
+        params.append(familia_fil)
+    if vehiculo_fil:
+        where_parts.append("UPPER(e.vehiculo) LIKE ?")
+        params.append(f'%{vehiculo_fil.upper()}%')
+
+    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+
+    base_from = f"""
+        FROM solicitudes s
+        JOIN equipos e   ON e.id = s.equipo_id
+        JOIN usuarios u  ON u.id = s.solicitado_por
+        LEFT JOIN respuestas r       ON r.solicitud_id = s.id
+        LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+        {where_sql}
+    """
+
+    conn = get_db()
+    total  = conn.execute(f"SELECT COUNT(*) AS c {base_from}", params).fetchone()['c']
+    offset = (page - 1) * per_page
+
+    filas = conn.execute(
+        f"""SELECT s.id, s.fecha_solicitud, s.estado,
+                   e.vehiculo, e.familia, e.rutina, e.desviacion, e.ind_desviacion, e.estado_mp,
+                   u.nombre_completo AS solicitado_por,
+                   r.accion, r.timestamp AS fecha_respuesta,
+                   m.descripcion AS motivo, r.comentario_libre
+            {base_from}
+            ORDER BY s.fecha_solicitud DESC
+            LIMIT ? OFFSET ?""",
+        params + [per_page, offset]
+    ).fetchall()
+
+    familias = [row['familia'] for row in conn.execute(
+        "SELECT DISTINCT familia FROM equipos WHERE familia IS NOT NULL ORDER BY familia"
+    ).fetchall()]
+    conn.close()
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return render_template('admin/historial.html',
+        filas=filas,
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        familias=familias,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        accion_fil=accion_fil,
+        familia_fil=familia_fil,
+        vehiculo_fil=vehiculo_fil,
+    )
+
+
+@app.route('/admin/export')
+@admin_required
+def admin_export():
+    import io
+    import openpyxl
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+    conn = get_db()
+    filas = conn.execute(
+        """SELECT s.fecha_solicitud, e.vehiculo, e.familia, e.categoria, e.rutina,
+                  e.desviacion, e.ind_desviacion, e.estado_mp,
+                  u.nombre_completo AS solicitado_por,
+                  r.timestamp AS fecha_respuesta, r.accion,
+                  m.descripcion AS motivo, r.comentario_libre
+           FROM solicitudes s
+           JOIN equipos e  ON e.id = s.equipo_id
+           JOIN usuarios u ON u.id = s.solicitado_por
+           LEFT JOIN respuestas r       ON r.solicitud_id = s.id
+           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+           ORDER BY s.fecha_solicitud DESC"""
+    ).fetchall()
+    _log_actividad(conn, current_user.id, 'export',
+                   f'Exportación Excel: {len(filas)} registros')
+    conn.commit()
+    conn.close()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Historial MP'
+
+    headers = [
+        'Fecha Solicitud', 'Vehículo', 'Familia', 'Categoría', 'Rutina',
+        'Desviación', 'Ind. Desviación', 'Estado MP',
+        'Solicitado por', 'Fecha Respuesta', 'Acción', 'Motivo', 'Comentario',
+    ]
+
+    hdr_fill  = PatternFill('solid', fgColor='002D6E')
+    hdr_font  = Font(bold=True, color='FFFFFF', size=11)
+    hdr_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin      = Side(style='thin', color='CCCCCC')
+    brd       = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws.row_dimensions[1].height = 32
+    for ci, hdr in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=ci, value=hdr)
+        cell.fill  = hdr_fill
+        cell.font  = hdr_font
+        cell.alignment = hdr_align
+        cell.border = brd
+
+    body_align = Alignment(vertical='center')
+    for ri, fila in enumerate(filas, 2):
+        values = [
+            fila['fecha_solicitud'],
+            fila['vehiculo'],
+            fila['familia'],
+            fila['categoria'],
+            fila['rutina'],
+            fila['desviacion'],
+            fila['ind_desviacion'],
+            fila['estado_mp'],
+            fila['solicitado_por'],
+            fila['fecha_respuesta'],
+            fila['accion'] or 'pendiente',
+            fila['motivo'],
+            fila['comentario_libre'],
+        ]
+        for ci, val in enumerate(values, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border    = brd
+            cell.alignment = body_align
+
+    for col in ws.columns:
+        max_len = max(
+            (len(str(c.value)) if c.value is not None else 0 for c in col),
+            default=10
+        )
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
+
+    ws.freeze_panes = 'A2'
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"reporte_mp_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.route('/admin/usuarios', methods=['GET', 'POST'])
+@admin_required
+def admin_usuarios():
+    conn = get_db()
+
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+
+        if action == 'crear':
+            username = request.form.get('username', '').strip().lower()
+            password = request.form.get('password', '').strip()
+            nombre   = request.form.get('nombre_completo', '').strip()
+            rol      = request.form.get('rol', '').strip()
+
+            errores = []
+            if not username:
+                errores.append('El username es obligatorio.')
+            if not password or len(password) < 6:
+                errores.append('La contraseña debe tener mínimo 6 caracteres.')
+            if not nombre:
+                errores.append('El nombre completo es obligatorio.')
+            if rol not in ('admin', 'cio'):
+                errores.append('Rol inválido.')
+
+            if not errores:
+                dup = conn.execute(
+                    "SELECT id FROM usuarios WHERE username = ?", (username,)
+                ).fetchone()
+                if dup:
+                    errores.append(f'El username "{username}" ya existe.')
+
+            if errores:
+                for e in errores:
+                    flash(e, 'error')
+            else:
+                conn.execute(
+                    """INSERT INTO usuarios
+                           (username, password_hash, nombre_completo, rol, activo, created_at)
+                       VALUES (?, ?, ?, ?, 1, ?)""",
+                    (username, generate_password_hash(password), nombre, rol,
+                     datetime.now().isoformat())
+                )
+                _log_actividad(conn, current_user.id, 'admin',
+                               f'Usuario creado: {username} ({rol})')
+                conn.commit()
+                flash(f'Usuario "{username}" creado exitosamente.', 'success')
+
+        elif action == 'toggle':
+            uid = request.form.get('user_id', type=int)
+            if uid == current_user.id:
+                flash('No puedes modificar tu propia cuenta.', 'error')
+            elif uid:
+                row = conn.execute(
+                    "SELECT activo, username FROM usuarios WHERE id = ?", (uid,)
+                ).fetchone()
+                if row:
+                    nuevo = 0 if row['activo'] else 1
+                    conn.execute(
+                        "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
+                    )
+                    verb = 'activado' if nuevo else 'desactivado'
+                    _log_actividad(conn, current_user.id, 'admin',
+                                   f'Usuario {row["username"]} {verb}')
+                    conn.commit()
+                    flash(f'Usuario "{row["username"]}" {verb}.', 'success')
+
+        conn.close()
+        return redirect(url_for('admin_usuarios'))
+
+    usuarios = conn.execute(
+        "SELECT * FROM usuarios ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return render_template('admin/usuarios.html', usuarios=usuarios)
 
 
 # ---------------------------------------------------------------------------

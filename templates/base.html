@@ -179,8 +179,10 @@
            {% if request.endpoint == 'admin_dashboard' %}class="active"{% endif %}>Dashboard</a>
         <a href="{{ url_for('admin_sync') }}"
            {% if request.endpoint == 'admin_sync' %}class="active"{% endif %}>Sincronizar</a>
-        <a href="#">Historial</a>
-        <a href="#">Usuarios</a>
+        <a href="{{ url_for('admin_historial') }}"
+           {% if request.endpoint == 'admin_historial' %}class="active"{% endif %}>Historial</a>
+        <a href="{{ url_for('admin_usuarios') }}"
+           {% if request.endpoint == 'admin_usuarios' %}class="active"{% endif %}>Usuarios</a>
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
