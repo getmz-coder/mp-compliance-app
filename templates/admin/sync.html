@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sincronizar Datos — Seguimiento MP GET</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #F0F2F5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1a1a2e;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #002D6E;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.2px;
+      text-decoration: none;
+      color: #fff;
+    }
+    .topbar-brand svg {
+      width: 22px; height: 22px;
+      stroke: #80AE3F; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .topbar-user {
+      font-size: 13px;
+      color: #93c5fd;
+    }
+    .topbar-btn {
+      color: #ffffff;
+      text-decoration: none;
+      padding: 5px 12px;
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 6px;
+      font-size: 12.5px;
+      transition: background 0.15s;
+    }
+    .topbar-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Content ── */
+    .content {
+      max-width: 760px;
+      margin: 32px auto 48px;
+      padding: 0 24px;
+    }
+
+    /* ── Page header ── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #1E88E5;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .back-link svg {
+      width: 14px; height: 14px;
+      stroke: currentColor; fill: none;
+      stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #002D6E;
+      letter-spacing: -0.3px;
+    }
+    .page-sub {
+      font-size: 13.5px;
+      color: #6b7280;
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    /* ── Alerts ── */
+    .alerts { margin: 20px 0 0; }
+    .alert {
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      font-size: 13.5px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.45;
+    }
+    .alert svg {
+      flex-shrink: 0;
+      width: 16px; height: 16px;
+      fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+      margin-top: 1px;
+    }
+    .alert-success {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-left: 4px solid #80AE3F;
+      color: #14532d;
+    }
+    .alert-success svg { stroke: #16a34a; }
+    .alert-error {
+      background: #fff2f2;
+      border: 1px solid #fca5a5;
+      border-left: 4px solid #dc2626;
+      color: #991b1b;
+    }
+    .alert-error svg { stroke: #dc2626; }
+    .alert-info {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-left: 4px solid #1E88E5;
+      color: #1e40af;
+    }
+    .alert-info svg { stroke: #1E88E5; }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0, 45, 110, 0.09);
+      margin-top: 24px;
+      overflow: hidden;
+    }
+
+    /* ── Upload sections ── */
+    .upload-section {
+      padding: 28px 32px;
+    }
+    .upload-section + .upload-section {
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .section-icon {
+      width: 40px; height: 40px;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .section-icon.blue { background: #eff6ff; }
+    .section-icon.green { background: #f0fdf4; }
+    .section-icon svg {
+      width: 20px; height: 20px;
+      fill: none; stroke-width: 1.8;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    .section-icon.blue svg { stroke: #1E88E5; }
+    .section-icon.green svg { stroke: #80AE3F; }
+
+    .section-info h3 {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 3px;
+    }
+    .section-info p {
+      font-size: 12.5px;
+      color: #6b7280;
+      line-height: 1.55;
+    }
+    .badge-optional {
+      display: inline-block;
+      background: #f3f4f6;
+      color: #6b7280;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-left: 7px;
+      vertical-align: middle;
+    }
+
+    /* ── File drop zone ── */
+    .file-zone {
+      position: relative;
+      border: 1.5px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 18px 22px;
+      background: #fafafa;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .file-zone:hover { border-color: #1E88E5; background: #f0f7ff; }
+    .file-zone.has-file { border-color: #80AE3F; background: #f6fbf0; }
+
+    .file-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%; height: 100%;
+    }
+    .file-zone-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .fz-icon svg {
+      width: 26px; height: 26px;
+      stroke: #9ca3af; fill: none;
+      stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+      transition: stroke 0.18s;
+    }
+    .file-zone.has-file .fz-icon svg { stroke: #80AE3F; }
+    .fz-text {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .fz-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #3a7d1e;
+      display: none;
+    }
+    .file-zone.has-file .fz-text { display: none; }
+    .file-zone.has-file .fz-name { display: block; }
+
+    .cols-hint {
+      margin-top: 9px;
+      font-size: 11.5px;
+      color: #9ca3af;
+      line-height: 1.7;
+    }
+    .cols-hint code {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      color: #374151;
+    }
+
+    /* ── Form footer ── */
+    .form-footer {
+      padding: 20px 32px 28px;
+      border-top: 1px solid #f3f4f6;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .btn-sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 28px;
+      background: #002D6E;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.1px;
+      transition: background 0.18s, transform 0.1s;
+    }
+    .btn-sync svg {
+      width: 16px; height: 16px;
+      stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .btn-sync:hover { background: #003580; }
+    .btn-sync:active { transform: scale(0.99); }
+    .form-note {
+      font-size: 12.5px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="topbar">
+    <a class="topbar-brand" href="{{ url_for('admin_dashboard') }}">
+      <svg viewBox="0 0 24 24">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>
+      Seguimiento MP — GET
+    </a>
+    <div class="topbar-right">
+      <span class="topbar-user">{{ current_user.nombre_completo }}</span>
+      <a href="{{ url_for('logout') }}" class="topbar-btn">Cerrar sesión</a>
+    </div>
+  </nav>
+
+  <div class="content">
+
+    <a href="{{ url_for('admin_dashboard') }}" class="back-link">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      Volver al panel
+    </a>
+
+    <h1 class="page-title">Sincronizar Datos</h1>
+    <p class="page-sub">Carga los archivos Excel para actualizar la programación MP y el catálogo de filtración en la base de datos.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="alerts">
+        {% for category, message in messages %}
+          {% if category == 'success' %}
+          <div class="alert alert-success">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ message }}
+          </div>
+          {% elif category == 'error' %}
+          <div class="alert alert-error">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ message }}
+          </div>
+          {% else %}
+          <div class="alert alert-info">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            {{ message }}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('admin_sync') }}" enctype="multipart/form-data">
+
+      <div class="card">
+
+        <!-- Programación MP -->
+        <div class="upload-section">
+          <div class="section-header">
+            <div class="section-icon blue">
+              <svg viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+            </div>
+            <div class="section-info">
+              <h3>Programación MP</h3>
+              <p>Excel con los equipos del ciclo de mantenimiento preventivo. Cada carga actualiza o agrega registros en base al consecutivo.</p>
+            </div>
+          </div>
+
+          <div class="file-zone" id="zone-prog">
+            <input type="file" name="file_programacion" accept=".xlsx,.xls"
+                   onchange="setFile(this,'zone-prog','name-prog')">
+            <div class="file-zone-inner">
+              <div class="fz-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div>
+                <div class="fz-text">Haz clic para seleccionar o arrastra el archivo aquí</div>
+                <div class="fz-name" id="name-prog"></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="cols-hint">
+            Columnas requeridas: <code>fecha_programacion</code> · <code>consecutivo</code> · <code>categoria</code> · <code>estado_vehiculo</code> · <code>vehiculo</code> · <code>familia</code> · <code>rutina</code> · <code>desviacion</code> · <code>Ind_desviacion</code> · <code>estado_mp</code>
+          </p>
+        </div>
+
+        <!-- Maestro Filtración -->
+        <div class="upload-section">
+          <div class="section-header">
+            <div class="section-icon green">
+              <svg viewBox="0 0 24 24">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+            </div>
+            <div class="section-info">
+              <h3>Maestro Filtración <span class="badge-optional">Opcional</span></h3>
+              <p>Catálogo de filtros por equipo. Solo es necesario subir cuando el catálogo cambie. Reemplaza completamente la tabla existente.</p>
+            </div>
+          </div>
+
+          <div class="file-zone" id="zone-filt">
+            <input type="file" name="file_filtros" accept=".xlsx,.xls"
+                   onchange="setFile(this,'zone-filt','name-filt')">
+            <div class="file-zone-inner">
+              <div class="fz-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div>
+                <div class="fz-text">Haz clic para seleccionar o arrastra el archivo aquí</div>
+                <div class="fz-name" id="name-filt"></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="cols-hint">
+            Columnas requeridas: <code>EQUIPO</code> · <code>TIPO</code> · <code>NOMBRE ARTÍCULO</code> · <code>CODIGO SAP</code> · <code>TIPO FILTRO</code>
+          </p>
+        </div>
+
+        <!-- Footer del formulario -->
+        <div class="form-footer">
+          <button type="submit" class="btn-sync">
+            <svg viewBox="0 0 24 24">
+              <polyline points="23 4 23 10 17 10"/>
+              <polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Sincronizar Datos
+          </button>
+          <span class="form-note">Se debe subir al menos uno de los dos archivos.</span>
+        </div>
+
+      </div>
+
+    </form>
+
+  </div>
+
+  <script>
+    function setFile(input, zoneId, nameId) {
+      var zone = document.getElementById(zoneId);
+      var nameEl = document.getElementById(nameId);
+      if (input.files && input.files[0]) {
+        nameEl.textContent = input.files[0].name;
+        zone.classList.add('has-file');
+      } else {
+        nameEl.textContent = '';
+        zone.classList.remove('has-file');
+      }
+    }
+  </script>
+
+</body>
+</html>
