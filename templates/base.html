@@ -174,7 +174,7 @@
     </a>
 
     <div class="topbar-nav">
-      {% if current_user.rol == 'admin' %}
+      {% if current_user.rol in ('admin', 'superadmin') %}
         <a href="{{ url_for('admin_dashboard') }}"
            {% if request.endpoint == 'admin_dashboard' %}class="active"{% endif %}>Dashboard</a>
         <a href="{{ url_for('admin_sync') }}"

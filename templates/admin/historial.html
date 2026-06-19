@@ -319,8 +319,8 @@
           <label>Acción</label>
           <select name="accion">
             <option value="">Todas</option>
-            <option value="entregado"    {% if accion_fil == 'entregado'    %}selected{% endif %}>Entregado</option>
-            <option value="no_entregado" {% if accion_fil == 'no_entregado' %}selected{% endif %}>No entregado</option>
+            <option value="ejecutado"    {% if accion_fil == 'ejecutado'    %}selected{% endif %}>Ejecutado</option>
+            <option value="no_ejecutado" {% if accion_fil == 'no_ejecutado' %}selected{% endif %}>No ejecutado</option>
             <option value="pendiente"    {% if accion_fil == 'pendiente'    %}selected{% endif %}>Pendiente</option>
           </select>
         </div>
@@ -396,10 +396,10 @@
               {{ f.fecha_respuesta[:16].replace('T', ' ') if f.fecha_respuesta else '—' }}
             </td>
             <td>
-              {% if f.accion == 'entregado' %}
-                <span class="badge-accion badge-ent">✓ Entregado</span>
-              {% elif f.accion == 'no_entregado' %}
-                <span class="badge-accion badge-no">✗ No entregado</span>
+              {% if f.accion == 'ejecutado' %}
+                <span class="badge-accion badge-ent">✓ Ejecutado</span>
+              {% elif f.accion == 'no_ejecutado' %}
+                <span class="badge-accion badge-no">✗ No ejecutado</span>
               {% else %}
                 <span style="color:#9ca3af;font-size:12px;">—</span>
               {% endif %}

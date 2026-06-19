@@ -104,8 +104,9 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
-  .badge-admin { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
-  .badge-cio   { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-admin      { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
+  .badge-cio        { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-superadmin { background: #fdf4ff; color: #6b21a8; border: 1px solid #e9d5ff; }
 
   .badge-activo {
     display: inline-block;
@@ -293,7 +294,9 @@
               </td>
               <td>{{ u.nombre_completo }}</td>
               <td>
-                {% if u.rol == 'admin' %}
+                {% if u.rol == 'superadmin' %}
+                  <span class="badge-rol badge-superadmin">SuperAdmin</span>
+                {% elif u.rol == 'admin' %}
                   <span class="badge-rol badge-admin">Admin</span>
                 {% else %}
                   <span class="badge-rol badge-cio">CIO</span>
@@ -372,7 +375,12 @@
             <select id="rol" name="rol" required>
               <option value="">— Selecciona un rol —</option>
               <option value="cio">CIO — Jefe de Infraestructura y Operaciones</option>
+              {% if 'admin' in valid_roles_create %}
               <option value="admin">Admin — Planeación</option>
+              {% endif %}
+              {% if 'superadmin' in valid_roles_create %}
+              <option value="superadmin">SuperAdmin — GET</option>
+              {% endif %}
             </select>
           </div>
 

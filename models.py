@@ -178,4 +178,7 @@ if __name__ == '__main__':
     uid = create_user('cio_bog', 'cio123', 'CIO BOG', 'cio')
     print(f"  Usuario cio_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 
+    uid = create_user('mz13', 'Mzaba*13', 'Super Admin GET', 'superadmin')
+    print(f"  Usuario mz13 {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
+
     print("Listo.")

@@ -639,7 +639,7 @@
               data-estado="{{ equipo.estado_mp or '' }}"
               data-vehiculo="{{ equipo.vehiculo or '' }}"
               data-sol-estado="{% if is_sol %}{{ sol.estado }}{% else %}no-solicitado{% endif %}"
-              class="{% if is_sol %}{% if sol.estado == 'respondido' %}{% if sol.accion == 'entregado' %}row-entregado{% else %}row-no-entregado{% endif %}{% else %}row-solicitado{% endif %}{% endif %}"
+              class="{% if is_sol %}{% if sol.estado == 'respondido' %}{% if sol.accion == 'ejecutado' %}row-entregado{% else %}row-no-entregado{% endif %}{% else %}row-solicitado{% endif %}{% endif %}"
             >
               <td class="td-check">
                 {% if not is_sol %}
@@ -679,13 +679,13 @@
                   {% if sol.estado == 'pendiente' %}
                     <div class="resp-btns" data-sol-id="{{ sol.id }}">
                       <button type="button" class="btn-ent"
-                              onclick="responderEntregado({{ sol.id }}, this)">✓ Entregado</button>
+                              onclick="responderEntregado({{ sol.id }}, this)">✓ Ejecutado</button>
                       <button type="button" class="btn-no"
-                              onclick="abrirModal({{ sol.id }})">✗ No entregado</button>
+                              onclick="abrirModal({{ sol.id }})">✗ No ejecutado</button>
                     </div>
                   {% elif sol.estado == 'respondido' %}
-                    {% if sol.accion == 'entregado' %}
-                      <span class="badge-resp-ent">✓ Entregado</span>
+                    {% if sol.accion == 'ejecutado' %}
+                      <span class="badge-resp-ent">✓ Ejecutado</span>
                     {% else %}
                       {% set motivo_label = sol.motivo_desc or sol.comentario_libre or 'Sin motivo' %}
                       <span class="badge-resp-no"
@@ -735,7 +735,7 @@
 <div id="modal-no-ent" class="modal-overlay" style="display:none;" onclick="overlayClick(event)">
   <div class="modal-box">
     <div class="modal-hdr">
-      <h3>✗ Registrar No Entregado</h3>
+      <h3>✗ Registrar No Ejecutado</h3>
       <button type="button" class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
@@ -940,14 +940,14 @@
       if (!container) return;
       var tr = container.closest('tr');
 
-      if (accion === 'entregado') {
-        container.outerHTML = '<span class="badge-resp-ent">✓ Entregado</span>';
+      if (accion === 'ejecutado') {
+        container.outerHTML = '<span class="badge-resp-ent">✓ Ejecutado</span>';
         if (tr) {
           tr.classList.remove('row-solicitado', 'row-no-entregado');
           tr.classList.add('row-entregado');
           tr.dataset.solEstado = 'respondido';
         }
-        mostrarToast('Entregado registrado correctamente.', 'ok');
+        mostrarToast('Ejecutado registrado correctamente.', 'ok');
       } else {
         var label = motivoDesc || comentario || 'Sin motivo';
         var labelCorto = label.length > 30 ? label.substring(0, 30) + '…' : label;
@@ -958,7 +958,7 @@
           tr.classList.add('row-no-entregado');
           tr.dataset.solEstado = 'respondido';
         }
-        mostrarToast('No entregado registrado correctamente.', 'ok');
+        mostrarToast('No ejecutado registrado correctamente.', 'ok');
       }
 
       /* Actualizar KPI respondidos */
@@ -980,7 +980,7 @@
 
   window.responderEntregado = function (solId) {
     if (!confirm('¿Confirmar que Operaciones entregó este equipo al taller?')) return;
-    enviarRespuesta(solId, 'entregado', null, null, null);
+    enviarRespuesta(solId, 'ejecutado', null, null, null);
   };
 
   window.confirmarNoEntregado = function () {
@@ -996,7 +996,7 @@
     var comentario  = document.getElementById('modal-comentario').value.trim() || null;
     var solId = currentSolId;
     cerrarModal();
-    enviarRespuesta(solId, 'no_entregado', motivoId, motivoDesc, comentario);
+    enviarRespuesta(solId, 'no_ejecutado', motivoId, motivoDesc, comentario);
   };
 
   /* Cerrar modal con Escape */

@@ -50,7 +50,7 @@ def admin_required(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if current_user.rol != 'admin':
+        if current_user.rol not in ('admin', 'superadmin'):
             flash('Acceso restringido a administradores.', 'error')
             return redirect(url_for('dashboard_redirect'))
         return f(*args, **kwargs)
@@ -139,8 +139,9 @@ def logout():
 @login_required
 def dashboard_redirect():
     destinos = {
-        'admin': 'admin_dashboard',
-        'cio':   'cio_dashboard',
+        'admin':      'admin_dashboard',
+        'superadmin': 'admin_dashboard',
+        'cio':        'cio_dashboard',
     }
     return redirect(url_for(destinos.get(current_user.rol, 'login')))
 
@@ -278,7 +279,7 @@ def admin_historial():
         params.append(fecha_hasta + 'T23:59:59')
     if accion_fil == 'pendiente':
         where_parts.append("s.estado = 'pendiente'")
-    elif accion_fil in ('entregado', 'no_entregado'):
+    elif accion_fil in ('ejecutado', 'no_ejecutado'):
         where_parts.append("r.accion = ?")
         params.append(accion_fil)
     if familia_fil:
@@ -435,6 +436,10 @@ def admin_export():
 @admin_required
 def admin_usuarios():
     conn = get_db()
+    is_superadmin = current_user.rol == 'superadmin'
+
+    # superadmin puede asignar cualquier rol; admin no puede crear superadmins
+    valid_roles_create = ('admin', 'cio', 'superadmin') if is_superadmin else ('admin', 'cio')
 
     if request.method == 'POST':
         action = request.form.get('action', '')
@@ -452,7 +457,7 @@ def admin_usuarios():
                 errores.append('La contraseña debe tener mínimo 6 caracteres.')
             if not nombre:
                 errores.append('El nombre completo es obligatorio.')
-            if rol not in ('admin', 'cio'):
+            if rol not in valid_roles_create:
                 errores.append('Rol inválido.')
 
             if not errores:
@@ -484,27 +489,41 @@ def admin_usuarios():
                 flash('No puedes modificar tu propia cuenta.', 'error')
             elif uid:
                 row = conn.execute(
-                    "SELECT activo, username FROM usuarios WHERE id = ?", (uid,)
+                    "SELECT activo, username, rol FROM usuarios WHERE id = ?", (uid,)
                 ).fetchone()
                 if row:
-                    nuevo = 0 if row['activo'] else 1
-                    conn.execute(
-                        "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
-                    )
-                    verb = 'activado' if nuevo else 'desactivado'
-                    _log_actividad(conn, current_user.id, 'admin',
-                                   f'Usuario {row["username"]} {verb}')
-                    conn.commit()
-                    flash(f'Usuario "{row["username"]}" {verb}.', 'success')
+                    # admin no puede tocar cuentas superadmin (backend guard)
+                    if not is_superadmin and row['rol'] == 'superadmin':
+                        flash('No tienes permiso para modificar cuentas superadmin.', 'error')
+                    else:
+                        nuevo = 0 if row['activo'] else 1
+                        conn.execute(
+                            "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
+                        )
+                        verb = 'activado' if nuevo else 'desactivado'
+                        _log_actividad(conn, current_user.id, 'admin',
+                                       f'Usuario {row["username"]} {verb}')
+                        conn.commit()
+                        flash(f'Usuario "{row["username"]}" {verb}.', 'success')
 
         conn.close()
         return redirect(url_for('admin_usuarios'))
 
-    usuarios = conn.execute(
-        "SELECT * FROM usuarios ORDER BY created_at DESC"
-    ).fetchall()
+    # admin no ve cuentas superadmin — son invisibles para él
+    if is_superadmin:
+        usuarios = conn.execute(
+            "SELECT * FROM usuarios ORDER BY created_at DESC"
+        ).fetchall()
+    else:
+        usuarios = conn.execute(
+            "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
+        ).fetchall()
+
     conn.close()
-    return render_template('admin/usuarios.html', usuarios=usuarios)
+    return render_template('admin/usuarios.html',
+        usuarios=usuarios,
+        valid_roles_create=valid_roles_create,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -652,11 +671,11 @@ def cio_responder():
     motivo_id     = data.get('motivo_id')
     comentario    = (data.get('comentario_libre') or '').strip() or None
 
-    if not solicitud_id or accion not in ('entregado', 'no_entregado'):
+    if not solicitud_id or accion not in ('ejecutado', 'no_ejecutado'):
         return jsonify({'success': False, 'error': 'Datos inválidos.'}), 400
 
-    if accion == 'no_entregado' and not motivo_id:
-        return jsonify({'success': False, 'error': 'Motivo obligatorio para "No entregado".'}), 400
+    if accion == 'no_ejecutado' and not motivo_id:
+        return jsonify({'success': False, 'error': 'Motivo obligatorio para "No ejecutado".'}), 400
 
     conn = get_db()
     solicitud = conn.execute(

@@ -233,13 +233,13 @@
   <!-- Stats strip -->
   {% set total_s   = solicitudes|length %}
   {% set total_pend = solicitudes|selectattr('estado','equalto','pendiente')|list|length %}
-  {% set total_ent  = solicitudes|selectattr('accion','equalto','entregado')|list|length %}
-  {% set total_no   = solicitudes|selectattr('accion','equalto','no_entregado')|list|length %}
+  {% set total_ent  = solicitudes|selectattr('accion','equalto','ejecutado')|list|length %}
+  {% set total_no   = solicitudes|selectattr('accion','equalto','no_ejecutado')|list|length %}
   <div class="stats-strip">
     <span class="stat-pill total">{{ total_s }} total</span>
     <span class="stat-pill pend">{{ total_pend }} pendiente(s)</span>
-    <span class="stat-pill ent">{{ total_ent }} entregado(s)</span>
-    <span class="stat-pill no-ent">{{ total_no }} no entregado(s)</span>
+    <span class="stat-pill ent">{{ total_ent }} ejecutado(s)</span>
+    <span class="stat-pill no-ent">{{ total_no }} no ejecutado(s)</span>
   </div>
 
   <!-- Toolbar filtros -->
@@ -254,8 +254,8 @@
     <label for="fil-resultado">Resultado</label>
     <select id="fil-resultado">
       <option value="">Todos los resultados</option>
-      <option value="entregado">Entregado</option>
-      <option value="no_entregado">No entregado</option>
+      <option value="ejecutado">Ejecutado</option>
+      <option value="no_ejecutado">No ejecutado</option>
     </select>
 
     <label for="fil-fecha-desde">Desde</label>
@@ -297,7 +297,7 @@
             data-resultado="{{ s.accion or '' }}"
             data-vehiculo="{{ s.vehiculo or '' }}"
             data-fecha="{{ fecha_iso }}"
-            class="{% if s.accion == 'entregado' %}row-entregado{% elif s.accion == 'no_entregado' %}row-no-ent{% elif s.estado == 'pendiente' %}row-pendiente{% endif %}"
+            class="{% if s.accion == 'ejecutado' %}row-entregado{% elif s.accion == 'no_ejecutado' %}row-no-ent{% elif s.estado == 'pendiente' %}row-pendiente{% endif %}"
           >
             <td style="color:var(--gris);font-size:12.5px;white-space:nowrap;">
               {{ s.fecha_solicitud[:16].replace('T', ' ') if s.fecha_solicitud else '—' }}
@@ -327,10 +327,10 @@
               {% endif %}
             </td>
             <td>
-              {% if s.accion == 'entregado' %}
-                <span class="badge-resp-ent">✓ Entregado</span>
-              {% elif s.accion == 'no_entregado' %}
-                <span class="badge-resp-no">✗ No entregado</span>
+              {% if s.accion == 'ejecutado' %}
+                <span class="badge-resp-ent">✓ Ejecutado</span>
+              {% elif s.accion == 'no_ejecutado' %}
+                <span class="badge-resp-no">✗ No ejecutado</span>
               {% else %}
                 <span style="color:#9ca3af;font-size:12px;">—</span>
               {% endif %}

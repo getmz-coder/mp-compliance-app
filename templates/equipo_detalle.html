@@ -369,10 +369,10 @@
                 {% endif %}
               </td>
               <td>
-                {% if h.accion == 'entregado' %}
-                  <span class="accion-entregado">Entregado</span>
-                {% elif h.accion == 'no_entregado' %}
-                  <span class="accion-no-entregado">No entregado</span>
+                {% if h.accion == 'ejecutado' %}
+                  <span class="accion-entregado">Ejecutado</span>
+                {% elif h.accion == 'no_ejecutado' %}
+                  <span class="accion-no-entregado">No ejecutado</span>
                 {% else %}
                   <span style="color:var(--gris);font-size:12.5px;">—</span>
                 {% endif %}
