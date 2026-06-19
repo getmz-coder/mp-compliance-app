@@ -221,6 +221,151 @@
     padding: 3px 10px;
     border-radius: 20px;
   }
+
+  /* ── Equipos section ── */
+  .section-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 28px 0 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .section-hdr h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.2px;
+  }
+  .section-hdr-sub {
+    font-size: 12.5px;
+    color: var(--gris);
+    margin-top: 2px;
+  }
+
+  .toolbar {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .toolbar select, .toolbar input[type="text"] {
+    padding: 7px 11px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 150px;
+  }
+  .toolbar select:focus, .toolbar input[type="text"]:focus {
+    border-color: var(--cielo);
+    background: #fff;
+  }
+  .toolbar-search { position: relative; }
+  .toolbar-search svg {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 13px; height: 13px;
+    stroke: #9ca3af; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .toolbar-search input { padding-left: 30px !important; min-width: 180px; }
+  .toolbar-count {
+    font-size: 12px;
+    color: var(--gris);
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  .table-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.data-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.data-table th {
+    padding: 10px 13px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 9px 13px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.data-table tbody tr:last-child td { border-bottom: none; }
+  table.data-table tbody tr:hover { background: #f8fafc; }
+
+  .vehiculo-link {
+    font-weight: 600;
+    color: var(--cielo);
+    text-decoration: none;
+  }
+  .vehiculo-link:hover { text-decoration: underline; }
+
+  .badge-estado {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+  .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+
+  .ind-pos  { color: var(--rojo);  font-weight: 600; }
+  .ind-neg  { color: var(--verde); }
+  .ind-zero { color: var(--gris); }
+
+  .rutina-cell {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #adm-no-results {
+    padding: 36px 24px;
+    text-align: center;
+    color: var(--gris);
+    font-size: 13.5px;
+  }
 </style>
 {% endblock %}
 
@@ -376,7 +521,136 @@
       </p>
     </div>
   </div>
+
+  {% else %}
+
+  <!-- Equipos programados (todos, sin filtro de desviación) -->
+  <div class="section-hdr">
+    <div>
+      <h2>Equipos Programados — Ciclo Actual</h2>
+      <div class="section-hdr-sub">Todos los equipos del ciclo, ordenados por mayor desviación primero</div>
+    </div>
+    <span class="sync-badge">{{ equipos_todos|length }} equipos</span>
+  </div>
+
+  <div class="toolbar">
+    <label for="adm-fil-cat">Categoría</label>
+    <select id="adm-fil-cat">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias_admin %}
+        <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="adm-fil-fam">Familia</label>
+    <select id="adm-fil-fam">
+      <option value="">Todas las familias</option>
+      {% for f in familias_admin %}
+        <option value="{{ f }}">{{ f }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="toolbar-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="adm-fil-bus" placeholder="Buscar vehículo...">
+    </div>
+
+    <span class="toolbar-count" id="adm-count">{{ equipos_todos|length }} equipo(s)</span>
+  </div>
+
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="data-table" id="adm-equipos-table">
+        <thead>
+          <tr>
+            <th>Vehículo</th>
+            <th>Categoría</th>
+            <th>Familia</th>
+            <th>Rutina</th>
+            <th>Desviación</th>
+            <th>Ind. Desv.</th>
+            <th>Estado MP</th>
+          </tr>
+        </thead>
+        <tbody id="adm-equipos-body">
+          {% for eq in equipos_todos %}
+          <tr
+            data-categoria="{{ eq.categoria or '' }}"
+            data-familia="{{ eq.familia or '' }}"
+            data-vehiculo="{{ eq.vehiculo or '' }}"
+          >
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=eq.vehiculo) }}"
+                 class="vehiculo-link">{{ eq.vehiculo }}</a>
+            </td>
+            <td>{{ eq.categoria or '—' }}</td>
+            <td>{{ eq.familia or '—' }}</td>
+            <td class="rutina-cell" title="{{ eq.rutina or '' }}">{{ eq.rutina or '—' }}</td>
+            <td>{{ eq.desviacion or '—' }}</td>
+            <td>
+              {% if eq.ind_desviacion is not none %}
+                <span class="{% if (eq.ind_desviacion|int) > 0 %}ind-pos{% elif (eq.ind_desviacion|int) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                  {{ eq.ind_desviacion }}%
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% set em = (eq.estado_mp or '')|lower %}
+              {% if 'vencido' in em %}
+                <span class="badge-estado badge-vencido">{{ eq.estado_mp }}</span>
+              {% elif 'próximo' in em or 'proximo' in em %}
+                <span class="badge-estado badge-proximo">{{ eq.estado_mp }}</span>
+              {% elif 'hoy' in em %}
+                <span class="badge-estado badge-hoy">{{ eq.estado_mp }}</span>
+              {% else %}
+                <span class="badge-estado badge-default">{{ eq.estado_mp or '—' }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="adm-no-results" style="display:none;">Sin equipos que coincidan con los filtros.</div>
+  </div>
+
   {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var filCat  = document.getElementById('adm-fil-cat');
+  var filFam  = document.getElementById('adm-fil-fam');
+  var filBus  = document.getElementById('adm-fil-bus');
+  var rows    = document.querySelectorAll('#adm-equipos-body tr');
+  var noRes   = document.getElementById('adm-no-results');
+  var counter = document.getElementById('adm-count');
+
+  if (!filCat) return;
+
+  function applyFilters() {
+    var cat = filCat.value.toLowerCase();
+    var fam = filFam.value.toLowerCase();
+    var bus = filBus.value.trim().toLowerCase();
+    var visible = 0;
+    rows.forEach(function (tr) {
+      var ok = true;
+      if (cat && (tr.dataset.categoria || '').toLowerCase() !== cat) ok = false;
+      if (fam && (tr.dataset.familia   || '').toLowerCase() !== fam) ok = false;
+      if (bus && !(tr.dataset.vehiculo || '').toLowerCase().includes(bus)) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    });
+    if (noRes)   noRes.style.display   = visible === 0 ? '' : 'none';
+    if (counter) counter.textContent   = visible + ' equipo(s)';
+  }
+
+  filCat.addEventListener('change', applyFilters);
+  filFam.addEventListener('change', applyFilters);
+  filBus.addEventListener('input',  applyFilters);
+})();
+</script>
 {% endblock %}

@@ -247,6 +247,96 @@
     margin-bottom: 12px;
   }
   .empty-state p { font-size: 13.5px; }
+
+  .btn-eliminar {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid var(--rojo);
+    color: var(--rojo);
+    background: #fff7f7;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    margin-left: 6px;
+  }
+  .btn-eliminar:hover { background: var(--rojo); color: #fff; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,45,110,0.2);
+    width: 100%;
+    max-width: 440px;
+    overflow: hidden;
+    animation: modal-in 0.18s ease;
+  }
+  @keyframes modal-in {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--borde);
+    background: #fff7f7;
+  }
+  .modal-hdr h3 { font-size: 15px; font-weight: 700; color: var(--rojo); }
+  .modal-close {
+    background: none; border: none;
+    font-size: 18px; color: var(--gris);
+    cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; line-height: 1;
+    transition: background 0.12s;
+  }
+  .modal-close:hover { background: #f3f4f6; color: var(--texto); }
+  .modal-body { padding: 18px 20px; font-size: 13.5px; color: var(--gris); line-height: 1.6; }
+  .modal-body strong { color: var(--texto); }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--borde);
+  }
+  .btn-modal-cancel {
+    padding: 8px 18px;
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-cancel:hover { background: #e5e7eb; }
+  .btn-modal-confirm-del {
+    padding: 8px 20px;
+    background: var(--rojo);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn-modal-confirm-del:hover  { background: #b91c1c; }
+  .btn-modal-confirm-del:active { transform: scale(0.98); }
 </style>
 {% endblock %}
 
@@ -312,7 +402,7 @@
               <td class="td-ts">
                 {{ u.created_at[:10] if u.created_at else '—' }}
               </td>
-              <td>
+              <td style="white-space:nowrap;">
                 <form method="POST" action="{{ url_for('admin_usuarios') }}"
                       style="display:inline;">
                   <input type="hidden" name="action" value="toggle">
@@ -330,6 +420,14 @@
                     </button>
                   {% endif %}
                 </form>
+                {% if u.id != current_user.id %}
+                  {% if current_user.rol == 'superadmin' or u.rol != 'superadmin' %}
+                    <button type="button" class="btn-eliminar"
+                            onclick="abrirModalEliminar({{ u.id }}, '{{ u.username }}')">
+                      Eliminar
+                    </button>
+                  {% endif %}
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -399,4 +497,49 @@
   </div>
 
 </div>
+
+<!-- Modal eliminar usuario -->
+<div id="modal-eliminar" class="modal-overlay" style="display:none;" onclick="overlayClickElim(event)">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h3>Eliminar usuario</h3>
+      <button type="button" class="modal-close" onclick="cerrarModalEliminar()">✕</button>
+    </div>
+    <div class="modal-body">
+      ¿Está seguro de eliminar al usuario <strong id="modal-elim-username"></strong>?<br>
+      Esta acción es permanente y no se puede deshacer.
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-modal-cancel" onclick="cerrarModalEliminar()">Cancelar</button>
+      <form id="form-eliminar" method="POST" action="{{ url_for('admin_usuarios') }}" style="display:inline;">
+        <input type="hidden" name="action" value="eliminar">
+        <input type="hidden" name="user_id" id="modal-elim-uid" value="">
+        <button type="submit" class="btn-modal-confirm-del">Eliminar definitivamente</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  window.abrirModalEliminar = function (uid, username) {
+    document.getElementById('modal-elim-uid').value      = uid;
+    document.getElementById('modal-elim-username').textContent = username;
+    document.getElementById('modal-eliminar').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+  window.cerrarModalEliminar = function () {
+    document.getElementById('modal-eliminar').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+  window.overlayClickElim = function (e) {
+    if (e.target === document.getElementById('modal-eliminar')) cerrarModalEliminar();
+  };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') cerrarModalEliminar();
+  });
+})();
+</script>
 {% endblock %}

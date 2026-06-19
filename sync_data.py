@@ -148,12 +148,23 @@ def sync_programacion(filepath):
     }
 
 
+def _clean_sap(val):
+    """Convierte SAP a string entero limpio: '10045678.0' → '10045678'."""
+    if val is None:
+        return None
+    try:
+        return str(int(float(val)))
+    except (ValueError, TypeError):
+        return val
+
+
 def sync_filtros(filepath):
     """
-    Lee Excel maestro filtración y reemplaza toda la tabla filtros_equipo.
+    Lee Excel maestro filtración (hoja 'Filtros', header fila 1) y reemplaza
+    toda la tabla filtros_equipo con DELETE + INSERT.
     Retorna: {'total_registros': X, 'equipos_unicos': Y}
     """
-    df = pd.read_excel(filepath, dtype=str)
+    df = pd.read_excel(filepath, sheet_name='Filtros', header=0, dtype=str)
     df.columns = df.columns.str.strip()
 
     missing = [c for c in COLS_FILTROS if c not in df.columns]
@@ -165,7 +176,7 @@ def sync_filtros(filepath):
     for col in df.columns:
         df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
 
-    df['EQUIPO'] = df['EQUIPO'].str.upper()
+    df['EQUIPO'] = df['EQUIPO'].str.upper().str.strip()
     df = df[df['EQUIPO'].map(lambda x: _clean(x) is not None)]
 
     conn = get_db()
@@ -181,7 +192,7 @@ def sync_filtros(filepath):
             _clean(row['EQUIPO']),
             _clean(row['TIPO']),
             _clean(row['NOMBRE ARTÍCULO']),
-            _clean(row['CODIGO SAP']),
+            _clean_sap(_clean(row['CODIGO SAP'])),
             _clean(row['TIPO FILTRO']),
         ))
 

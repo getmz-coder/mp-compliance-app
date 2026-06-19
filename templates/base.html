@@ -183,6 +183,8 @@
            {% if request.endpoint == 'admin_historial' %}class="active"{% endif %}>Historial</a>
         <a href="{{ url_for('admin_usuarios') }}"
            {% if request.endpoint == 'admin_usuarios' %}class="active"{% endif %}>Usuarios</a>
+        <a href="{{ url_for('admin_auditoria') }}"
+           {% if request.endpoint in ('admin_auditoria', 'admin_eliminar_log') %}class="active"{% endif %}>Auditoría</a>
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>

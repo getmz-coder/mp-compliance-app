@@ -302,18 +302,14 @@
         <table class="inner-table">
           <thead>
             <tr>
-              <th>Tipo</th>
+              <th>Tipo Filtro</th>
               <th>Nombre Artículo</th>
               <th>Código SAP</th>
-              <th>Tipo Filtro</th>
             </tr>
           </thead>
           <tbody>
             {% for f in filtros %}
             <tr>
-              <td>{{ f.tipo or '—' }}</td>
-              <td>{{ f.nombre_articulo or '—' }}</td>
-              <td style="font-family:monospace;font-size:12.5px;color:var(--gris);">{{ f.codigo_sap or '—' }}</td>
               <td>
                 {% if f.tipo_filtro and 'fleet' in f.tipo_filtro|lower %}
                   <span class="ftype-fleet">{{ f.tipo_filtro }}</span>
@@ -321,6 +317,8 @@
                   <span class="ftype-homol">{{ f.tipo_filtro }}</span>
                 {% else %}—{% endif %}
               </td>
+              <td>{{ f.nombre_articulo or '—' }}</td>
+              <td style="font-family:monospace;font-size:12.5px;color:var(--gris);">{{ f.codigo_sap or '—' }}</td>
             </tr>
             {% endfor %}
           </tbody>

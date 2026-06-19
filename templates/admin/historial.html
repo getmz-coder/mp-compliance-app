@@ -286,6 +286,86 @@
   }
   .empty-state h3 { font-size: 15px; color: #374151; margin-bottom: 6px; }
   .empty-state p  { font-size: 13px; }
+
+  /* ── Botón eliminar ── */
+  .btn-del {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: #fff2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    white-space: nowrap;
+  }
+  .btn-del:hover { background: #fee2e2; border-color: #f87171; }
+  .btn-del svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── Modal confirmar eliminación ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    padding: 28px 32px;
+    max-width: 420px;
+    width: 90%;
+    animation: modalIn 0.15s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-icon {
+    width: 44px; height: 44px;
+    background: #fff2f2;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .modal-icon svg { width: 22px; height: 22px; stroke: #dc2626; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .modal-box h3 { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+  .modal-box p  { font-size: 13.5px; color: #6b7280; line-height: 1.5; margin-bottom: 24px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-modal-cancel {
+    padding: 9px 20px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .btn-modal-cancel:hover { background: #e5e7eb; }
+  .btn-modal-confirm {
+    padding: 9px 20px;
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .btn-modal-confirm:hover { background: #b91c1c; }
+  .btn-modal-confirm:disabled { background: #fca5a5; cursor: not-allowed; }
 </style>
 {% endblock %}
 
@@ -369,11 +449,12 @@
             <th>Fecha Respuesta</th>
             <th>Acción</th>
             <th>Motivo / Comentario</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {% for f in filas %}
-          <tr>
+          <tr id="sol-row-{{ f.id }}">
             <td class="td-ts">
               {{ f.fecha_solicitud[:16].replace('T', ' ') if f.fecha_solicitud else '—' }}
             </td>
@@ -413,6 +494,15 @@
               {% else %}
                 <span style="color:#d1d5db;">—</span>
               {% endif %}
+            </td>
+            <td style="padding:6px 10px;">
+              <button class="btn-del"
+                      data-sid="{{ f.id }}"
+                      data-vehiculo="{{ f.vehiculo }}"
+                      onclick="confirmarEliminar(this)">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                Eliminar
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -464,4 +554,84 @@
   </div>
 
 </div>
+
+<!-- Modal confirmación eliminación -->
+<div class="modal-overlay" id="modalEliminar">
+  <div class="modal-box">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </div>
+    <h3>¿Eliminar esta solicitud?</h3>
+    <p id="modalEliminarMsg">Se eliminará la solicitud y su respuesta asociada (si tiene). Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-modal-confirm" id="btnConfirmarEliminar">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var _pendingSid = null;
+  var _pendingRow = null;
+
+  function _resetBtnEliminar() {
+    var btn = document.getElementById('btnConfirmarEliminar');
+    btn.disabled = false;
+    btn.textContent = 'Eliminar';
+  }
+
+  function confirmarEliminar(btn) {
+    _pendingSid = btn.dataset.sid;
+    _pendingRow = document.getElementById('sol-row-' + _pendingSid);
+    document.getElementById('modalEliminarMsg').textContent =
+      'Se eliminará la solicitud del vehículo ' + btn.dataset.vehiculo +
+      ' y su respuesta asociada (si tiene). Esta acción no se puede deshacer.';
+    _resetBtnEliminar();
+    document.getElementById('modalEliminar').classList.add('visible');
+  }
+
+  function cerrarModal() {
+    document.getElementById('modalEliminar').classList.remove('visible');
+    _resetBtnEliminar();
+    _pendingSid = null;
+    _pendingRow = null;
+  }
+
+  document.getElementById('btnConfirmarEliminar').addEventListener('click', function() {
+    if (!_pendingSid) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Eliminando…';
+
+    fetch('/admin/solicitud/' + _pendingSid + '/eliminar', {
+      method: 'DELETE',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (_pendingRow) {
+          _pendingRow.style.transition = 'opacity 0.25s';
+          _pendingRow.style.opacity = '0';
+          setTimeout(function() { _pendingRow.remove(); }, 260);
+        }
+        cerrarModal();
+      } else {
+        alert('Error: ' + (data.error || 'No se pudo eliminar.'));
+        btn.disabled = false;
+        btn.textContent = 'Eliminar';
+      }
+    })
+    .catch(function() {
+      alert('Error de red. Intenta de nuevo.');
+      btn.disabled = false;
+      btn.textContent = 'Eliminar';
+    });
+  });
+
+  document.getElementById('modalEliminar').addEventListener('click', function(e) {
+    if (e.target === this) cerrarModal();
+  });
+</script>
+
 {% endblock %}

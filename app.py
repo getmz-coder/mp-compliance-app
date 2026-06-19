@@ -81,6 +81,29 @@ def _current_sync_id(conn):
     return row['sync_id'] if row and row['sync_id'] else None
 
 
+_MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+def _format_fecha_actualizacion(fecha_str):
+    if not fecha_str:
+        return None
+    s = str(fecha_str).strip()
+    dt = None
+    for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M'):
+        try:
+            dt = datetime.strptime(s, fmt)
+            break
+        except ValueError:
+            pass
+    if dt is None:
+        try:
+            dt = datetime.strptime(s[:19], '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            return s
+    mes  = _MESES_ES[dt.month - 1]
+    ampm = 'a.m.' if dt.hour < 12 else 'p.m.'
+    return f"{dt.day:02d}/{mes}/{dt.year} — {dt.strftime('%I:%M')} {ampm}"
+
+
 _ALLOWED_EXCEL = {'xlsx', 'xls'}
 
 def _allowed_excel(filename):
@@ -110,14 +133,9 @@ def login():
         if row and check_password_hash(row['password_hash'], password):
             user = User(row)
             login_user(user, remember=remember)
-            _log_actividad(conn, user.id, 'login', f'Login exitoso desde {request.remote_addr}')
-            conn.commit()
             conn.close()
             return redirect(url_for('dashboard_redirect'))
 
-        _log_actividad(conn, row['id'] if row else None, 'login',
-                       f'Intento fallido: usuario={username}')
-        conn.commit()
         conn.close()
         error = 'Usuario o contraseña incorrectos.'
 
@@ -127,10 +145,6 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
-    conn = get_db()
-    _log_actividad(conn, current_user.id, 'login', 'Cierre de sesión')
-    conn.commit()
-    conn.close()
     logout_user()
     return redirect(url_for('login'))
 
@@ -187,6 +201,29 @@ def admin_dashboard():
            LIMIT 10"""
     ).fetchall()
 
+    equipos_todos = []
+    categorias_admin = []
+    familias_admin = []
+    if sync_id:
+        equipos_todos = conn.execute(
+            """SELECT * FROM equipos
+               WHERE sync_id = ?
+               ORDER BY CAST(ind_desviacion AS INTEGER) DESC""",
+            (sync_id,)
+        ).fetchall()
+        categorias_admin = [r['categoria'] for r in conn.execute(
+            """SELECT DISTINCT categoria FROM equipos
+               WHERE sync_id = ? AND categoria IS NOT NULL
+               ORDER BY categoria""",
+            (sync_id,)
+        ).fetchall()]
+        familias_admin = [r['familia'] for r in conn.execute(
+            """SELECT DISTINCT familia FROM equipos
+               WHERE sync_id = ? AND familia IS NOT NULL
+               ORDER BY familia""",
+            (sync_id,)
+        ).fetchall()]
+
     conn.close()
 
     return render_template('admin/dashboard.html',
@@ -196,6 +233,9 @@ def admin_dashboard():
         pendientes=pendientes,
         ultimas_sync=ultimas_sync,
         current_sync_id=sync_id,
+        equipos_todos=equipos_todos,
+        categorias_admin=categorias_admin,
+        familias_admin=familias_admin,
     )
 
 
@@ -216,7 +256,6 @@ def admin_sync():
         return render_template('admin/sync.html')
 
     os.makedirs(config.UPLOAD_FOLDER, exist_ok=True)
-    conn = get_db()
 
     if has_prog:
         if not _allowed_excel(file_prog.filename):
@@ -230,7 +269,6 @@ def admin_sync():
                        f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
                        f'(ciclo {res["sync_id"]})')
                 flash(msg, 'success')
-                _log_actividad(conn, current_user.id, 'sync', msg)
             except Exception as exc:
                 flash(f'Error en programación MP: {exc}', 'error')
 
@@ -245,12 +283,9 @@ def admin_sync():
                 msg = (f'Maestro Filtración sincronizado: {res["total_registros"]} registros, '
                        f'{res["equipos_unicos"]} equipos únicos')
                 flash(msg, 'success')
-                _log_actividad(conn, current_user.id, 'sync', msg)
             except Exception as exc:
                 flash(f'Error en maestro filtración: {exc}', 'error')
 
-    conn.commit()
-    conn.close()
     return redirect(url_for('admin_sync'))
 
 
@@ -359,9 +394,6 @@ def admin_export():
            LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
            ORDER BY s.fecha_solicitud DESC"""
     ).fetchall()
-    _log_actividad(conn, current_user.id, 'export',
-                   f'Exportación Excel: {len(filas)} registros')
-    conn.commit()
     conn.close()
 
     wb = openpyxl.Workbook()
@@ -435,91 +467,118 @@ def admin_export():
 @app.route('/admin/usuarios', methods=['GET', 'POST'])
 @admin_required
 def admin_usuarios():
-    conn = get_db()
     is_superadmin = current_user.rol == 'superadmin'
-
-    # superadmin puede asignar cualquier rol; admin no puede crear superadmins
     valid_roles_create = ('admin', 'cio', 'superadmin') if is_superadmin else ('admin', 'cio')
 
     if request.method == 'POST':
         action = request.form.get('action', '')
 
-        if action == 'crear':
-            username = request.form.get('username', '').strip().lower()
-            password = request.form.get('password', '').strip()
-            nombre   = request.form.get('nombre_completo', '').strip()
-            rol      = request.form.get('rol', '').strip()
-
-            errores = []
-            if not username:
-                errores.append('El username es obligatorio.')
-            if not password or len(password) < 6:
-                errores.append('La contraseña debe tener mínimo 6 caracteres.')
-            if not nombre:
-                errores.append('El nombre completo es obligatorio.')
-            if rol not in valid_roles_create:
-                errores.append('Rol inválido.')
-
-            if not errores:
-                dup = conn.execute(
-                    "SELECT id FROM usuarios WHERE username = ?", (username,)
-                ).fetchone()
-                if dup:
-                    errores.append(f'El username "{username}" ya existe.')
-
-            if errores:
-                for e in errores:
-                    flash(e, 'error')
-            else:
-                conn.execute(
-                    """INSERT INTO usuarios
-                           (username, password_hash, nombre_completo, rol, activo, created_at)
-                       VALUES (?, ?, ?, ?, 1, ?)""",
-                    (username, generate_password_hash(password), nombre, rol,
-                     datetime.now().isoformat())
-                )
-                _log_actividad(conn, current_user.id, 'admin',
-                               f'Usuario creado: {username} ({rol})')
-                conn.commit()
-                flash(f'Usuario "{username}" creado exitosamente.', 'success')
-
-        elif action == 'toggle':
+        if action == 'eliminar':
             uid = request.form.get('user_id', type=int)
             if uid == current_user.id:
-                flash('No puedes modificar tu propia cuenta.', 'error')
-            elif uid:
-                row = conn.execute(
-                    "SELECT activo, username, rol FROM usuarios WHERE id = ?", (uid,)
-                ).fetchone()
-                if row:
-                    # admin no puede tocar cuentas superadmin (backend guard)
-                    if not is_superadmin and row['rol'] == 'superadmin':
-                        flash('No tienes permiso para modificar cuentas superadmin.', 'error')
+                flash('No puedes eliminar tu propia cuenta.', 'error')
+                return redirect(url_for('admin_usuarios'))
+            if uid:
+                conn = get_db()
+                try:
+                    row = conn.execute(
+                        "SELECT username, rol FROM usuarios WHERE id = ?", (uid,)
+                    ).fetchone()
+                    if not row:
+                        flash('Usuario no encontrado.', 'error')
+                    elif not is_superadmin and row['rol'] == 'superadmin':
+                        flash('No tienes permiso para eliminar cuentas superadmin.', 'error')
                     else:
-                        nuevo = 0 if row['activo'] else 1
-                        conn.execute(
-                            "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
-                        )
-                        verb = 'activado' if nuevo else 'desactivado'
-                        _log_actividad(conn, current_user.id, 'admin',
-                                       f'Usuario {row["username"]} {verb}')
+                        n_sol = conn.execute(
+                            "SELECT COUNT(*) AS c FROM solicitudes WHERE solicitado_por = ?", (uid,)
+                        ).fetchone()['c']
+                        if n_sol > 0:
+                            conn.close()
+                            flash(f'No se puede eliminar: tiene {n_sol} solicitud(es) registrada(s). '
+                                  'Desactívelo en su lugar.', 'error')
+                            return redirect(url_for('admin_usuarios'))
+                        conn.execute("DELETE FROM usuarios WHERE id = ?", (uid,))
                         conn.commit()
-                        flash(f'Usuario "{row["username"]}" {verb}.', 'success')
+                        flash(f'Usuario "{row["username"]}" eliminado permanentemente.', 'success')
+                finally:
+                    conn.close()
+            return redirect(url_for('admin_usuarios'))
 
-        conn.close()
+        conn = get_db()
+        try:
+            if action == 'crear':
+                username = request.form.get('username', '').strip().lower()
+                password = request.form.get('password', '').strip()
+                nombre   = request.form.get('nombre_completo', '').strip()
+                rol      = request.form.get('rol', '').strip()
+
+                errores = []
+                if not username:
+                    errores.append('El username es obligatorio.')
+                if not password or len(password) < 6:
+                    errores.append('La contraseña debe tener mínimo 6 caracteres.')
+                if not nombre:
+                    errores.append('El nombre completo es obligatorio.')
+                if rol not in valid_roles_create:
+                    errores.append('Rol inválido.')
+
+                if not errores:
+                    dup = conn.execute(
+                        "SELECT id FROM usuarios WHERE username = ?", (username,)
+                    ).fetchone()
+                    if dup:
+                        errores.append(f'El username "{username}" ya existe.')
+
+                if errores:
+                    for e in errores:
+                        flash(e, 'error')
+                else:
+                    conn.execute(
+                        """INSERT INTO usuarios
+                               (username, password_hash, nombre_completo, rol, activo, created_at)
+                           VALUES (?, ?, ?, ?, 1, ?)""",
+                        (username, generate_password_hash(password), nombre, rol,
+                         datetime.now().isoformat())
+                    )
+                    conn.commit()
+                    flash(f'Usuario "{username}" creado exitosamente.', 'success')
+
+            elif action == 'toggle':
+                uid = request.form.get('user_id', type=int)
+                if uid == current_user.id:
+                    flash('No puedes modificar tu propia cuenta.', 'error')
+                elif uid:
+                    row = conn.execute(
+                        "SELECT activo, username, rol FROM usuarios WHERE id = ?", (uid,)
+                    ).fetchone()
+                    if row:
+                        if not is_superadmin and row['rol'] == 'superadmin':
+                            flash('No tienes permiso para modificar cuentas superadmin.', 'error')
+                        else:
+                            nuevo = 0 if row['activo'] else 1
+                            conn.execute(
+                                "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
+                            )
+                            verb = 'activado' if nuevo else 'desactivado'
+                            conn.commit()
+                            flash(f'Usuario "{row["username"]}" {verb}.', 'success')
+        finally:
+            conn.close()
         return redirect(url_for('admin_usuarios'))
 
-    # admin no ve cuentas superadmin — son invisibles para él
-    if is_superadmin:
-        usuarios = conn.execute(
-            "SELECT * FROM usuarios ORDER BY created_at DESC"
-        ).fetchall()
-    else:
-        usuarios = conn.execute(
-            "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
-        ).fetchall()
+    conn = get_db()
+    try:
+        if is_superadmin:
+            usuarios = conn.execute(
+                "SELECT * FROM usuarios ORDER BY created_at DESC"
+            ).fetchall()
+        else:
+            usuarios = conn.execute(
+                "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
+            ).fetchall()
+    finally:
+        conn.close()
 
-    conn.close()
     return render_template('admin/usuarios.html',
         usuarios=usuarios,
         valid_roles_create=valid_roles_create,
@@ -539,18 +598,22 @@ def cio_dashboard():
     equipos = []
     familias = []
     estados  = []
+    categorias = []
+    estados_vehiculo = []
 
     if sync_id:
         equipos = conn.execute(
             """SELECT * FROM equipos
                WHERE sync_id = ?
-               ORDER BY ind_desviacion DESC""",
+               AND CAST(ind_desviacion AS INTEGER) >= -10
+               ORDER BY CAST(ind_desviacion AS INTEGER) DESC""",
             (sync_id,)
         ).fetchall()
 
         familias = [r['familia'] for r in conn.execute(
             """SELECT DISTINCT familia FROM equipos
                WHERE sync_id = ? AND familia IS NOT NULL
+               AND CAST(ind_desviacion AS INTEGER) >= -10
                ORDER BY familia""",
             (sync_id,)
         ).fetchall()]
@@ -558,7 +621,24 @@ def cio_dashboard():
         estados = [r['estado_mp'] for r in conn.execute(
             """SELECT DISTINCT estado_mp FROM equipos
                WHERE sync_id = ? AND estado_mp IS NOT NULL
+               AND CAST(ind_desviacion AS INTEGER) >= -10
                ORDER BY estado_mp""",
+            (sync_id,)
+        ).fetchall()]
+
+        categorias = [r['categoria'] for r in conn.execute(
+            """SELECT DISTINCT categoria FROM equipos
+               WHERE sync_id = ? AND categoria IS NOT NULL
+               AND CAST(ind_desviacion AS INTEGER) >= -10
+               ORDER BY categoria""",
+            (sync_id,)
+        ).fetchall()]
+
+        estados_vehiculo = [r['estado_vehiculo'] for r in conn.execute(
+            """SELECT DISTINCT estado_vehiculo FROM equipos
+               WHERE sync_id = ? AND estado_vehiculo IS NOT NULL
+               AND CAST(ind_desviacion AS INTEGER) >= -10
+               ORDER BY estado_vehiculo""",
             (sync_id,)
         ).fetchall()]
 
@@ -588,12 +668,19 @@ def cio_dashboard():
 
     respondidos = sum(1 for s in solicitudes_map.values() if s['estado'] == 'respondido')
 
+    row_ult = conn.execute(
+        "SELECT fecha_programacion FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
+    ).fetchone()
+    ultima_actualizacion = _format_fecha_actualizacion(row_ult['fecha_programacion']) if row_ult else None
+
     conn.close()
 
     return render_template('cio/dashboard.html',
         equipos=equipos,
         familias=familias,
         estados=estados,
+        categorias=categorias,
+        estados_vehiculo=estados_vehiculo,
         total=len(equipos),
         vencidos=vencidos,
         proximos=proximos,
@@ -601,6 +688,7 @@ def cio_dashboard():
         respondidos=respondidos,
         solicitudes_map=solicitudes_map,
         current_sync_id=sync_id,
+        ultima_actualizacion=ultima_actualizacion,
     )
 
 
@@ -637,8 +725,6 @@ def cio_solicitar():
             )
             registrados += 1
 
-    _log_actividad(conn, current_user.id, 'solicitud',
-                   f'Solicitud de {registrados} equipo(s) (ciclo {sync_id})')
     conn.commit()
     conn.close()
 
@@ -711,9 +797,6 @@ def cio_responder():
         if m:
             motivo_desc = m['descripcion']
 
-    _log_actividad(conn, current_user.id, 'respuesta',
-                   f'Respuesta solicitud #{solicitud_id}: {accion}'
-                   + (f' — {motivo_desc}' if motivo_desc else ''))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -802,6 +885,128 @@ def equipo_detalle(vehiculo):
         filtros=filtros,
         historial=historial,
     )
+
+
+# ---------------------------------------------------------------------------
+# Admin — eliminar solicitud
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/solicitud/<int:solicitud_id>/eliminar', methods=['DELETE'])
+@admin_required
+def admin_eliminar_solicitud(solicitud_id):
+    conn = get_db()
+    try:
+        sol = conn.execute(
+            """SELECT s.id, s.fecha_solicitud,
+                      e.vehiculo, e.familia, e.rutina,
+                      u.nombre_completo AS solicitado_por_nombre,
+                      r.accion, r.comentario_libre, m.descripcion AS motivo_desc
+               FROM solicitudes s
+               JOIN equipos e   ON e.id = s.equipo_id
+               JOIN usuarios u  ON u.id = s.solicitado_por
+               LEFT JOIN respuestas r       ON r.solicitud_id = s.id
+               LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+               WHERE s.id = ?""",
+            (solicitud_id,)
+        ).fetchone()
+
+        if not sol:
+            return jsonify({'success': False, 'error': 'Solicitud no encontrada.'}), 404
+
+        rutina_corta = (sol['rutina'][:80] + '…') if sol['rutina'] and len(sol['rutina']) > 80 else (sol['rutina'] or '—')
+        detalle = (f'Eliminó solicitud #{solicitud_id}: vehículo={sol["vehiculo"]}, '
+                   f'familia={sol["familia"] or "—"}, rutina={rutina_corta}, '
+                   f'solicitado_por={sol["solicitado_por_nombre"]}, '
+                   f'fecha={sol["fecha_solicitud"]}')
+        if sol['accion']:
+            detalle += f', respuesta: {sol["accion"]}'
+            if sol['motivo_desc']:
+                detalle += f' — {sol["motivo_desc"]}'
+            if sol['comentario_libre']:
+                detalle += f' ({sol["comentario_libre"]})'
+
+        conn.execute("DELETE FROM respuestas WHERE solicitud_id = ?", (solicitud_id,))
+        conn.execute("DELETE FROM solicitudes WHERE id = ?", (solicitud_id,))
+        _log_actividad(conn, current_user.id, 'eliminar_solicitud', detalle)
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# Admin — auditoría
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/auditoria')
+@admin_required
+def admin_auditoria():
+    page        = max(1, request.args.get('page', 1, type=int))
+    per_page    = 50
+    fecha_desde = request.args.get('fecha_desde', '').strip()
+    fecha_hasta = request.args.get('fecha_hasta', '').strip()
+
+    where_parts = ["l.accion_tipo = 'eliminar_solicitud'"]
+    params = []
+    if fecha_desde:
+        where_parts.append("l.timestamp >= ?")
+        params.append(fecha_desde)
+    if fecha_hasta:
+        where_parts.append("l.timestamp <= ?")
+        params.append(fecha_hasta + 'T23:59:59')
+
+    where_sql = 'WHERE ' + ' AND '.join(where_parts)
+
+    conn = get_db()
+    try:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS c FROM log_actividad l {where_sql}", params
+        ).fetchone()['c']
+
+        offset = (page - 1) * per_page
+        logs = conn.execute(
+            f"""SELECT l.id, l.timestamp, l.detalle, l.ip_address,
+                       COALESCE(u.nombre_completo, 'Sistema') AS nombre_usuario,
+                       u.username
+                FROM log_actividad l
+                LEFT JOIN usuarios u ON u.id = l.usuario_id
+                {where_sql}
+                ORDER BY l.timestamp DESC
+                LIMIT ? OFFSET ?""",
+            params + [per_page, offset]
+        ).fetchall()
+    finally:
+        conn.close()
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return render_template('admin/auditoria.html',
+        logs=logs,
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+    )
+
+
+@app.route('/admin/log/<int:log_id>/eliminar', methods=['DELETE'])
+@admin_required
+def admin_eliminar_log(log_id):
+    if current_user.rol != 'superadmin':
+        return jsonify({'success': False, 'error': 'Sin permiso.'}), 403
+
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id FROM log_actividad WHERE id = ?", (log_id,)).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Registro no encontrado.'}), 404
+        conn.execute("DELETE FROM log_actividad WHERE id = ?", (log_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
 
 
 # ---------------------------------------------------------------------------

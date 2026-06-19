@@ -30,6 +30,18 @@
     color: var(--gris);
     margin-top: 3px;
   }
+  .ultima-actualizacion {
+    font-size: 19px;
+    font-weight: 700;
+    color: #002D6E;
+    margin-top: 10px;
+    letter-spacing: -0.2px;
+  }
+  .ultima-sin-datos {
+    color: #9ca3af;
+    font-weight: 500;
+    font-size: 16px;
+  }
   .sync-badge {
     font-size: 11.5px;
     color: var(--gris);
@@ -529,6 +541,11 @@
     <div class="page-hdr-left">
       <h1>Equipos para Mantenimiento Preventivo</h1>
       <p>Solicita equipos a Operaciones y registra el resultado de cada entrega</p>
+      {% if ultima_actualizacion %}
+        <div class="ultima-actualizacion">Última actualización: {{ ultima_actualizacion }}</div>
+      {% else %}
+        <div class="ultima-actualizacion ultima-sin-datos">Sin datos cargados</div>
+      {% endif %}
     </div>
     {% if current_sync_id %}
       <span class="sync-badge">Ciclo #{{ current_sync_id }}</span>
@@ -577,6 +594,14 @@
 
   <!-- Filtros -->
   <div class="toolbar">
+    <label for="fil-categoria">Categoría</label>
+    <select id="fil-categoria">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias %}
+        <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+
     <label for="fil-familia">Familia</label>
     <select id="fil-familia">
       <option value="">Todas las familias</option>
@@ -590,6 +615,14 @@
       <option value="">Todos los estados</option>
       {% for e in estados %}
         <option value="{{ e }}">{{ e }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="fil-estado-veh">Estado Vehículo</label>
+    <select id="fil-estado-veh">
+      <option value="">Todos</option>
+      {% for ev in estados_vehiculo %}
+        <option value="{{ ev }}">{{ ev }}</option>
       {% endfor %}
     </select>
 
@@ -636,8 +669,10 @@
             {% set is_sol = sol is not none %}
             <tr
               data-familia="{{ equipo.familia or '' }}"
+              data-categoria="{{ equipo.categoria or '' }}"
               data-estado="{{ equipo.estado_mp or '' }}"
               data-vehiculo="{{ equipo.vehiculo or '' }}"
+              data-estado-vehiculo="{{ equipo.estado_vehiculo or '' }}"
               data-sol-estado="{% if is_sol %}{{ sol.estado }}{% else %}no-solicitado{% endif %}"
               class="{% if is_sol %}{% if sol.estado == 'respondido' %}{% if sol.accion == 'ejecutado' %}row-entregado{% else %}row-no-entregado{% endif %}{% else %}row-solicitado{% endif %}{% endif %}"
             >
@@ -773,8 +808,10 @@
   var countEl   = document.getElementById('sel-count');
   var bar       = document.getElementById('action-bar');
   var btnClear  = document.getElementById('btn-clear');
+  var filCat    = document.getElementById('fil-categoria');
   var filFam    = document.getElementById('fil-familia');
   var filEst    = document.getElementById('fil-estado');
+  var filEstVeh = document.getElementById('fil-estado-veh');
   var filSol    = document.getElementById('fil-sol');
   var filBus    = document.getElementById('fil-buscar');
   var rows      = document.querySelectorAll('#equipos-body tr');
@@ -788,22 +825,28 @@
   }
 
   function applyFilters() {
-    var fam    = filFam ? filFam.value.toLowerCase() : '';
-    var est    = filEst ? filEst.value.toLowerCase() : '';
-    var solEst = filSol ? filSol.value : '';
-    var bus    = filBus ? filBus.value.trim().toLowerCase() : '';
+    var cat    = filCat    ? filCat.value.toLowerCase()    : '';
+    var fam    = filFam    ? filFam.value.toLowerCase()    : '';
+    var est    = filEst    ? filEst.value.toLowerCase()    : '';
+    var estVeh = filEstVeh ? filEstVeh.value.toLowerCase() : '';
+    var solEst = filSol    ? filSol.value                  : '';
+    var bus    = filBus    ? filBus.value.trim().toLowerCase() : '';
     var visible = 0;
 
     rows.forEach(function (tr) {
-      var rowFam    = (tr.dataset.familia   || '').toLowerCase();
-      var rowEst    = (tr.dataset.estado    || '').toLowerCase();
-      var rowVeh    = (tr.dataset.vehiculo  || '').toLowerCase();
-      var rowSolEst = (tr.dataset.solEstado || '');
+      var rowCat    = (tr.dataset.categoria      || '').toLowerCase();
+      var rowFam    = (tr.dataset.familia        || '').toLowerCase();
+      var rowEst    = (tr.dataset.estado         || '').toLowerCase();
+      var rowEstVeh = (tr.dataset.estadoVehiculo || '').toLowerCase();
+      var rowVeh    = (tr.dataset.vehiculo       || '').toLowerCase();
+      var rowSolEst = (tr.dataset.solEstado      || '');
       var ok = true;
-      if (fam    && rowFam !== fam)           ok = false;
-      if (est    && !rowEst.includes(est))    ok = false;
-      if (bus    && !rowVeh.includes(bus))    ok = false;
-      if (solEst && rowSolEst !== solEst)     ok = false;
+      if (cat    && rowCat !== cat)              ok = false;
+      if (fam    && rowFam !== fam)              ok = false;
+      if (est    && !rowEst.includes(est))       ok = false;
+      if (estVeh && rowEstVeh !== estVeh)        ok = false;
+      if (bus    && !rowVeh.includes(bus))       ok = false;
+      if (solEst && rowSolEst !== solEst)        ok = false;
       tr.style.display = ok ? '' : 'none';
       if (ok) visible++;
     });
@@ -847,10 +890,12 @@
     });
   }
 
-  if (filFam) filFam.addEventListener('change', applyFilters);
-  if (filEst) filEst.addEventListener('change', applyFilters);
-  if (filSol) filSol.addEventListener('change', applyFilters);
-  if (filBus) filBus.addEventListener('input',  applyFilters);
+  if (filCat)    filCat.addEventListener('change', applyFilters);
+  if (filFam)    filFam.addEventListener('change', applyFilters);
+  if (filEst)    filEst.addEventListener('change', applyFilters);
+  if (filEstVeh) filEstVeh.addEventListener('change', applyFilters);
+  if (filSol)    filSol.addEventListener('change', applyFilters);
+  if (filBus)    filBus.addEventListener('input',  applyFilters);
 
   var form = document.getElementById('solicitar-form');
   if (form) {
