@@ -548,6 +548,35 @@
     to   { transform: translateY(0);    opacity: 1; }
   }
 
+  /* ── Días sin gestionar ── */
+  .badge-dias {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .badge-dias-rojo {
+    background: #fff2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    animation: parpadeo 1.2s infinite;
+  }
+  .badge-dias-ambar {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  @keyframes parpadeo {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
   @media (max-width: 768px) {
     .cio-page { padding: 14px 12px 100px; }
     .page-hdr { flex-direction: column; align-items: flex-start; }
@@ -742,6 +771,17 @@
               <td>
                 <a href="{{ url_for('equipo_detalle', vehiculo=equipo.vehiculo) }}"
                    class="vehiculo-link">{{ equipo.vehiculo }}</a>
+                {% if equipo.dias_sin_gestionar >= 3 %}
+                  <span class="badge-dias badge-dias-rojo"
+                        title="{{ equipo.dias_sin_gestionar }} días sin gestionar">
+                    ⚠ {{ equipo.dias_sin_gestionar }}d
+                  </span>
+                {% elif equipo.dias_sin_gestionar >= 1 %}
+                  <span class="badge-dias badge-dias-ambar"
+                        title="{{ equipo.dias_sin_gestionar }} días sin gestionar">
+                    {{ equipo.dias_sin_gestionar }}d
+                  </span>
+                {% endif %}
               </td>
               <td>{{ equipo.familia or '—' }}</td>
               <td class="rutina-cell" title="{{ equipo.rutinas_str or '' }}">{{ equipo.rutinas_str or '—' }}</td>

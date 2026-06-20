@@ -190,6 +190,10 @@ def admin_dashboard():
     total_equipos = 0
     solicitados   = 0
     respondidos   = 0
+    alerta_vencidos   = 0
+    alerta_pendientes = 0
+    alerta_no_ej      = 0
+    sol_equipo_ids    = frozenset()
 
     if sync_id:
         total_equipos = conn.execute(
@@ -241,6 +245,46 @@ def admin_dashboard():
             (sync_id,)
         ).fetchall()]
 
+        # ── Alertas de gestión ──
+        alerta_vencidos = conn.execute(
+            """SELECT COUNT(DISTINCT e.vehiculo) AS c
+               FROM equipos e
+               WHERE e.sync_id = ?
+               AND LOWER(e.estado_mp) LIKE '%vencido%'
+               AND NOT EXISTS (
+                   SELECT 1 FROM solicitudes s
+                   WHERE s.equipo_id = e.id AND s.sync_id = e.sync_id
+               )
+               AND JULIANDAY('now') - JULIANDAY(e.fecha_programacion) > 7""",
+            (sync_id,)
+        ).fetchone()['c'] or 0
+
+        alerta_pendientes = conn.execute(
+            """SELECT COUNT(*) AS c
+               FROM solicitudes s
+               WHERE s.sync_id = ?
+               AND s.estado = 'pendiente'
+               AND JULIANDAY('now') - JULIANDAY(s.fecha_solicitud) > 3""",
+            (sync_id,)
+        ).fetchone()['c'] or 0
+
+        alerta_no_ej = conn.execute(
+            """SELECT COUNT(DISTINCT e.vehiculo) AS c
+               FROM solicitudes s
+               JOIN equipos e ON e.id = s.equipo_id
+               JOIN respuestas r ON r.solicitud_id = s.id
+               WHERE s.sync_id = ?
+               AND r.accion = 'no_ejecutado'""",
+            (sync_id,)
+        ).fetchone()['c'] or 0
+
+        sol_equipo_ids = frozenset(
+            r['equipo_id'] for r in conn.execute(
+                "SELECT DISTINCT equipo_id FROM solicitudes WHERE sync_id = ?",
+                (sync_id,)
+            ).fetchall()
+        )
+
     conn.close()
 
     return render_template('admin/dashboard.html',
@@ -253,6 +297,10 @@ def admin_dashboard():
         equipos_todos=equipos_todos,
         categorias_admin=categorias_admin,
         familias_admin=familias_admin,
+        alerta_vencidos=alerta_vencidos,
+        alerta_pendientes=alerta_pendientes,
+        alerta_no_ej=alerta_no_ej,
+        sol_equipo_ids=sol_equipo_ids,
     )
 
 
@@ -406,6 +454,7 @@ def admin_export():
     import io
     import openpyxl
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
 
     conn = get_db()
     filas = conn.execute(
@@ -421,68 +470,230 @@ def admin_export():
            LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
            ORDER BY s.fecha_solicitud DESC"""
     ).fetchall()
+
+    # ── Datos para Resumen Ejecutivo ──
+    stats = conn.execute(
+        """SELECT
+               COUNT(s.id) AS total_sol,
+               SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
+               SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
+           FROM solicitudes s
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id"""
+    ).fetchone()
+    total_sol  = stats['total_sol']      or 0
+    ejecutados = stats['ejecutados']     or 0
+    no_ej      = stats['no_ejecutados']  or 0
+    pct_ej     = round(ejecutados / total_sol * 100) if total_sol else 0
+
+    familias_data = conn.execute(
+        """SELECT e.familia,
+                  COUNT(s.id) AS solicitados,
+                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
+                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
+           FROM solicitudes s
+           JOIN equipos e ON e.id = s.equipo_id
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           WHERE e.familia IS NOT NULL
+           GROUP BY e.familia
+           ORDER BY e.familia"""
+    ).fetchall()
+
+    top_motivos = conn.execute(
+        """SELECT CASE WHEN r.motivo_id IS NOT NULL
+                       THEN COALESCE(m.descripcion, 'Desconocido')
+                       ELSE 'Comentario libre'
+                  END AS motivo,
+                  COUNT(*) AS cantidad
+           FROM respuestas r
+           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+           WHERE r.accion = 'no_ejecutado'
+           GROUP BY r.motivo_id
+           ORDER BY cantidad DESC
+           LIMIT 10"""
+    ).fetchall()
     conn.close()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Historial MP'
+    # ── Estilos comunes ──
+    thin           = Side(style='thin', color='CCCCCC')
+    brd            = Border(left=thin, right=thin, top=thin, bottom=thin)
+    fill_azul      = PatternFill('solid', fgColor='002D6E')
+    fill_verde     = PatternFill('solid', fgColor='80AE3F')
+    fill_cielo     = PatternFill('solid', fgColor='1E88E5')
+    fill_ambar     = PatternFill('solid', fgColor='E67E22')
+    fill_gris      = PatternFill('solid', fgColor='F0F2F5')
+    fill_seccion   = PatternFill('solid', fgColor='E8EDF5')
+    font_hdr       = Font(bold=True, color='FFFFFF', size=10)
+    font_seccion   = Font(bold=True, color='002D6E', size=11)
+    font_body      = Font(size=10)
+    center         = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_al        = Alignment(horizontal='left',   vertical='center')
 
-    headers = [
+    wb = openpyxl.Workbook()
+
+    # ════════════════════════════════════════
+    # HOJA 1 — Resumen Ejecutivo
+    # ════════════════════════════════════════
+    ws1 = wb.active
+    ws1.title = 'Resumen Ejecutivo'
+
+    # Encabezado corporativo
+    ws1.merge_cells('A1:F1')
+    c = ws1['A1']
+    c.value     = 'GET — Talma Servicios Aeroportuarios'
+    c.fill      = fill_azul
+    c.font      = Font(bold=True, color='FFFFFF', size=16)
+    c.alignment = center
+    ws1.row_dimensions[1].height = 36
+
+    ws1.merge_cells('A2:F2')
+    c2 = ws1['A2']
+    c2.value     = 'Reporte Seguimiento Mantenimiento Preventivo GSE — BOG'
+    c2.fill      = fill_verde
+    c2.font      = Font(bold=True, color='FFFFFF', size=11)
+    c2.alignment = center
+    ws1.row_dimensions[2].height = 22
+
+    ws1.merge_cells('A3:F3')
+    c3 = ws1['A3']
+    fecha_gen    = datetime.now(TZ_COL).strftime('%d/%m/%Y %H:%M')
+    c3.value     = f'Generado: {fecha_gen} (hora Colombia)'
+    c3.fill      = fill_gris
+    c3.font      = Font(italic=True, color='6B7280', size=9)
+    c3.alignment = center
+    ws1.row_dimensions[3].height = 16
+    ws1.row_dimensions[4].height = 8  # separador
+
+    # Sección KPIs
+    ws1.merge_cells('A5:F5')
+    cs = ws1['A5']
+    cs.value     = '   INDICADORES GENERALES'
+    cs.fill      = fill_seccion
+    cs.font      = font_seccion
+    cs.alignment = left_al
+    ws1.row_dimensions[5].height = 20
+
+    kpi_data = [
+        ('Total Solicitados', total_sol,     fill_cielo),
+        ('Ejecutados',        ejecutados,    fill_verde),
+        ('No Ejecutados',     no_ej,         fill_ambar),
+        ('% Ejecución',       f'{pct_ej}%',  fill_azul),
+    ]
+    for ci, (lbl, val, fill) in enumerate(kpi_data, 1):
+        hc = ws1.cell(row=6, column=ci, value=lbl)
+        hc.fill = fill; hc.font = font_hdr; hc.alignment = center
+        ws1.row_dimensions[6].height = 18
+        vc = ws1.cell(row=7, column=ci, value=val)
+        vc.fill      = PatternFill('solid', fgColor='FFFFFF')
+        vc.font      = Font(bold=True, color='002D6E', size=24)
+        vc.alignment = center
+        vc.border    = brd
+        ws1.row_dimensions[7].height = 40
+
+    ws1.row_dimensions[8].height = 8
+
+    # Sección Familias
+    ws1.merge_cells('A9:F9')
+    cf = ws1['A9']
+    cf.value     = '   CUMPLIMIENTO POR FAMILIA'
+    cf.fill      = fill_seccion
+    cf.font      = font_seccion
+    cf.alignment = left_al
+    ws1.row_dimensions[9].height = 20
+
+    fam_hdrs = ['Familia', 'Solicitados', 'Ejecutados', 'No Ejecutados', '% Ejecución']
+    for ci, h in enumerate(fam_hdrs, 1):
+        cell = ws1.cell(row=10, column=ci, value=h)
+        cell.fill = fill_azul; cell.font = font_hdr
+        cell.alignment = center; cell.border = brd
+    ws1.row_dimensions[10].height = 20
+
+    for ri, fd in enumerate(familias_data, 11):
+        sf = fd['solicitados'] or 0
+        ef = fd['ejecutados']  or 0
+        nf = fd['no_ejecutados'] or 0
+        pf = f"{round(ef/sf*100)}%" if sf else '—'
+        for ci, v in enumerate([fd['familia'] or '—', sf, ef, nf, pf], 1):
+            cell = ws1.cell(row=ri, column=ci, value=v)
+            cell.alignment = center; cell.border = brd; cell.font = font_body
+            if ri % 2 == 0: cell.fill = fill_gris
+        ws1.row_dimensions[ri].height = 16
+
+    last_fam = 10 + len(familias_data) + 1
+    ws1.row_dimensions[last_fam].height = 8
+
+    # Sección Top Motivos
+    mr = last_fam + 1
+    ws1.merge_cells(f'A{mr}:F{mr}')
+    cm = ws1[f'A{mr}']
+    cm.value     = '   TOP MOTIVOS DE NO EJECUCIÓN'
+    cm.fill      = fill_seccion
+    cm.font      = font_seccion
+    cm.alignment = left_al
+    ws1.row_dimensions[mr].height = 20
+
+    mhr = mr + 1
+    for ci, h in enumerate(['Motivo', 'Cantidad'], 1):
+        cell = ws1.cell(row=mhr, column=ci, value=h)
+        cell.fill = fill_ambar; cell.font = font_hdr
+        cell.alignment = center; cell.border = brd
+    ws1.row_dimensions[mhr].height = 20
+
+    for ri, m in enumerate(top_motivos, mhr + 1):
+        for ci, v in enumerate([m['motivo'] or 'Sin motivo', m['cantidad']], 1):
+            cell = ws1.cell(row=ri, column=ci, value=v)
+            cell.alignment = left_al if ci == 1 else center
+            cell.border = brd; cell.font = font_body
+            if ri % 2 == 0: cell.fill = fill_gris
+        ws1.row_dimensions[ri].height = 16
+
+    for col_letter, w in [('A',36),('B',16),('C',16),('D',18),('E',14),('F',14)]:
+        ws1.column_dimensions[col_letter].width = w
+
+    # ════════════════════════════════════════
+    # HOJA 2 — Detalle
+    # ════════════════════════════════════════
+    ws2 = wb.create_sheet(title='Detalle')
+
+    det_headers = [
         'Fecha Solicitud', 'Vehículo', 'Familia', 'Categoría', 'Rutina',
         'Desviación', 'Ind. Desviación', 'Estado MP',
         'Solicitado por', 'Fecha Respuesta', 'Acción', 'Motivo', 'Comentario',
     ]
-
-    hdr_fill  = PatternFill('solid', fgColor='002D6E')
-    hdr_font  = Font(bold=True, color='FFFFFF', size=11)
-    hdr_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    thin      = Side(style='thin', color='CCCCCC')
-    brd       = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    ws.row_dimensions[1].height = 32
-    for ci, hdr in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=ci, value=hdr)
-        cell.fill  = hdr_fill
-        cell.font  = hdr_font
-        cell.alignment = hdr_align
-        cell.border = brd
+    ws2.row_dimensions[1].height = 28
+    for ci, h in enumerate(det_headers, 1):
+        cell = ws2.cell(row=1, column=ci, value=h)
+        cell.fill = fill_azul; cell.font = font_hdr
+        cell.alignment = center; cell.border = brd
 
     body_align = Alignment(vertical='center')
     for ri, fila in enumerate(filas, 2):
         values = [
-            fila['fecha_solicitud'],
-            fila['vehiculo'],
-            fila['familia'],
-            fila['categoria'],
-            fila['rutina'],
-            fila['desviacion'],
-            fila['ind_desviacion'],
-            fila['estado_mp'],
-            fila['solicitado_por'],
-            fila['fecha_respuesta'],
-            fila['accion'] or 'pendiente',
-            fila['motivo'],
-            fila['comentario_libre'],
+            fila['fecha_solicitud'], fila['vehiculo'], fila['familia'],
+            fila['categoria'], fila['rutina'], fila['desviacion'],
+            fila['ind_desviacion'], fila['estado_mp'], fila['solicitado_por'],
+            fila['fecha_respuesta'], fila['accion'] or 'pendiente',
+            fila['motivo'], fila['comentario_libre'],
         ]
         for ci, val in enumerate(values, 1):
-            cell = ws.cell(row=ri, column=ci, value=val)
-            cell.border    = brd
-            cell.alignment = body_align
+            cell = ws2.cell(row=ri, column=ci, value=val)
+            cell.border = brd; cell.alignment = body_align; cell.font = font_body
+            if ri % 2 == 0: cell.fill = fill_gris
 
-    for col in ws.columns:
+    ws2.auto_filter.ref = ws2.dimensions
+    ws2.freeze_panes    = 'A2'
+
+    for col in ws2.columns:
         max_len = max(
             (len(str(c.value)) if c.value is not None else 0 for c in col),
             default=10
         )
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
-
-    ws.freeze_panes = 'A2'
+        ws2.column_dimensions[col[0].column_letter].width = min(max_len + 4, 55)
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"reporte_mp_{datetime.now(TZ_COL).strftime('%Y%m%d')}.xlsx"
+    filename = f"reporte_mp_{datetime.now(TZ_COL).strftime('%Y%m%d_%H%M')}.xlsx"
     return send_file(
         buf,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -685,6 +896,7 @@ def cio_dashboard():
                     'motivos_no_ej':      [],
                     '_has_pendiente':     False,
                     '_has_no_ej':         False,
+                    'fecha_programacion': equipo['fecha_programacion'],
                 }
 
             vd = vehicles[v]
@@ -707,6 +919,25 @@ def cio_dashboard():
                         vd['motivos_no_ej'].append(mot)
                     vd['_has_no_ej'] = True
 
+        # Calcular días sin gestionar para vehículos vencidos sin solicitud
+        _today = datetime.now(TZ_COL).date()
+        for _vd in vehicles.values():
+            _vd['dias_sin_gestionar'] = 0
+            if _vd['_has_pendiente'] or _vd['_has_no_ej']:
+                continue
+            if 'vencido' not in (_vd['estado_mp'] or '').lower():
+                continue
+            fp = _vd.get('fecha_programacion')
+            if not fp:
+                continue
+            try:
+                d = datetime.strptime(str(fp)[:10], '%Y-%m-%d').date()
+                diff = (_today - d).days
+                if diff > 0:
+                    _vd['dias_sin_gestionar'] = diff
+            except (ValueError, TypeError):
+                pass
+
         for vd in vehicles.values():
             if vd['_has_pendiente']:
                 vd['sol_state'] = 'pendiente'
@@ -716,7 +947,7 @@ def cio_dashboard():
                 vd['sol_state'] = None
             vd['rutinas_str']      = ', '.join(vd['rutinas'])
             vd['motivo_no_ej_str'] = ' / '.join(vd['motivos_no_ej'])
-            del vd['_has_pendiente'], vd['_has_no_ej']
+            del vd['_has_pendiente'], vd['_has_no_ej'], vd['fecha_programacion']
 
         def _sk(vd):
             try:
@@ -992,6 +1223,17 @@ def equipo_detalle(vehiculo):
 
     equipo_base = rutinas[0] if rutinas else None
 
+    hist_stats = {
+        'total':         len(historial),
+        'ejecutados':    sum(1 for h in historial if h['accion'] == 'ejecutado'),
+        'no_ejecutados': sum(1 for h in historial if h['accion'] == 'no_ejecutado'),
+        'pendientes':    sum(1 for h in historial if h['estado'] == 'pendiente'),
+    }
+    hist_stats['pct_ejecucion'] = (
+        round(hist_stats['ejecutados'] / hist_stats['total'] * 100)
+        if hist_stats['total'] else 0
+    )
+
     return render_template('equipo_detalle.html',
         vehiculo=vehiculo,
         equipo=equipo_base,
@@ -1000,6 +1242,7 @@ def equipo_detalle(vehiculo):
         historial=historial,
         sugerencias=sugerencias,
         from_page=from_page,
+        hist_stats=hist_stats,
     )
 
 
@@ -1387,6 +1630,46 @@ def admin_indicadores():
         historial_sync=historial_sync,
         current_sync_id=sync_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# API — búsqueda vehículos (autocomplete navbar)
+# ---------------------------------------------------------------------------
+
+@app.route('/api/buscar-vehiculo')
+@login_required
+def api_buscar_vehiculo():
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    like = f'%{q.upper()}%'
+    conn = get_db()
+
+    from_equipos = conn.execute(
+        """SELECT DISTINCT vehiculo FROM equipos
+           WHERE UPPER(vehiculo) LIKE ?
+           ORDER BY vehiculo LIMIT 15""",
+        (like,)
+    ).fetchall()
+
+    from_filtros = conn.execute(
+        """SELECT DISTINCT equipo AS vehiculo FROM filtros_equipo
+           WHERE UPPER(equipo) LIKE ?
+           ORDER BY equipo LIMIT 15""",
+        (like,)
+    ).fetchall()
+
+    conn.close()
+
+    seen, results = set(), []
+    for r in list(from_equipos) + list(from_filtros):
+        v = r['vehiculo']
+        if v and v not in seen:
+            seen.add(v)
+            results.append(v)
+
+    return jsonify(sorted(results)[:12])
 
 
 # ---------------------------------------------------------------------------

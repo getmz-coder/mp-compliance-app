@@ -271,6 +271,86 @@
   }
   .sug-respuesta strong { font-weight: 700; color: #14532d; }
 
+  /* ── Stats del historial ── */
+  .hist-stats-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .hist-stat-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 18px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(0,45,110,0.08);
+    border-left: 3px solid transparent;
+    min-width: 90px;
+  }
+  .hist-stat-chip.chip-total { border-color: var(--azul); }
+  .hist-stat-chip.chip-ej    { border-color: var(--verde); }
+  .hist-stat-chip.chip-no-ej { border-color: var(--rojo); }
+  .hist-stat-chip.chip-pct   { border-color: var(--cielo); }
+  .hist-stat-val {
+    font-size: 22px; font-weight: 700; line-height: 1; color: var(--azul);
+  }
+  .hist-stat-chip.chip-ej    .hist-stat-val { color: var(--verde); }
+  .hist-stat-chip.chip-no-ej .hist-stat-val { color: var(--rojo); }
+  .hist-stat-chip.chip-pct   .hist-stat-val { color: var(--cielo); }
+  .hist-stat-lbl {
+    font-size: 10.5px; font-weight: 700; color: var(--gris);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px;
+  }
+
+  /* ── Timeline ── */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 9px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: var(--borde);
+  }
+  .tl-item { position: relative; margin-bottom: 16px; }
+  .tl-item:last-child { margin-bottom: 0; }
+  .tl-dot {
+    position: absolute;
+    left: -23px; top: 9px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px currentColor;
+  }
+  .tl-dot-sol  { color: var(--cielo); background: var(--cielo); }
+  .tl-dot-ej   { color: var(--verde); background: var(--verde); }
+  .tl-dot-no   { color: var(--rojo);  background: var(--rojo);  }
+  .tl-dot-pend { color: var(--ambar); background: var(--ambar); }
+
+  .tl-card {
+    background: #fff;
+    border-radius: 9px;
+    border: 1px solid var(--borde);
+    border-left: 3px solid var(--borde);
+    padding: 10px 14px;
+  }
+  .tl-card-ej   { border-left-color: var(--verde); }
+  .tl-card-no   { border-left-color: var(--rojo);  }
+  .tl-card-pend { border-left-color: var(--ambar); }
+  .tl-card-sol  { border-left-color: var(--cielo); }
+
+  .tl-fecha  { font-size: 11px; color: var(--gris); margin-bottom: 3px; }
+  .tl-accion { font-size: 13px; font-weight: 700; }
+  .tl-accion-ej   { color: var(--verde); }
+  .tl-accion-no   { color: var(--rojo);  }
+  .tl-accion-pend { color: var(--ambar); }
+  .tl-accion-sol  { color: var(--cielo); }
+  .tl-meta { font-size: 12px; color: var(--gris); margin-top: 3px; line-height: 1.4; }
+
   @media (max-width: 768px) {
     .det-page { padding: 14px 12px 40px; }
     .ficha-card { padding: 18px 14px; }
@@ -514,73 +594,91 @@
   </div>
   {% endif %}
 
-  <!-- ── Historial de solicitudes ── -->
+  <!-- ── Historial del Vehículo (timeline) ── -->
   <div class="section">
     <div class="section-title">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Historial de Solicitudes
+      Historial del Vehículo
     </div>
-    <div class="card-table">
-      {% if historial %}
-      <div class="card-table-scroll">
-        <table class="inner-table">
-          <thead>
-            <tr>
-              <th>Fecha Solicitud</th>
-              <th>Solicitado por</th>
-              <th>Estado Solicitud</th>
-              <th>Resultado</th>
-              <th>Motivo / Comentario</th>
-              <th>Fecha Respuesta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for h in historial %}
-            <tr>
-              <td style="color:var(--gris);font-size:13px;white-space:nowrap;">
-                {{ h.fecha_solicitud[:16].replace('T', ' ') if h.fecha_solicitud else '—' }}
-              </td>
-              <td>{{ h.solicitado_por or '—' }}</td>
-              <td>
-                {% if h.estado == 'respondido' %}
-                  <span style="color:var(--verde);font-weight:600;font-size:12.5px;">Respondido</span>
-                {% else %}
-                  <span style="color:var(--ambar);font-weight:600;font-size:12.5px;">Pendiente</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if h.accion == 'ejecutado' %}
-                  <span class="accion-entregado">Ejecutado</span>
-                {% elif h.accion == 'no_ejecutado' %}
-                  <span class="accion-no-entregado">No ejecutado</span>
-                {% else %}
-                  <span style="color:var(--gris);font-size:12.5px;">—</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if h.motivo %}
-                  {{ h.motivo }}
-                  {% if h.comentario_libre %}
-                    <br><span style="color:var(--gris);font-size:12px;">{{ h.comentario_libre }}</span>
-                  {% endif %}
-                {% elif h.comentario_libre %}
-                  {{ h.comentario_libre }}
-                {% else %}—{% endif %}
-              </td>
-              <td style="color:var(--gris);font-size:13px;white-space:nowrap;">
-                {{ h.resp_timestamp[:16].replace('T', ' ') if h.resp_timestamp else '—' }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+
+    {% if historial %}
+    <!-- Chips de estadísticas -->
+    <div class="hist-stats-row">
+      <div class="hist-stat-chip chip-total">
+        <div class="hist-stat-val">{{ hist_stats.total }}</div>
+        <div class="hist-stat-lbl">Total sol.</div>
       </div>
-      {% else %}
+      <div class="hist-stat-chip chip-ej">
+        <div class="hist-stat-val">{{ hist_stats.ejecutados }}</div>
+        <div class="hist-stat-lbl">Ejecutados</div>
+      </div>
+      <div class="hist-stat-chip chip-no-ej">
+        <div class="hist-stat-val">{{ hist_stats.no_ejecutados }}</div>
+        <div class="hist-stat-lbl">No ejec.</div>
+      </div>
+      <div class="hist-stat-chip chip-pct">
+        <div class="hist-stat-val">{{ hist_stats.pct_ejecucion }}%</div>
+        <div class="hist-stat-lbl">% Ejecución</div>
+      </div>
+    </div>
+
+    <!-- Línea de tiempo -->
+    <div class="card-table" style="padding:20px 24px 16px;">
+      <div class="timeline">
+        {% for h in historial %}
+          {% if h.accion == 'ejecutado' %}
+            {% set dot_cls  = 'tl-dot-ej'   %}
+            {% set card_cls = 'tl-card-ej'  %}
+            {% set acl      = 'tl-accion-ej' %}
+            {% set lbl      = '✓ Ejecutado'  %}
+          {% elif h.accion == 'no_ejecutado' %}
+            {% set dot_cls  = 'tl-dot-no'   %}
+            {% set card_cls = 'tl-card-no'  %}
+            {% set acl      = 'tl-accion-no' %}
+            {% set lbl      = '✗ No Ejecutado' %}
+          {% elif h.estado == 'pendiente' %}
+            {% set dot_cls  = 'tl-dot-pend'   %}
+            {% set card_cls = 'tl-card-pend'  %}
+            {% set acl      = 'tl-accion-pend' %}
+            {% set lbl      = '⏳ Pendiente respuesta' %}
+          {% else %}
+            {% set dot_cls  = 'tl-dot-sol'   %}
+            {% set card_cls = 'tl-card-sol'  %}
+            {% set acl      = 'tl-accion-sol' %}
+            {% set lbl      = '→ Solicitado' %}
+          {% endif %}
+          <div class="tl-item">
+            <div class="tl-dot {{ dot_cls }}"></div>
+            <div class="tl-card {{ card_cls }}">
+              <div class="tl-fecha">
+                Solicitud: {{ h.fecha_solicitud[:16].replace('T',' ') if h.fecha_solicitud else '—' }}
+                {% if h.resp_timestamp %}
+                  &nbsp;·&nbsp; Respuesta: {{ h.resp_timestamp[:16].replace('T',' ') }}
+                {% endif %}
+              </div>
+              <div class="tl-accion {{ acl }}">{{ lbl }}</div>
+              <div class="tl-meta">
+                Solicitado por: {{ h.solicitado_por or '—' }}
+                {% if h.motivo %}
+                  &nbsp;·&nbsp; {{ h.motivo }}
+                {% endif %}
+                {% if h.comentario_libre %}
+                  &nbsp;·&nbsp; <em>{{ h.comentario_libre }}</em>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% else %}
+    <div class="card-table">
       <div class="empty-inline">
         Sin historial de solicitudes para este vehículo.
       </div>
-      {% endif %}
     </div>
+    {% endif %}
   </div>
 
 </div>
