@@ -242,6 +242,8 @@
       {% elif current_user.rol == 'tecnico' %}
         <a href="{{ url_for('taller') }}"
            {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>
+        <a href="{{ url_for('taller_flota') }}"
+           {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
       {% endif %}
     </div>
 

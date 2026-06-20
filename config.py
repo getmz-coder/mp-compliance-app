@@ -1,10 +1,12 @@
 import os
 
+_BASE = os.path.dirname(os.path.abspath(__file__))
+
 SECRET_KEY = os.urandom(24)
 
-DATABASE_PATH = 'data/app.db'
-UPLOAD_FOLDER = 'data/'
-EXPORT_FOLDER = 'exports/'
+DATABASE_PATH = os.path.join(_BASE, 'data', 'app.db')
+UPLOAD_FOLDER = os.path.join(_BASE, 'data')
+EXPORT_FOLDER = os.path.join(_BASE, 'exports')
 
 ESTACIONES_BOG = ['BOG']
 

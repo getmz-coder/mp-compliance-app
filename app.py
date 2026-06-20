@@ -970,13 +970,15 @@ def equipo_detalle(vehiculo):
 
     conn.close()
 
-    if not rutinas:
-        flash(f'No se encontraron datos para el vehículo {vehiculo} en el ciclo actual.', 'warning')
+    if not rutinas and not filtros:
+        flash(f'No se encontraron datos para el vehículo {vehiculo}.', 'warning')
         return redirect(url_for('dashboard_redirect'))
+
+    equipo_base = rutinas[0] if rutinas else None
 
     return render_template('equipo_detalle.html',
         vehiculo=vehiculo,
-        equipo=rutinas[0],
+        equipo=equipo_base,
         rutinas=rutinas,
         filtros=filtros,
         historial=historial,
@@ -1022,6 +1024,20 @@ def taller():
         categorias=categorias,
         current_sync_id=sync_id,
     )
+
+
+@app.route('/taller/flota')
+@tecnico_required
+def taller_flota():
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT equipo, MIN(tipo) AS tipo, COUNT(*) AS num_filtros
+           FROM filtros_equipo
+           GROUP BY equipo
+           ORDER BY equipo"""
+    ).fetchall()
+    conn.close()
+    return render_template('tecnico/flota.html', vehiculos=[dict(r) for r in rows])
 
 
 # ---------------------------------------------------------------------------
