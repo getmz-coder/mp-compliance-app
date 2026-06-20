@@ -201,6 +201,7 @@ if __name__ == '__main__':
     seed_motivos()
     print("  Catálogo de motivos cargado.")
 
+    # IMPORTANTE: cambia estas contraseñas desde el panel de Usuarios antes de ir a producción.
     uid = create_user('admin', 'admin123', 'Administrador Planeación', 'admin')
     print(f"  Usuario admin {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 

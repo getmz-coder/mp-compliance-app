@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Ingresar — Seguimiento MP GET</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -203,6 +204,7 @@
     {% endif %}
 
     <form method="POST" action="{{ url_for('login') }}" autocomplete="off">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
       <div class="field">
         <label for="username">Usuario</label>

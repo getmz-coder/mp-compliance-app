@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Seguimiento MP — GET{% endblock %}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -421,6 +422,11 @@
   </footer>
 
   <script>
+  /* Helper global para CSRF en fetch() */
+  function getCsrfToken() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    return m ? m.getAttribute('content') : '';
+  }
   (function(){
     /* ── Hamburger ── */
     var btn = document.getElementById('hamburger-btn');

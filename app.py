@@ -1,10 +1,15 @@
 import os
 import math
+import time
 from functools import wraps
 from datetime import datetime
+from secrets import token_hex
 from zoneinfo import ZoneInfo
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import (
+    Flask, render_template, request, redirect, url_for,
+    flash, jsonify, send_file, session, abort
+)
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     login_required, current_user
@@ -21,6 +26,10 @@ TZ_COL = ZoneInfo('America/Bogota')
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if os.environ.get('FLASK_ENV') == 'production':
+    app.config['SESSION_COOKIE_SECURE'] = True
 
 init_db()
 
@@ -50,6 +59,78 @@ def load_user(user_id):
     ).fetchone()
     conn.close()
     return User(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# CSRF protection
+# ---------------------------------------------------------------------------
+
+@app.before_request
+def _set_csrf_token():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = token_hex(32)
+
+
+@app.before_request
+def _check_csrf():
+    if request.method in ('GET', 'HEAD', 'OPTIONS'):
+        return
+    expected = session.get('_csrf_token')
+    if not expected:
+        abort(403)
+    submitted = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
+    if not submitted or submitted != expected:
+        abort(403)
+
+
+@app.context_processor
+def inject_csrf():
+    return {'csrf_token': lambda: session.get('_csrf_token', '')}
+
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting — login brute force
+# ---------------------------------------------------------------------------
+
+_login_failures: dict = {}  # ip -> {'count': int, 'blocked_until': float}
+_MAX_LOGIN_ATTEMPTS = 5
+_LOGIN_BLOCK_SECS = 300  # 5 minutes
+
+
+def _is_rate_limited(ip: str) -> bool:
+    entry = _login_failures.get(ip)
+    if not entry:
+        return False
+    if entry.get('blocked_until', 0) > time.time():
+        return True
+    _login_failures.pop(ip, None)
+    return False
+
+
+def _record_login_failure(ip: str) -> None:
+    entry = _login_failures.get(ip, {'count': 0, 'blocked_until': 0.0})
+    entry['count'] += 1
+    if entry['count'] >= _MAX_LOGIN_ATTEMPTS:
+        entry['blocked_until'] = time.time() + _LOGIN_BLOCK_SECS
+        entry['count'] = 0
+    _login_failures[ip] = entry
+
+
+def _clear_login_failures(ip: str) -> None:
+    _login_failures.pop(ip, None)
 
 
 def admin_required(f):
@@ -140,6 +221,11 @@ def login():
 
     error = None
     if request.method == 'POST':
+        ip = request.remote_addr
+        if _is_rate_limited(ip):
+            error = 'Demasiados intentos fallidos. Espera 5 minutos antes de intentar de nuevo.'
+            return render_template('login.html', error=error)
+
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         remember = request.form.get('remember') == 'on'
@@ -152,10 +238,12 @@ def login():
         if row and check_password_hash(row['password_hash'], password):
             user = User(row)
             login_user(user, remember=remember)
+            _clear_login_failures(ip)
             conn.close()
             return redirect(url_for('dashboard_redirect'))
 
         conn.close()
+        _record_login_failure(ip)
         error = 'Usuario o contraseña incorrectos.'
 
     return render_template('login.html', error=error)
@@ -1911,4 +1999,5 @@ def admin_no_reportadas_justificar(nr_id):
 if __name__ == '__main__':
     os.makedirs('data', exist_ok=True)
     os.makedirs('exports', exist_ok=True)
-    app.run(debug=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(debug=debug_mode)

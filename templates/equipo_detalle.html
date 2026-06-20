@@ -538,6 +538,7 @@
     </div>
     <div class="sug-form-card">
       <form method="POST" action="{{ url_for('equipo_sugerencia', vehiculo=vehiculo) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <div class="sug-form-row">
           <label for="filtro_id">Filtro al que se refiere</label>
           <select name="filtro_id" id="filtro_id">

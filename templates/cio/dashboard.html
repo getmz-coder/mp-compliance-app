@@ -730,6 +730,7 @@
 
   <!-- Tabla -->
   <form id="solicitar-form" method="POST" action="{{ url_for('cio_solicitar') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="table-card">
       <div class="table-scroll">
         <table class="data-table" id="equipos-table">
@@ -1167,7 +1168,7 @@
 
     fetch('/cio/responder', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
       body: JSON.stringify(payload)
     })
     .then(function (r) { return r.json(); })

@@ -191,6 +191,7 @@
   <p class="page-sub">Carga los archivos Excel para actualizar la programación MP y el catálogo de filtración en la base de datos.</p>
 
   <form method="POST" action="{{ url_for('admin_sync') }}" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="card">
 
       <!-- Programación MP -->

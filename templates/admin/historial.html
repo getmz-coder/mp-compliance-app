@@ -683,7 +683,7 @@
 
     fetch('/admin/solicitud/' + _pendingSid + '/eliminar', {
       method: 'DELETE',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': getCsrfToken() }
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -752,7 +752,7 @@
 
     fetch('/admin/no-reportadas/' + _activeNrId + '/justificar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
       body: JSON.stringify({ estado: estadoVal, justificacion: justVal || null })
     })
     .then(function (r) { return r.json(); })
