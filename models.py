@@ -125,6 +125,22 @@ def init_db():
             registrado_por          INTEGER REFERENCES usuarios(id),
             timestamp               DATETIME
         );
+
+        CREATE TABLE IF NOT EXISTS historial_cambios_filtros (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehiculo                VARCHAR(30),
+            tipo_cambio             VARCHAR(20),
+            filtro_anterior_tipo    VARCHAR(50),
+            filtro_anterior_nombre  VARCHAR(200),
+            filtro_anterior_sap     VARCHAR(30),
+            filtro_nuevo_tipo       VARCHAR(50),
+            filtro_nuevo_nombre     VARCHAR(200),
+            filtro_nuevo_sap        VARCHAR(30),
+            sugerencia_id           INTEGER REFERENCES sugerencias_filtros(id),
+            solicitado_por          INTEGER REFERENCES usuarios(id),
+            autorizado_por          INTEGER REFERENCES usuarios(id),
+            timestamp               DATETIME
+        );
     """)
 
     _migrate_equipos(conn)

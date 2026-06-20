@@ -183,6 +183,256 @@
   .ftype-fleet { color: var(--cielo); font-weight: 600; font-size: 12px; }
   .ftype-homol { color: var(--gris);  font-size: 12px; }
 
+  /* ── Gestión filtros ── */
+  .btn-agregar-filtro {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-agregar-filtro:hover { background: #6a9432; }
+  .btn-descarga-filtros {
+    background: #eff6ff;
+    color: var(--cielo);
+    border: 1px solid #93c5fd;
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.15s;
+  }
+  .btn-descarga-filtros:hover { background: #dbeafe; }
+  .inline-add-form {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .inline-add-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr auto;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .inline-add-form label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .inline-add-form input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .inline-add-form input:focus { border-color: var(--verde); }
+  .btn-f-edit {
+    background: #eff6ff;
+    color: var(--cielo);
+    border: 1px solid #93c5fd;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-f-edit:hover { background: #dbeafe; }
+  .btn-f-del {
+    background: #fff2f2;
+    color: var(--rojo);
+    border: 1px solid #fca5a5;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-f-del:hover { background: #fee2e2; }
+  .edit-filtro-inner {
+    padding: 12px 16px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    margin: 4px 0;
+  }
+  .edit-filtro-inner .form-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr auto;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .edit-filtro-inner label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .edit-filtro-inner input {
+    width: 100%;
+    padding: 6px 9px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .edit-filtro-inner input:focus { border-color: var(--ambar); }
+  .btn-f-save {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-f-save:hover { background: #6a9432; }
+  .btn-f-cancel {
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid var(--borde);
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-f-cancel:hover { background: #e5e7eb; }
+
+  /* ── Historial cambios filtración ── */
+  .cambio-filtro-item {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 9px;
+    border-left: 3px solid var(--cielo);
+    padding: 11px 16px;
+    margin-bottom: 10px;
+  }
+  .cambio-filtro-item.tc-agregar  { border-left-color: var(--verde); }
+  .cambio-filtro-item.tc-eliminar { border-left-color: var(--rojo);  }
+  .cambio-filtro-item.tc-reemplazar { border-left-color: var(--ambar); }
+  .cambio-fecha { font-size: 11.5px; color: var(--gris); margin-bottom: 4px; }
+  .cambio-tipo  { font-size: 13px; font-weight: 700; }
+  .cambio-tipo-agregar    { color: var(--verde); }
+  .cambio-tipo-eliminar   { color: var(--rojo); }
+  .cambio-tipo-reemplazar { color: var(--ambar); }
+  .cambio-detalle { font-size: 12.5px; color: var(--gris); margin-top: 5px; line-height: 1.5; }
+  .cambio-detalle strong { color: var(--texto); }
+  .cambio-actores { font-size: 11.5px; color: var(--gris); margin-top: 6px; }
+
+  /* ── Toast / Modal ── */
+  .det-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--azul);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+  .det-toast.visible { opacity: 1; transform: translateY(0); }
+  .det-toast.error { background: var(--rojo); }
+  .det-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.46);
+    z-index: 900;
+    align-items: center;
+    justify-content: center;
+  }
+  .det-modal-overlay.open { display: flex; }
+  .det-modal-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 24px 28px;
+    max-width: 380px;
+    width: calc(100% - 40px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .det-modal-box h3 { font-size: 16px; font-weight: 700; color: var(--azul); margin-bottom: 9px; }
+  .det-modal-box p  { font-size: 13.5px; color: var(--gris); line-height: 1.5; margin-bottom: 20px; }
+  .det-modal-actions { display: flex; gap: 9px; justify-content: flex-end; }
+  .det-btn-confirm {
+    background: var(--rojo);
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .det-btn-confirm:hover { background: #b91c1c; }
+  .det-btn-modal-cancel {
+    background: #f3f4f6;
+    color: var(--texto);
+    border: 1px solid var(--borde);
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .det-btn-modal-cancel:hover { background: #e5e7eb; }
+
+  @media (max-width: 640px) {
+    .inline-add-form .form-row,
+    .edit-filtro-inner .form-row { grid-template-columns: 1fr; }
+  }
+
   /* ── Sugerencias form ── */
   .sug-form-card {
     background: #fff;
@@ -490,45 +740,165 @@
 
   <!-- ── Maestro Filtración ── -->
   <div class="section">
-    <div class="section-title">
-      <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-      Filtros del Equipo
+    <div class="section-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros del Equipo
+      </span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <a href="{{ url_for('exportar_ficha_equipo', vehiculo=vehiculo) }}" class="btn-descarga-filtros">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar ficha
+        </a>
+        {% if current_user.rol in ('admin', 'superadmin') %}
+        <button class="btn-agregar-filtro" onclick="toggleAddFiltro()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Agregar filtro
+        </button>
+        {% endif %}
+      </span>
     </div>
-    <div class="card-table">
+
+    {% if current_user.rol in ('admin', 'superadmin') %}
+    <div id="add-filtro-form" class="inline-add-form" style="display:none;">
+      <div style="font-size:12px;font-weight:700;color:#14532d;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">Nuevo filtro para {{ vehiculo }}</div>
+      <div class="form-row">
+        <div>
+          <label>Tipo Filtro</label>
+          <input type="text" id="nf-tipo" placeholder="Ej: Fleetguard">
+        </div>
+        <div>
+          <label>Nombre Artículo <span style="color:var(--rojo)">*</span></label>
+          <input type="text" id="nf-nombre" placeholder="Nombre del artículo">
+        </div>
+        <div>
+          <label>Código SAP</label>
+          <input type="text" id="nf-sap" placeholder="Ej: 10045678">
+        </div>
+        <div style="display:flex;gap:6px;padding-bottom:1px;">
+          <button class="btn-f-save" onclick="agregarFiltro()">Agregar</button>
+          <button class="btn-f-cancel" onclick="toggleAddFiltro()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card-table" id="filtros-table-wrap">
       {% if filtros %}
       <div class="card-table-scroll">
-        <table class="inner-table">
+        <table class="inner-table" id="filtros-table">
           <thead>
             <tr>
               <th>Tipo Filtro</th>
               <th>Nombre Artículo</th>
               <th>Código SAP</th>
+              {% if current_user.rol in ('admin', 'superadmin') %}
+              <th style="width:90px;"></th>
+              {% endif %}
             </tr>
           </thead>
-          <tbody>
+          <tbody id="filtros-tbody">
             {% for f in filtros %}
-            <tr>
-              <td>
+            <tr id="frow-{{ f.id }}">
+              <td id="fcell-tipo-{{ f.id }}">
                 {% if f.tipo_filtro and 'fleet' in f.tipo_filtro|lower %}
                   <span class="ftype-fleet">{{ f.tipo_filtro }}</span>
                 {% elif f.tipo_filtro %}
                   <span class="ftype-homol">{{ f.tipo_filtro }}</span>
                 {% else %}—{% endif %}
               </td>
-              <td>{{ f.nombre_articulo or '—' }}</td>
-              <td style="font-family:monospace;font-size:12.5px;color:var(--gris);">{{ f.codigo_sap or '—' }}</td>
+              <td id="fcell-nombre-{{ f.id }}">{{ f.nombre_articulo or '—' }}</td>
+              <td id="fcell-sap-{{ f.id }}" style="font-family:monospace;font-size:12.5px;color:var(--gris);">{{ f.codigo_sap or '—' }}</td>
+              {% if current_user.rol in ('admin', 'superadmin') %}
+              <td>
+                <div style="display:flex;gap:5px;">
+                  <button class="btn-f-edit" onclick="toggleEditFiltro({{ f.id }})">Editar</button>
+                  <button class="btn-f-del" onclick="confirmarEliminarFiltro({{ f.id }}, '{{ f.nombre_articulo|replace("'","\\'")|default("este filtro") }}')">Eliminar</button>
+                </div>
+              </td>
+              {% endif %}
             </tr>
+            {% if current_user.rol in ('admin', 'superadmin') %}
+            <tr id="erow-{{ f.id }}" style="display:none;">
+              <td colspan="4" style="padding:6px 10px;">
+                <div class="edit-filtro-inner">
+                  <div class="form-row">
+                    <div>
+                      <label>Tipo Filtro</label>
+                      <input type="text" id="ef-tipo-{{ f.id }}" value="{{ f.tipo_filtro or '' }}" placeholder="Tipo filtro">
+                    </div>
+                    <div>
+                      <label>Nombre Artículo <span style="color:var(--rojo)">*</span></label>
+                      <input type="text" id="ef-nombre-{{ f.id }}" value="{{ f.nombre_articulo or '' }}" placeholder="Nombre">
+                    </div>
+                    <div>
+                      <label>Código SAP</label>
+                      <input type="text" id="ef-sap-{{ f.id }}" value="{{ f.codigo_sap or '' }}" placeholder="SAP">
+                    </div>
+                    <div style="display:flex;gap:6px;padding-bottom:1px;">
+                      <button class="btn-f-save" onclick="guardarFiltro({{ f.id }})">Guardar</button>
+                      <button class="btn-f-cancel" onclick="toggleEditFiltro({{ f.id }})">Cancelar</button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
             {% endfor %}
           </tbody>
         </table>
       </div>
       {% else %}
-      <div class="empty-inline">
+      <div class="empty-inline" id="filtros-empty">
         Sin filtros registrados para este equipo.
       </div>
       {% endif %}
     </div>
   </div>
+
+  <!-- ── Historial de cambios en filtración ── -->
+  {% if cambios_filtros %}
+  <div class="section">
+    <div class="section-title">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Historial de cambios en filtración
+    </div>
+    <div>
+      {% for c in cambios_filtros %}
+      {% set tc = c.tipo_cambio|default('reemplazar') %}
+      <div class="cambio-filtro-item tc-{{ tc }}">
+        <div class="cambio-fecha">{{ c.timestamp[:16].replace('T',' ') if c.timestamp else '—' }}</div>
+        <div class="cambio-tipo cambio-tipo-{{ tc }}">
+          {% if tc == 'agregar' %}+ Filtro agregado
+          {% elif tc == 'eliminar' %}— Filtro eliminado
+          {% else %}↔ Filtro reemplazado{% endif %}
+        </div>
+        <div class="cambio-detalle">
+          {% if tc == 'agregar' %}
+            Nuevo: <strong>{{ c.filtro_nuevo_nombre or '—' }}</strong>
+            {% if c.filtro_nuevo_tipo %} · {{ c.filtro_nuevo_tipo }}{% endif %}
+            {% if c.filtro_nuevo_sap %} · <span style="font-family:monospace;font-size:11.5px;">{{ c.filtro_nuevo_sap }}</span>{% endif %}
+          {% elif tc == 'eliminar' %}
+            Eliminado: <strong>{{ c.filtro_anterior_nombre or '—' }}</strong>
+            {% if c.filtro_anterior_tipo %} · {{ c.filtro_anterior_tipo }}{% endif %}
+            {% if c.filtro_anterior_sap %} · <span style="font-family:monospace;font-size:11.5px;">{{ c.filtro_anterior_sap }}</span>{% endif %}
+          {% else %}
+            <span style="color:var(--rojo);">Antes: {{ c.filtro_anterior_nombre or '—' }}{% if c.filtro_anterior_sap %} · {{ c.filtro_anterior_sap }}{% endif %}</span><br>
+            <span style="color:var(--verde);">Después: {{ c.filtro_nuevo_nombre or '—' }}{% if c.filtro_nuevo_sap %} · {{ c.filtro_nuevo_sap }}{% endif %}</span>
+          {% endif %}
+        </div>
+        <div class="cambio-actores">
+          {% if c.solicitado_nombre %}
+            Solicitado por: <strong>{{ c.solicitado_nombre }}</strong> — Autorizado por: <strong>{{ c.autorizado_nombre }}</strong>
+          {% else %}
+            Cambio directo por: <strong>{{ c.autorizado_nombre }}</strong>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ── Sugerir cambio en filtración ── -->
   <div class="section">
@@ -683,4 +1053,199 @@
   </div>
 
 </div>
+
+<!-- ── Toast ── -->
+<div class="det-toast" id="det-toast"></div>
+
+<!-- ── Modal confirmar eliminación de filtro ── -->
+<div class="det-modal-overlay" id="modal-del-filtro">
+  <div class="det-modal-box">
+    <h3>Eliminar filtro</h3>
+    <p id="modal-del-filtro-txt">¿Confirmas eliminar este filtro?</p>
+    <div class="det-modal-actions">
+      <button class="det-btn-modal-cancel" onclick="cerrarModalFiltro()">Cancelar</button>
+      <button class="det-btn-confirm" id="btn-confirm-del-filtro">Eliminar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var vehiculo = {{ vehiculo|tojson }};
+  var toastTimer = null;
+
+  function showToast(msg, isError) {
+    var t = document.getElementById('det-toast');
+    t.textContent = msg;
+    t.className = 'det-toast' + (isError ? ' error' : '');
+    requestAnimationFrame(function () { t.classList.add('visible'); });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('visible'); }, 3500);
+  }
+
+  window.toggleAddFiltro = function () {
+    var f = document.getElementById('add-filtro-form');
+    if (!f) return;
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    if (f.style.display === 'block') {
+      var inp = document.getElementById('nf-nombre');
+      if (inp) inp.focus();
+    }
+  };
+
+  window.agregarFiltro = function () {
+    var nombre = (document.getElementById('nf-nombre') || {}).value || '';
+    if (!nombre.trim()) { showToast('El nombre del artículo es obligatorio.', true); return; }
+    var tipo = ((document.getElementById('nf-tipo') || {}).value || '').trim();
+    var sap  = ((document.getElementById('nf-sap') || {}).value || '').trim();
+
+    fetch('/equipo/' + encodeURIComponent(vehiculo) + '/filtro/agregar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+      body: JSON.stringify({ nombre: nombre.trim(), tipo_filtro: tipo, codigo_sap: sap }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.success) {
+        // Add row to table
+        var tbody = document.getElementById('filtros-tbody');
+        if (tbody) {
+          var isAdmin = true; // admin only sees this script
+          var tipoHtml = d.tipo_filtro
+            ? ('<span class="' + (d.tipo_filtro.toLowerCase().includes('fleet') ? 'ftype-fleet' : 'ftype-homol') + '">' + escHtml(d.tipo_filtro) + '</span>')
+            : '—';
+          var tr = document.createElement('tr');
+          tr.id = 'frow-' + d.id;
+          tr.innerHTML =
+            '<td id="fcell-tipo-' + d.id + '">' + tipoHtml + '</td>' +
+            '<td id="fcell-nombre-' + d.id + '">' + escHtml(d.nombre) + '</td>' +
+            '<td id="fcell-sap-' + d.id + '" style="font-family:monospace;font-size:12.5px;color:var(--gris);">' + escHtml(d.codigo_sap || '—') + '</td>' +
+            '<td><div style="display:flex;gap:5px;">' +
+              '<button class="btn-f-edit" onclick="toggleEditFiltro(' + d.id + ')">Editar</button>' +
+              '<button class="btn-f-del" onclick="confirmarEliminarFiltro(' + d.id + ', \'' + escJs(d.nombre) + '\')">Eliminar</button>' +
+            '</div></td>';
+          tbody.appendChild(tr);
+
+          // Add edit row
+          var ter = document.createElement('tr');
+          ter.id = 'erow-' + d.id;
+          ter.style.display = 'none';
+          ter.innerHTML =
+            '<td colspan="4" style="padding:6px 10px;">' +
+            '<div class="edit-filtro-inner"><div class="form-row">' +
+              '<div><label>Tipo Filtro</label><input type="text" id="ef-tipo-' + d.id + '" value="' + escHtml(d.tipo_filtro || '') + '" placeholder="Tipo filtro"></div>' +
+              '<div><label>Nombre Artículo *</label><input type="text" id="ef-nombre-' + d.id + '" value="' + escHtml(d.nombre) + '" placeholder="Nombre"></div>' +
+              '<div><label>Código SAP</label><input type="text" id="ef-sap-' + d.id + '" value="' + escHtml(d.codigo_sap || '') + '" placeholder="SAP"></div>' +
+              '<div style="display:flex;gap:6px;padding-bottom:1px;"><button class="btn-f-save" onclick="guardarFiltro(' + d.id + ')">Guardar</button><button class="btn-f-cancel" onclick="toggleEditFiltro(' + d.id + ')">Cancelar</button></div>' +
+            '</div></div></td>';
+          tbody.appendChild(ter);
+
+          // Hide empty state if present
+          var empty = document.getElementById('filtros-empty');
+          if (empty) empty.style.display = 'none';
+        }
+        // Reset form
+        document.getElementById('nf-nombre').value = '';
+        document.getElementById('nf-tipo').value   = '';
+        document.getElementById('nf-sap').value    = '';
+        document.getElementById('add-filtro-form').style.display = 'none';
+        showToast('Filtro agregado correctamente.', false);
+      } else {
+        showToast(d.error || 'Error al agregar el filtro.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  };
+
+  window.toggleEditFiltro = function (id) {
+    var erow = document.getElementById('erow-' + id);
+    if (!erow) return;
+    erow.style.display = erow.style.display === 'none' ? 'table-row' : 'none';
+  };
+
+  window.guardarFiltro = function (id) {
+    var nombre = ((document.getElementById('ef-nombre-' + id) || {}).value || '').trim();
+    if (!nombre) { showToast('El nombre del artículo es obligatorio.', true); return; }
+    var tipo = ((document.getElementById('ef-tipo-' + id) || {}).value || '').trim();
+    var sap  = ((document.getElementById('ef-sap-' + id) || {}).value || '').trim();
+
+    fetch('/equipo/' + encodeURIComponent(vehiculo) + '/filtro/' + id + '/editar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+      body: JSON.stringify({ nombre: nombre, tipo_filtro: tipo, codigo_sap: sap }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.success) {
+        // Update cells
+        var tipoCell = document.getElementById('fcell-tipo-' + id);
+        if (tipoCell) {
+          tipoCell.innerHTML = tipo
+            ? ('<span class="' + (tipo.toLowerCase().includes('fleet') ? 'ftype-fleet' : 'ftype-homol') + '">' + escHtml(tipo) + '</span>')
+            : '—';
+        }
+        var nombreCell = document.getElementById('fcell-nombre-' + id);
+        if (nombreCell) nombreCell.textContent = nombre;
+        var sapCell = document.getElementById('fcell-sap-' + id);
+        if (sapCell) sapCell.textContent = sap || '—';
+        document.getElementById('erow-' + id).style.display = 'none';
+        showToast('Filtro actualizado.', false);
+      } else {
+        showToast(d.error || 'Error al actualizar.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  };
+
+  var pendingFiltroId = null;
+
+  window.confirmarEliminarFiltro = function (id, nombre) {
+    pendingFiltroId = id;
+    document.getElementById('modal-del-filtro-txt').textContent =
+      '¿Confirmas eliminar el filtro "' + nombre + '"? Esta acción no se puede deshacer.';
+    document.getElementById('modal-del-filtro').classList.add('open');
+  };
+
+  window.cerrarModalFiltro = function () {
+    pendingFiltroId = null;
+    document.getElementById('modal-del-filtro').classList.remove('open');
+  };
+
+  document.getElementById('btn-confirm-del-filtro').addEventListener('click', function () {
+    if (!pendingFiltroId) return;
+    var id = pendingFiltroId;
+    cerrarModalFiltro();
+    fetch('/equipo/' + encodeURIComponent(vehiculo) + '/filtro/' + id + '/eliminar', {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': getCsrfToken() },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.success) {
+        var frow = document.getElementById('frow-' + id);
+        var erow = document.getElementById('erow-' + id);
+        if (frow) frow.remove();
+        if (erow) erow.remove();
+        showToast('Filtro eliminado.', false);
+      } else {
+        showToast(d.error || 'Error al eliminar.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  });
+
+  document.getElementById('modal-del-filtro').addEventListener('click', function (e) {
+    if (e.target === this) cerrarModalFiltro();
+  });
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escJs(s) {
+    return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  }
+})();
+</script>
 {% endblock %}

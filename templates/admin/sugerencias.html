@@ -234,6 +234,77 @@
   .gestion-inner textarea { resize: vertical; min-height: 60px; width: 280px; }
   .gestion-inner select { min-width: 150px; }
 
+  /* ── Aplicar panel ── */
+  .aplicar-panel {
+    width: 100%;
+    margin-top: 14px;
+    padding: 16px 18px;
+    background: #f0fdf4;
+    border-radius: 9px;
+    border: 1px solid #86efac;
+  }
+  .aplicar-panel-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #14532d;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .aplicar-sub-panel { margin-top: 12px; }
+  .filtro-actual-box {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    color: var(--gris);
+  }
+  .filtro-actual-box strong { color: var(--texto); }
+  .filtro-actual-box .fval { display: inline-block; margin-right: 14px; }
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .form-grid-2 label { font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 4px; }
+  .form-grid-2 input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .form-grid-2 input:focus { border-color: var(--verde); }
+  .elim-warn {
+    background: #fff7ed;
+    border: 1px solid #fbbf24;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #92400e;
+  }
+  .btn-aplicar {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-aplicar:hover { background: #6a9432; }
+  @media (max-width: 640px) {
+    .form-grid-2 { grid-template-columns: 1fr; }
+  }
+
   /* Buttons */
   .btn-gestionar {
     background: #eff6ff;
@@ -464,7 +535,11 @@
         </thead>
         <tbody>
           {% for s in sugerencias %}
-          <tr class="data-row" id="row-{{ s.id }}">
+          <tr class="data-row" id="row-{{ s.id }}"
+              data-filtro-ref-id="{{ s.filtro_ref_id or '' }}"
+              data-filtro-tipo="{{ s.tipo_filtro or '' }}"
+              data-filtro-nombre="{{ s.nombre_articulo or '' }}"
+              data-filtro-sap="{{ s.codigo_sap or '' }}">
             <td style="white-space:nowrap;color:var(--gris);font-size:12.5px;">
               {{ s.timestamp[:16].replace('T', ' ') if s.timestamp else '—' }}
             </td>
@@ -503,9 +578,9 @@
               <div class="gestion-inner">
                 <div>
                   <label>Nuevo estado</label>
-                  <select id="sel-{{ s.id }}">
+                  <select id="sel-{{ s.id }}" onchange="onEstadoChange({{ s.id }})">
                     <option value="revisada"  {% if s.estado == 'revisada'  %}selected{% endif %}>Revisada</option>
-                    <option value="aplicada"  {% if s.estado == 'aplicada'  %}selected{% endif %}>Aplicada</option>
+                    <option value="aplicada"  {% if s.estado == 'aplicada'  %}selected{% endif %}>Aplicada (con cambio)</option>
                     <option value="rechazada" {% if s.estado == 'rechazada' %}selected{% endif %}>Rechazada</option>
                   </select>
                 </div>
@@ -513,8 +588,97 @@
                   <label>Respuesta / comentario</label>
                   <textarea id="resp-inp-{{ s.id }}" placeholder="Respuesta para el usuario (opcional)…">{{ s.respuesta_admin or '' }}</textarea>
                 </div>
-                <div style="display:flex;gap:8px;align-self:flex-end;">
+                <div style="display:flex;gap:8px;align-self:flex-end;" id="btns-{{ s.id }}">
                   <button class="btn-save" onclick="guardarEstado({{ s.id }})">Guardar</button>
+                  <button class="btn-cancel" onclick="toggleGestion({{ s.id }})">Cancelar</button>
+                </div>
+              </div>
+
+              <!-- Panel aplicar cambio (visible solo cuando estado=aplicada) -->
+              <div id="aplicar-panel-{{ s.id }}" class="aplicar-panel" style="display:none;margin:0 18px 14px;">
+                <div class="aplicar-panel-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Aplicar cambio en la tabla de filtración
+                </div>
+
+                <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+                  <div>
+                    <label style="font-size:11px;font-weight:700;color:#14532d;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px;">Tipo de cambio</label>
+                    <select id="tipo-cambio-{{ s.id }}" onchange="onTipoCambioChange({{ s.id }})"
+                            style="padding:7px 11px;border:1.5px solid #86efac;border-radius:7px;font-size:13px;background:#fff;font-family:inherit;outline:none;min-width:220px;">
+                      {% if s.filtro_ref_id %}
+                      <option value="reemplazar">Reemplazar filtro existente</option>
+                      {% endif %}
+                      <option value="agregar">Agregar nuevo filtro</option>
+                      {% if s.filtro_ref_id %}
+                      <option value="eliminar">Eliminar filtro</option>
+                      {% endif %}
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Sub-panel: REEMPLAZAR -->
+                {% if s.filtro_ref_id %}
+                <div id="sub-reemplazar-{{ s.id }}" class="aplicar-sub-panel">
+                  <div class="filtro-actual-box">
+                    <strong>Filtro actual:</strong>
+                    <span class="fval">Tipo: <strong>{{ s.tipo_filtro or '—' }}</strong></span>
+                    <span class="fval">Artículo: <strong>{{ s.nombre_articulo or '—' }}</strong></span>
+                    <span class="fval">SAP: <strong>{{ s.codigo_sap or '—' }}</strong></span>
+                  </div>
+                  <div style="font-size:11px;font-weight:700;color:#14532d;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Nuevos valores</div>
+                  <div class="form-grid-2">
+                    <div>
+                      <label>Tipo Filtro</label>
+                      <input type="text" id="r-tipo-{{ s.id }}" placeholder="Ej: Fleetguard" value="{{ s.tipo_filtro or '' }}">
+                    </div>
+                    <div>
+                      <label>Nombre Artículo <span style="color:var(--rojo)">*</span></label>
+                      <input type="text" id="r-nombre-{{ s.id }}" placeholder="Nombre del artículo" value="{{ s.nombre_articulo or '' }}">
+                    </div>
+                    <div>
+                      <label>Código SAP</label>
+                      <input type="text" id="r-sap-{{ s.id }}" placeholder="Ej: 10045678" value="{{ s.codigo_sap or '' }}">
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Sub-panel: AGREGAR -->
+                <div id="sub-agregar-{{ s.id }}" class="aplicar-sub-panel" {% if s.filtro_ref_id %}style="display:none;"{% endif %}>
+                  <div class="form-grid-2">
+                    <div>
+                      <label>Tipo Filtro</label>
+                      <input type="text" id="a-tipo-{{ s.id }}" placeholder="Ej: Fleetguard">
+                    </div>
+                    <div>
+                      <label>Nombre Artículo <span style="color:var(--rojo)">*</span></label>
+                      <input type="text" id="a-nombre-{{ s.id }}" placeholder="Nombre del artículo">
+                    </div>
+                    <div>
+                      <label>Código SAP</label>
+                      <input type="text" id="a-sap-{{ s.id }}" placeholder="Ej: 10045678">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sub-panel: ELIMINAR -->
+                {% if s.filtro_ref_id %}
+                <div id="sub-eliminar-{{ s.id }}" class="aplicar-sub-panel" style="display:none;">
+                  <div class="filtro-actual-box">
+                    <strong>Filtro a eliminar:</strong>
+                    <span class="fval">{{ s.nombre_articulo or '—' }}</span>
+                    <span class="fval" style="color:var(--gris);">{{ s.tipo_filtro or '' }}</span>
+                    <span class="fval" style="font-family:monospace;font-size:12px;">{{ s.codigo_sap or '' }}</span>
+                  </div>
+                  <div class="elim-warn">
+                    Este filtro se eliminará permanentemente de la tabla de filtración del vehículo <strong>{{ s.vehiculo }}</strong>. Esta acción no se puede deshacer.
+                  </div>
+                </div>
+                {% endif %}
+
+                <div style="margin-top:14px;display:flex;gap:8px;">
+                  <button class="btn-aplicar" onclick="aplicarCambio({{ s.id }})">Aplicar y guardar</button>
                   <button class="btn-cancel" onclick="toggleGestion({{ s.id }})">Cancelar</button>
                 </div>
               </div>
@@ -560,21 +724,51 @@
     var t = document.getElementById('toast');
     t.textContent = msg;
     t.className = 'toast' + (isError ? ' error' : '');
-    requestAnimationFrame(function () {
-      t.classList.add('visible');
-    });
+    requestAnimationFrame(function () { t.classList.add('visible'); });
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove('visible'); }, 3000);
+    toastTimer = setTimeout(function () { t.classList.remove('visible'); }, 3500);
   }
 
   window.toggleGestion = function (id) {
     var row = document.getElementById('gestion-' + id);
     row.classList.toggle('open');
+    if (!row.classList.contains('open')) {
+      var panel = document.getElementById('aplicar-panel-' + id);
+      if (panel) panel.style.display = 'none';
+    }
+  };
+
+  window.onEstadoChange = function (id) {
+    var estado = document.getElementById('sel-' + id).value;
+    var panel  = document.getElementById('aplicar-panel-' + id);
+    var btns   = document.getElementById('btns-' + id);
+    if (!panel) return;
+    if (estado === 'aplicada') {
+      panel.style.display = 'block';
+      if (btns) btns.style.display = 'none';
+    } else {
+      panel.style.display = 'none';
+      if (btns) btns.style.display = 'flex';
+    }
+  };
+
+  window.onTipoCambioChange = function (id) {
+    var tipo = document.getElementById('tipo-cambio-' + id).value;
+    var panels = ['reemplazar', 'agregar', 'eliminar'];
+    panels.forEach(function (p) {
+      var el = document.getElementById('sub-' + p + '-' + id);
+      if (el) el.style.display = (p === tipo) ? 'block' : 'none';
+    });
   };
 
   window.guardarEstado = function (id) {
-    var estado   = document.getElementById('sel-' + id).value;
+    var estado    = document.getElementById('sel-' + id).value;
     var respuesta = document.getElementById('resp-inp-' + id).value.trim();
+
+    if (estado === 'aplicada') {
+      showToast('Completa el formulario de cambio en filtración antes de guardar.', true);
+      return;
+    }
 
     fetch('/admin/sugerencias/' + id + '/estado', {
       method: 'POST',
@@ -587,14 +781,60 @@
         var badge = document.getElementById('badge-' + id);
         badge.className = 'badge-sug badge-' + estado;
         badge.textContent = estado;
-
-        var respCell = document.getElementById('resp-' + id);
-        respCell.textContent = respuesta || '—';
-
+        document.getElementById('resp-' + id).textContent = respuesta || '—';
         document.getElementById('gestion-' + id).classList.remove('open');
         showToast('Estado actualizado a "' + estado + '".', false);
       } else {
         showToast(data.error || 'Error al actualizar.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  };
+
+  window.aplicarCambio = function (id) {
+    var tipoCambio = document.getElementById('tipo-cambio-' + id);
+    if (!tipoCambio) return;
+    var tipo      = tipoCambio.value;
+    var respuesta = document.getElementById('resp-inp-' + id).value.trim();
+
+    var payload = { tipo_cambio: tipo, respuesta: respuesta };
+
+    if (tipo === 'reemplazar') {
+      var nombre = (document.getElementById('r-nombre-' + id) || {}).value || '';
+      if (!nombre.trim()) { showToast('El nombre del artículo es obligatorio.', true); return; }
+      payload.nuevo_tipo_filtro = ((document.getElementById('r-tipo-' + id) || {}).value || '').trim();
+      payload.nuevo_nombre      = nombre.trim();
+      payload.nuevo_sap         = ((document.getElementById('r-sap-' + id) || {}).value || '').trim();
+    } else if (tipo === 'agregar') {
+      var nombre = (document.getElementById('a-nombre-' + id) || {}).value || '';
+      if (!nombre.trim()) { showToast('El nombre del artículo es obligatorio.', true); return; }
+      payload.nuevo_tipo_filtro = ((document.getElementById('a-tipo-' + id) || {}).value || '').trim();
+      payload.nuevo_nombre      = nombre.trim();
+      payload.nuevo_sap         = ((document.getElementById('a-sap-' + id) || {}).value || '').trim();
+    }
+    // eliminar: no extra fields needed
+
+    fetch('/admin/sugerencias/' + id + '/aplicar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+      body: JSON.stringify(payload),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success) {
+        var badge = document.getElementById('badge-' + id);
+        badge.className = 'badge-sug badge-aplicada';
+        badge.textContent = 'aplicada';
+        var respuesta = document.getElementById('resp-inp-' + id).value.trim();
+        document.getElementById('resp-' + id).textContent = respuesta || '—';
+        document.getElementById('gestion-' + id).classList.remove('open');
+        var panel = document.getElementById('aplicar-panel-' + id);
+        if (panel) panel.style.display = 'none';
+        var btns = document.getElementById('btns-' + id);
+        if (btns) btns.style.display = 'flex';
+        showToast('Cambio aplicado en filtración correctamente.', false);
+      } else {
+        showToast(data.error || 'Error al aplicar el cambio.', true);
       }
     })
     .catch(function () { showToast('Error de red.', true); });
@@ -618,7 +858,6 @@
     if (!pendingDeleteId) return;
     var id = pendingDeleteId;
     cerrarModal();
-
     fetch('/admin/sugerencias/' + id + '/eliminar', { method: 'DELETE', headers: { 'X-CSRF-Token': getCsrfToken() } })
     .then(function (r) { return r.json(); })
     .then(function (data) {

@@ -1387,6 +1387,20 @@ def equipo_detalle(vehiculo):
         (vehiculo,)
     ).fetchall()
 
+    cambios_filtros = conn.execute(
+        """SELECT hcf.tipo_cambio, hcf.timestamp,
+                  hcf.filtro_anterior_tipo, hcf.filtro_anterior_nombre, hcf.filtro_anterior_sap,
+                  hcf.filtro_nuevo_tipo, hcf.filtro_nuevo_nombre, hcf.filtro_nuevo_sap,
+                  sol.nombre_completo AS solicitado_nombre,
+                  aut.nombre_completo AS autorizado_nombre
+           FROM historial_cambios_filtros hcf
+           LEFT JOIN usuarios sol ON sol.id = hcf.solicitado_por
+           JOIN  usuarios aut ON aut.id = hcf.autorizado_por
+           WHERE UPPER(hcf.vehiculo) = ?
+           ORDER BY hcf.timestamp DESC""",
+        (vehiculo,)
+    ).fetchall()
+
     conn.close()
 
     if not rutinas and not filtros:
@@ -1413,6 +1427,7 @@ def equipo_detalle(vehiculo):
         filtros=filtros,
         historial=historial,
         sugerencias=sugerencias,
+        cambios_filtros=cambios_filtros,
         from_page=from_page,
         hist_stats=hist_stats,
     )
@@ -1470,8 +1485,9 @@ def admin_sugerencias():
     conn = get_db()
     sugerencias = conn.execute(
         f"""SELECT sf.id, sf.vehiculo, sf.descripcion, sf.estado, sf.timestamp, sf.respuesta_admin,
-                   fe.nombre_articulo, fe.tipo_filtro,
-                   u.nombre_completo, u.rol
+                   sf.filtro_id AS filtro_ref_id,
+                   fe.nombre_articulo, fe.tipo_filtro, fe.codigo_sap,
+                   u.nombre_completo, u.rol, u.id AS usuario_id
             FROM sugerencias_filtros sf
             JOIN usuarios u ON u.id = sf.usuario_id
             LEFT JOIN filtros_equipo fe ON fe.id = sf.filtro_id
@@ -1506,8 +1522,8 @@ def admin_sugerencia_estado(sug_id):
     nuevo_estado = data.get('estado', '')
     respuesta   = (data.get('respuesta', '') or '').strip() or None
 
-    if nuevo_estado not in ('revisada', 'aplicada', 'rechazada'):
-        return jsonify({'success': False, 'error': 'Estado inválido.'}), 400
+    if nuevo_estado not in ('revisada', 'rechazada'):
+        return jsonify({'success': False, 'error': 'Estado inválido. Para aplicar usa el formulario de cambio.'}), 400
 
     conn = get_db()
     try:
@@ -1541,6 +1557,88 @@ def admin_sugerencia_eliminar(sug_id):
     finally:
         conn.close()
     return jsonify({'success': True})
+
+
+@app.route('/admin/sugerencias/<int:sug_id>/aplicar', methods=['POST'])
+@admin_required
+def admin_sugerencia_aplicar(sug_id):
+    data        = request.get_json(force=True) or {}
+    tipo_cambio = data.get('tipo_cambio', '')
+    respuesta   = (data.get('respuesta', '') or '').strip() or None
+
+    if tipo_cambio not in ('reemplazar', 'agregar', 'eliminar'):
+        return jsonify({'success': False, 'error': 'Tipo de cambio inválido.'}), 400
+
+    conn = get_db()
+    try:
+        sug = conn.execute(
+            "SELECT * FROM sugerencias_filtros WHERE id = ?", (sug_id,)
+        ).fetchone()
+        if not sug:
+            return jsonify({'success': False, 'error': 'Sugerencia no encontrada.'}), 404
+
+        vehiculo  = sug['vehiculo']
+        filtro_id = sug['filtro_id']
+
+        filtro_ant = None
+        if filtro_id:
+            filtro_ant = conn.execute(
+                "SELECT * FROM filtros_equipo WHERE id = ?", (filtro_id,)
+            ).fetchone()
+
+        nuevo_tipo_filtro = (data.get('nuevo_tipo_filtro') or '').strip() or None
+        nuevo_nombre      = (data.get('nuevo_nombre') or '').strip() or None
+        nuevo_sap         = (data.get('nuevo_sap') or '').strip() or None
+
+        if tipo_cambio == 'reemplazar':
+            if not filtro_ant:
+                return jsonify({'success': False, 'error': 'No hay filtro de referencia para reemplazar.'}), 400
+            conn.execute(
+                "UPDATE filtros_equipo SET tipo_filtro=?, nombre_articulo=?, codigo_sap=? WHERE id=?",
+                (nuevo_tipo_filtro, nuevo_nombre, nuevo_sap, filtro_id)
+            )
+        elif tipo_cambio == 'agregar':
+            if not nuevo_nombre:
+                return jsonify({'success': False, 'error': 'El nombre del artículo es obligatorio.'}), 400
+            conn.execute(
+                "INSERT INTO filtros_equipo (equipo, tipo, nombre_articulo, codigo_sap, tipo_filtro) VALUES (?,?,?,?,?)",
+                (vehiculo, '', nuevo_nombre, nuevo_sap, nuevo_tipo_filtro)
+            )
+        elif tipo_cambio == 'eliminar':
+            if not filtro_ant:
+                return jsonify({'success': False, 'error': 'No hay filtro de referencia para eliminar.'}), 400
+            conn.execute("DELETE FROM filtros_equipo WHERE id=?", (filtro_id,))
+
+        ant_tipo   = filtro_ant['tipo_filtro']    if filtro_ant else None
+        ant_nombre = filtro_ant['nombre_articulo'] if filtro_ant else None
+        ant_sap    = filtro_ant['codigo_sap']      if filtro_ant else None
+
+        conn.execute(
+            """INSERT INTO historial_cambios_filtros
+               (vehiculo, tipo_cambio,
+                filtro_anterior_tipo, filtro_anterior_nombre, filtro_anterior_sap,
+                filtro_nuevo_tipo, filtro_nuevo_nombre, filtro_nuevo_sap,
+                sugerencia_id, solicitado_por, autorizado_por, timestamp)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (vehiculo, tipo_cambio,
+             ant_tipo, ant_nombre, ant_sap,
+             nuevo_tipo_filtro if tipo_cambio != 'eliminar' else None,
+             nuevo_nombre      if tipo_cambio != 'eliminar' else None,
+             nuevo_sap         if tipo_cambio != 'eliminar' else None,
+             sug_id, sug['usuario_id'], current_user.id,
+             datetime.now(TZ_COL).isoformat())
+        )
+        conn.execute(
+            "UPDATE sugerencias_filtros SET estado='aplicada', respuesta_admin=? WHERE id=?",
+            (respuesta, sug_id)
+        )
+        _log_actividad(conn, current_user.id, 'cambio_filtro',
+                       f'Aplicó sugerencia #{sug_id} ({tipo_cambio}) en {vehiculo}')
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({'success': True, 'tipo_cambio': tipo_cambio})
 
 
 # ---------------------------------------------------------------------------
@@ -1596,6 +1694,251 @@ def taller_flota():
     ).fetchall()
     conn.close()
     return render_template('tecnico/flota.html', vehiculos=[dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Exportar filtros
+# ---------------------------------------------------------------------------
+
+@app.route('/filtros/exportar')
+@login_required
+def exportar_filtros_maestro():
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment as XLAlign
+
+    conn = get_db()
+    filtros = conn.execute(
+        """SELECT equipo, tipo, nombre_articulo, codigo_sap, tipo_filtro
+           FROM filtros_equipo
+           ORDER BY equipo, tipo_filtro, nombre_articulo"""
+    ).fetchall()
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Maestro Filtración'
+
+    azul   = PatternFill(start_color='002D6E', end_color='002D6E', fill_type='solid')
+    wfont  = Font(color='FFFFFF', bold=True, size=11)
+
+    ws.append(['Equipo', 'Tipo', 'Nombre Artículo', 'Código SAP', 'Tipo Filtro'])
+    for cell in ws[1]:
+        cell.fill = azul
+        cell.font = wfont
+        cell.alignment = XLAlign(horizontal='center')
+
+    for f in filtros:
+        ws.append([f['equipo'], f['tipo'], f['nombre_articulo'], f['codigo_sap'], f['tipo_filtro']])
+
+    ws.auto_filter.ref = ws.dimensions
+    for col in ws.columns:
+        mx = max((len(str(c.value or '')) for c in col), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(mx + 4, 50)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name='maestro_filtracion.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@app.route('/equipo/<vehiculo>/exportar')
+@login_required
+def exportar_ficha_equipo(vehiculo):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment as XLAlign
+
+    vehiculo = vehiculo.upper().strip()
+    conn = get_db()
+
+    filtros = conn.execute(
+        """SELECT tipo_filtro, nombre_articulo, codigo_sap
+           FROM filtros_equipo WHERE UPPER(equipo)=?
+           ORDER BY tipo_filtro, nombre_articulo""",
+        (vehiculo,)
+    ).fetchall()
+
+    cambios = conn.execute(
+        """SELECT hcf.tipo_cambio, hcf.timestamp,
+                  hcf.filtro_anterior_nombre, hcf.filtro_anterior_sap,
+                  hcf.filtro_nuevo_nombre, hcf.filtro_nuevo_sap,
+                  sol.nombre_completo AS solicitado_nombre,
+                  aut.nombre_completo AS autorizado_nombre
+           FROM historial_cambios_filtros hcf
+           LEFT JOIN usuarios sol ON sol.id = hcf.solicitado_por
+           JOIN  usuarios aut ON aut.id = hcf.autorizado_por
+           WHERE UPPER(hcf.vehiculo)=?
+           ORDER BY hcf.timestamp DESC""",
+        (vehiculo,)
+    ).fetchall()
+    conn.close()
+
+    wb  = Workbook()
+    azul  = PatternFill(start_color='002D6E', end_color='002D6E', fill_type='solid')
+    wfont = Font(color='FFFFFF', bold=True, size=11)
+    ctr   = XLAlign(horizontal='center')
+
+    ws1 = wb.active
+    ws1.title = 'Filtros'
+    ws1.append(['Vehículo', vehiculo])
+    ws1.append([])
+    ws1.append(['Tipo Filtro', 'Nombre Artículo', 'Código SAP'])
+    for cell in ws1[3]:
+        cell.fill = azul
+        cell.font = wfont
+        cell.alignment = ctr
+    for f in filtros:
+        ws1.append([f['tipo_filtro'], f['nombre_articulo'], f['codigo_sap']])
+    ws1.auto_filter.ref = f'A3:C{ws1.max_row}'
+    for col in ws1.columns:
+        mx = max((len(str(c.value or '')) for c in col), default=8)
+        ws1.column_dimensions[col[0].column_letter].width = min(mx + 4, 50)
+
+    ws2 = wb.create_sheet('Historial Cambios')
+    ws2.append(['Fecha', 'Tipo Cambio', 'Filtro Anterior', 'SAP Anterior',
+                'Filtro Nuevo', 'SAP Nuevo', 'Solicitado por', 'Autorizado por'])
+    for cell in ws2[1]:
+        cell.fill = azul
+        cell.font = wfont
+        cell.alignment = ctr
+    for c in cambios:
+        sol = c['solicitado_nombre'] or 'Cambio directo'
+        ws2.append([
+            c['timestamp'][:16].replace('T', ' ') if c['timestamp'] else '',
+            c['tipo_cambio'],
+            c['filtro_anterior_nombre'] or '',
+            c['filtro_anterior_sap'] or '',
+            c['filtro_nuevo_nombre'] or '',
+            c['filtro_nuevo_sap'] or '',
+            sol,
+            c['autorizado_nombre'],
+        ])
+    for col in ws2.columns:
+        mx = max((len(str(c.value or '')) for c in col), default=8)
+        ws2.column_dimensions[col[0].column_letter].width = min(mx + 4, 50)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = 'ficha_' + vehiculo.replace(' ', '_') + '.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+# ---------------------------------------------------------------------------
+# Gestión directa de filtros (admin / superadmin)
+# ---------------------------------------------------------------------------
+
+@app.route('/equipo/<vehiculo>/filtro/agregar', methods=['POST'])
+@admin_required
+def filtro_agregar(vehiculo):
+    vehiculo = vehiculo.upper().strip()
+    data = request.get_json(force=True) or {}
+
+    nombre      = (data.get('nombre') or '').strip()
+    tipo_filtro = (data.get('tipo_filtro') or '').strip() or None
+    codigo_sap  = (data.get('codigo_sap') or '').strip() or None
+
+    if not nombre:
+        return jsonify({'success': False, 'error': 'El nombre del artículo es obligatorio.'}), 400
+
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO filtros_equipo (equipo, tipo, nombre_articulo, codigo_sap, tipo_filtro) VALUES (?,?,?,?,?)",
+            (vehiculo, '', nombre, codigo_sap, tipo_filtro)
+        )
+        nuevo_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()['id']
+        conn.execute(
+            """INSERT INTO historial_cambios_filtros
+               (vehiculo, tipo_cambio, filtro_nuevo_tipo, filtro_nuevo_nombre, filtro_nuevo_sap,
+                sugerencia_id, solicitado_por, autorizado_por, timestamp)
+               VALUES (?, 'agregar', ?, ?, ?, NULL, NULL, ?, ?)""",
+            (vehiculo, tipo_filtro, nombre, codigo_sap,
+             current_user.id, datetime.now(TZ_COL).isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({'success': True, 'id': nuevo_id,
+                    'nombre': nombre, 'tipo_filtro': tipo_filtro or '', 'codigo_sap': codigo_sap or ''})
+
+
+@app.route('/equipo/<vehiculo>/filtro/<int:filtro_id>/editar', methods=['POST'])
+@admin_required
+def filtro_editar(vehiculo, filtro_id):
+    vehiculo = vehiculo.upper().strip()
+    data = request.get_json(force=True) or {}
+
+    nombre      = (data.get('nombre') or '').strip()
+    tipo_filtro = (data.get('tipo_filtro') or '').strip() or None
+    codigo_sap  = (data.get('codigo_sap') or '').strip() or None
+
+    if not nombre:
+        return jsonify({'success': False, 'error': 'El nombre del artículo es obligatorio.'}), 400
+
+    conn = get_db()
+    try:
+        ant = conn.execute(
+            "SELECT * FROM filtros_equipo WHERE id=? AND UPPER(equipo)=?", (filtro_id, vehiculo)
+        ).fetchone()
+        if not ant:
+            return jsonify({'success': False, 'error': 'Filtro no encontrado.'}), 404
+
+        conn.execute(
+            "UPDATE filtros_equipo SET tipo_filtro=?, nombre_articulo=?, codigo_sap=? WHERE id=?",
+            (tipo_filtro, nombre, codigo_sap, filtro_id)
+        )
+        conn.execute(
+            """INSERT INTO historial_cambios_filtros
+               (vehiculo, tipo_cambio,
+                filtro_anterior_tipo, filtro_anterior_nombre, filtro_anterior_sap,
+                filtro_nuevo_tipo, filtro_nuevo_nombre, filtro_nuevo_sap,
+                sugerencia_id, solicitado_por, autorizado_por, timestamp)
+               VALUES (?, 'reemplazar', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)""",
+            (vehiculo,
+             ant['tipo_filtro'], ant['nombre_articulo'], ant['codigo_sap'],
+             tipo_filtro, nombre, codigo_sap,
+             current_user.id, datetime.now(TZ_COL).isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({'success': True})
+
+
+@app.route('/equipo/<vehiculo>/filtro/<int:filtro_id>/eliminar', methods=['DELETE'])
+@admin_required
+def filtro_eliminar(vehiculo, filtro_id):
+    vehiculo = vehiculo.upper().strip()
+    conn = get_db()
+    try:
+        ant = conn.execute(
+            "SELECT * FROM filtros_equipo WHERE id=? AND UPPER(equipo)=?", (filtro_id, vehiculo)
+        ).fetchone()
+        if not ant:
+            return jsonify({'success': False, 'error': 'Filtro no encontrado.'}), 404
+
+        conn.execute("DELETE FROM filtros_equipo WHERE id=?", (filtro_id,))
+        conn.execute(
+            """INSERT INTO historial_cambios_filtros
+               (vehiculo, tipo_cambio,
+                filtro_anterior_tipo, filtro_anterior_nombre, filtro_anterior_sap,
+                sugerencia_id, solicitado_por, autorizado_por, timestamp)
+               VALUES (?, 'eliminar', ?, ?, ?, NULL, NULL, ?, ?)""",
+            (vehiculo,
+             ant['tipo_filtro'], ant['nombre_articulo'], ant['codigo_sap'],
+             current_user.id, datetime.now(TZ_COL).isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({'success': True})
 
 
 # ---------------------------------------------------------------------------

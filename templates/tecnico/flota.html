@@ -38,6 +38,24 @@
     border-radius: 20px;
     white-space: nowrap;
   }
+  .btn-dl-maestro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-dl-maestro:hover { background: #001e50; }
+  .btn-dl-maestro svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 
   /* Buscador */
   .search-bar {
@@ -196,7 +214,13 @@
       <h1>Consulta de Filtros — Flota Completa</h1>
       <p>Todos los vehículos registrados en el maestro de filtración. Haz clic para ver los filtros de un equipo.</p>
     </div>
-    <span class="total-badge">{{ vehiculos|length }} equipo(s)</span>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="total-badge">{{ vehiculos|length }} equipo(s)</span>
+      <a href="{{ url_for('exportar_filtros_maestro') }}" class="btn-dl-maestro">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar Maestro Completo
+      </a>
+    </div>
   </div>
 
   {% if vehiculos %}
