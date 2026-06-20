@@ -1122,11 +1122,18 @@ def cio_dashboard():
             del vd['_has_pendiente'], vd['_has_no_ej'], vd['fecha_programacion']
 
         def _sk(vd):
+            if vd.get('sol_state') == 'pendiente':
+                prio = 0
+            elif vd.get('sol_state') == 'no_ejecutado':
+                prio = 1
+            else:
+                prio = 2
             try:
-                return -(int(str(vd['ind_desviacion']).replace('%', '').strip())
+                desv = -(int(str(vd['ind_desviacion']).replace('%', '').strip())
                          if vd['ind_desviacion'] is not None else 0)
             except (ValueError, TypeError):
-                return 0
+                desv = 0
+            return (prio, desv)
 
         equipos_grouped = sorted(vehicles.values(), key=_sk)
 
