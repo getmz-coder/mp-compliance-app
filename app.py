@@ -952,6 +952,19 @@ def equipo_detalle(vehiculo):
         (vehiculo,)
     ).fetchall()
 
+    sugerencias = conn.execute(
+        """SELECT sf.id, sf.vehiculo, sf.descripcion, sf.estado, sf.timestamp, sf.respuesta_admin,
+                  fe.nombre_articulo, fe.tipo_filtro,
+                  u.nombre_completo, u.rol
+           FROM sugerencias_filtros sf
+           JOIN usuarios u ON u.id = sf.usuario_id
+           LEFT JOIN filtros_equipo fe ON fe.id = sf.filtro_id
+           WHERE UPPER(sf.vehiculo) = ?
+           ORDER BY sf.timestamp DESC
+           LIMIT 20""",
+        (vehiculo,)
+    ).fetchall()
+
     historial = conn.execute(
         """SELECT s.fecha_solicitud, s.estado,
                   u.nombre_completo AS solicitado_por,
@@ -982,7 +995,133 @@ def equipo_detalle(vehiculo):
         rutinas=rutinas,
         filtros=filtros,
         historial=historial,
+        sugerencias=sugerencias,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sugerencias de filtración
+# ---------------------------------------------------------------------------
+
+@app.route('/equipo/<vehiculo>/sugerencia', methods=['POST'])
+@login_required
+def equipo_sugerencia(vehiculo):
+    vehiculo = vehiculo.upper().strip()
+    filtro_id = request.form.get('filtro_id') or None
+    if filtro_id:
+        try:
+            filtro_id = int(filtro_id)
+        except (ValueError, TypeError):
+            filtro_id = None
+    descripcion = request.form.get('descripcion', '').strip()
+
+    if not descripcion:
+        flash('La descripción de la sugerencia es obligatoria.', 'error')
+        return redirect(url_for('equipo_detalle', vehiculo=vehiculo))
+
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO sugerencias_filtros
+               (vehiculo, filtro_id, usuario_id, descripcion, estado, timestamp)
+           VALUES (?, ?, ?, ?, 'pendiente', ?)""",
+        (vehiculo, filtro_id, current_user.id, descripcion, datetime.now(TZ_COL).isoformat())
+    )
+    conn.commit()
+    conn.close()
+    flash('Sugerencia enviada correctamente.', 'success')
+    return redirect(url_for('equipo_detalle', vehiculo=vehiculo))
+
+
+@app.route('/admin/sugerencias')
+@admin_required
+def admin_sugerencias():
+    estado_fil   = request.args.get('estado', '').strip()
+    vehiculo_fil = request.args.get('vehiculo', '').strip()
+
+    where_parts, params = [], []
+    if estado_fil:
+        where_parts.append("sf.estado = ?")
+        params.append(estado_fil)
+    if vehiculo_fil:
+        where_parts.append("UPPER(sf.vehiculo) LIKE ?")
+        params.append(f'%{vehiculo_fil.upper()}%')
+
+    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+
+    conn = get_db()
+    sugerencias = conn.execute(
+        f"""SELECT sf.id, sf.vehiculo, sf.descripcion, sf.estado, sf.timestamp, sf.respuesta_admin,
+                   fe.nombre_articulo, fe.tipo_filtro,
+                   u.nombre_completo, u.rol
+            FROM sugerencias_filtros sf
+            JOIN usuarios u ON u.id = sf.usuario_id
+            LEFT JOIN filtros_equipo fe ON fe.id = sf.filtro_id
+            {where_sql}
+            ORDER BY sf.timestamp DESC""",
+        params
+    ).fetchall()
+
+    stats = conn.execute(
+        """SELECT
+               COUNT(*) AS total,
+               SUM(CASE WHEN estado = 'pendiente'  THEN 1 ELSE 0 END) AS pendientes,
+               SUM(CASE WHEN estado = 'revisada'   THEN 1 ELSE 0 END) AS revisadas,
+               SUM(CASE WHEN estado = 'aplicada'   THEN 1 ELSE 0 END) AS aplicadas,
+               SUM(CASE WHEN estado = 'rechazada'  THEN 1 ELSE 0 END) AS rechazadas
+           FROM sugerencias_filtros"""
+    ).fetchone()
+    conn.close()
+
+    return render_template('admin/sugerencias.html',
+        sugerencias=sugerencias,
+        estado_fil=estado_fil,
+        vehiculo_fil=vehiculo_fil,
+        stats=stats,
+    )
+
+
+@app.route('/admin/sugerencias/<int:sug_id>/estado', methods=['POST'])
+@admin_required
+def admin_sugerencia_estado(sug_id):
+    data        = request.get_json(force=True) or {}
+    nuevo_estado = data.get('estado', '')
+    respuesta   = (data.get('respuesta', '') or '').strip() or None
+
+    if nuevo_estado not in ('revisada', 'aplicada', 'rechazada'):
+        return jsonify({'success': False, 'error': 'Estado inválido.'}), 400
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM sugerencias_filtros WHERE id = ?", (sug_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Sugerencia no encontrada.'}), 404
+        conn.execute(
+            "UPDATE sugerencias_filtros SET estado = ?, respuesta_admin = ? WHERE id = ?",
+            (nuevo_estado, respuesta, sug_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'estado': nuevo_estado})
+
+
+@app.route('/admin/sugerencias/<int:sug_id>/eliminar', methods=['DELETE'])
+@admin_required
+def admin_sugerencia_eliminar(sug_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM sugerencias_filtros WHERE id = ?", (sug_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Sugerencia no encontrada.'}), 404
+        conn.execute("DELETE FROM sugerencias_filtros WHERE id = ?", (sug_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
 
 
 # ---------------------------------------------------------------------------
@@ -1027,7 +1166,7 @@ def taller():
 
 
 @app.route('/taller/flota')
-@tecnico_required
+@login_required
 def taller_flota():
     conn = get_db()
     rows = conn.execute(

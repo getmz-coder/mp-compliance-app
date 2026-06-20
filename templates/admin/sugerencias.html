@@ -1,0 +1,643 @@
+{% extends "base.html" %}
+
+{% block title %}Sugerencias de Filtración — Admin{% endblock %}
+
+{% block styles %}
+<style>
+  .sug-page {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-header p {
+    font-size: 13px;
+    color: var(--gris);
+    margin-top: 4px;
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--texto);
+    white-space: nowrap;
+  }
+  .stat-chip .stat-num {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--azul);
+    line-height: 1;
+  }
+  .stat-chip.pend  .stat-num { color: #92400e; }
+  .stat-chip.rev   .stat-num { color: #1e40af; }
+  .stat-chip.aplic .stat-num { color: #14532d; }
+  .stat-chip.rech  .stat-num { color: #991b1b; }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+  .filter-group label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .filter-group select,
+  .filter-group input {
+    padding: 7px 11px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .filter-group select:focus,
+  .filter-group input:focus { border-color: var(--cielo); }
+  .btn-filter {
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    align-self: flex-end;
+  }
+  .btn-filter:hover { background: #001e50; }
+  .btn-clear {
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid var(--borde);
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    align-self: flex-end;
+    transition: background 0.15s;
+  }
+  .btn-clear:hover { background: #e5e7eb; }
+
+  /* ── Table ── */
+  .card-table {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+    border: 1px solid var(--borde);
+  }
+  .table-scroll { overflow-x: auto; }
+  table.sug-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.sug-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.sug-table th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.sug-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+  }
+  table.sug-table tbody tr:last-child td { border-bottom: none; }
+  table.sug-table tbody tr.data-row:hover { background: #fafbfc; }
+
+  /* Estado badges */
+  .badge-sug {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .badge-pendiente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-revisada  { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+  .badge-aplicada  { background:#f0fdf4; color:#14532d; border:1px solid #86efac; }
+  .badge-rechazada { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+
+  /* Rol badge */
+  .rol-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* Desc cell */
+  .desc-cell {
+    max-width: 280px;
+    line-height: 1.4;
+    font-size: 13px;
+    color: var(--texto);
+  }
+
+  /* ── Gestion row ── */
+  .gestion-row { display: none; background: #f8f9fb; }
+  .gestion-row.open { display: table-row; }
+  .gestion-inner {
+    padding: 14px 18px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .gestion-inner label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+  }
+  .gestion-inner select,
+  .gestion-inner textarea {
+    padding: 7px 11px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .gestion-inner select:focus,
+  .gestion-inner textarea:focus { border-color: var(--cielo); }
+  .gestion-inner textarea { resize: vertical; min-height: 60px; width: 280px; }
+  .gestion-inner select { min-width: 150px; }
+
+  /* Buttons */
+  .btn-gestionar {
+    background: #eff6ff;
+    color: var(--cielo);
+    border: 1px solid #bfdbfe;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-gestionar:hover { background: #dbeafe; }
+  .btn-eliminar {
+    background: #fff2f2;
+    color: var(--rojo);
+    border: 1px solid #fca5a5;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-eliminar:hover { background: #fee2e2; }
+  .btn-save {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-save:hover { background: #6a9432; }
+  .btn-cancel {
+    background: #f3f4f6;
+    color: var(--gris);
+    border: 1px solid var(--borde);
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-cancel:hover { background: #e5e7eb; }
+  .acciones-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .veh-link {
+    color: var(--cielo);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .veh-link:hover { text-decoration: underline; }
+
+  /* Empty */
+  .empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--gris);
+    font-size: 14px;
+  }
+  .empty-state svg {
+    width: 40px; height: 40px;
+    stroke: #d1d5db; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    display: block; margin: 0 auto 12px;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.46);
+    z-index: 900;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: 400px;
+    width: calc(100% - 40px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .modal-box h3 { font-size: 17px; font-weight: 700; color: var(--azul); margin-bottom: 10px; }
+  .modal-box p  { font-size: 13.5px; color: var(--gris); line-height: 1.5; margin-bottom: 22px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-modal-confirm {
+    background: var(--rojo);
+    color: #fff;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-confirm:hover { background: #b91c1c; }
+  .btn-modal-cancel {
+    background: #f3f4f6;
+    color: var(--texto);
+    border: 1px solid var(--borde);
+    padding: 9px 18px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-cancel:hover { background: #e5e7eb; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--azul);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.error { background: var(--rojo); }
+
+  @media (max-width: 768px) {
+    .sug-page { padding: 14px 12px 40px; }
+    .filter-bar { padding: 12px 14px; }
+    .gestion-inner textarea { width: 100%; }
+    .desc-cell { max-width: 200px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sug-page">
+
+  <!-- ── Header ── -->
+  <div class="page-header">
+    <div>
+      <h1>Sugerencias de Filtración</h1>
+      <p>Cambios sugeridos por técnicos, CIO y administradores sobre el maestro de filtración.</p>
+    </div>
+  </div>
+
+  <!-- ── Stats bar ── -->
+  <div class="stats-bar">
+    <div class="stat-chip">
+      <span class="stat-num">{{ stats.total or 0 }}</span>
+      Total
+    </div>
+    <div class="stat-chip pend">
+      <span class="stat-num">{{ stats.pendientes or 0 }}</span>
+      Pendientes
+    </div>
+    <div class="stat-chip rev">
+      <span class="stat-num">{{ stats.revisadas or 0 }}</span>
+      Revisadas
+    </div>
+    <div class="stat-chip aplic">
+      <span class="stat-num">{{ stats.aplicadas or 0 }}</span>
+      Aplicadas
+    </div>
+    <div class="stat-chip rech">
+      <span class="stat-num">{{ stats.rechazadas or 0 }}</span>
+      Rechazadas
+    </div>
+  </div>
+
+  <!-- ── Filtros ── -->
+  <form method="GET" action="{{ url_for('admin_sugerencias') }}">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Todos</option>
+          <option value="pendiente"  {% if estado_fil == 'pendiente'  %}selected{% endif %}>Pendiente</option>
+          <option value="revisada"   {% if estado_fil == 'revisada'   %}selected{% endif %}>Revisada</option>
+          <option value="aplicada"   {% if estado_fil == 'aplicada'   %}selected{% endif %}>Aplicada</option>
+          <option value="rechazada"  {% if estado_fil == 'rechazada'  %}selected{% endif %}>Rechazada</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Vehículo</label>
+        <input type="text" name="vehiculo" value="{{ vehiculo_fil }}" placeholder="Buscar vehículo…">
+      </div>
+      <button type="submit" class="btn-filter">Filtrar</button>
+      {% if estado_fil or vehiculo_fil %}
+      <a href="{{ url_for('admin_sugerencias') }}" class="btn-clear">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- ── Tabla ── -->
+  <div class="card-table">
+    {% if sugerencias %}
+    <div class="table-scroll">
+      <table class="sug-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Vehículo</th>
+            <th>Filtro</th>
+            <th>Sugerido por</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th>Respuesta</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sugerencias %}
+          <tr class="data-row" id="row-{{ s.id }}">
+            <td style="white-space:nowrap;color:var(--gris);font-size:12.5px;">
+              {{ s.timestamp[:16].replace('T', ' ') if s.timestamp else '—' }}
+            </td>
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=s.vehiculo) }}" class="veh-link">
+                {{ s.vehiculo }}
+              </a>
+            </td>
+            <td style="font-size:12.5px;color:var(--gris);">
+              {{ s.nombre_articulo or '—' }}
+              {% if s.tipo_filtro %}
+                <br><span style="font-size:11px;">{{ s.tipo_filtro }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="font-size:13px;font-weight:500;">{{ s.nombre_completo }}</div>
+              <span class="rol-badge">{{ s.rol }}</span>
+            </td>
+            <td class="desc-cell">{{ s.descripcion }}</td>
+            <td>
+              <span class="badge-sug badge-{{ s.estado }}" id="badge-{{ s.id }}">{{ s.estado }}</span>
+            </td>
+            <td style="font-size:12.5px;color:var(--gris);max-width:200px;" id="resp-{{ s.id }}">
+              {{ s.respuesta_admin or '—' }}
+            </td>
+            <td>
+              <div class="acciones-cell">
+                <button class="btn-gestionar" onclick="toggleGestion({{ s.id }})">Gestionar</button>
+                <button class="btn-eliminar"
+                        onclick="confirmarEliminar({{ s.id }}, '{{ s.vehiculo }}')">Eliminar</button>
+              </div>
+            </td>
+          </tr>
+          <tr class="gestion-row" id="gestion-{{ s.id }}">
+            <td colspan="8">
+              <div class="gestion-inner">
+                <div>
+                  <label>Nuevo estado</label>
+                  <select id="sel-{{ s.id }}">
+                    <option value="revisada"  {% if s.estado == 'revisada'  %}selected{% endif %}>Revisada</option>
+                    <option value="aplicada"  {% if s.estado == 'aplicada'  %}selected{% endif %}>Aplicada</option>
+                    <option value="rechazada" {% if s.estado == 'rechazada' %}selected{% endif %}>Rechazada</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Respuesta / comentario</label>
+                  <textarea id="resp-inp-{{ s.id }}" placeholder="Respuesta para el usuario (opcional)…">{{ s.respuesta_admin or '' }}</textarea>
+                </div>
+                <div style="display:flex;gap:8px;align-self:flex-end;">
+                  <button class="btn-save" onclick="guardarEstado({{ s.id }})">Guardar</button>
+                  <button class="btn-cancel" onclick="toggleGestion({{ s.id }})">Cancelar</button>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      No hay sugerencias
+      {% if estado_fil or vehiculo_fil %}que coincidan con los filtros aplicados{% endif %}.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Modal confirmar eliminación ── -->
+<div class="modal-overlay" id="modal-eliminar">
+  <div class="modal-box">
+    <h3>Eliminar sugerencia</h3>
+    <p id="modal-txt">¿Confirmas que deseas eliminar esta sugerencia? Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-modal-confirm" id="btn-confirm-del">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var toastTimer = null;
+
+  function showToast(msg, isError) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isError ? ' error' : '');
+    requestAnimationFrame(function () {
+      t.classList.add('visible');
+    });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('visible'); }, 3000);
+  }
+
+  window.toggleGestion = function (id) {
+    var row = document.getElementById('gestion-' + id);
+    row.classList.toggle('open');
+  };
+
+  window.guardarEstado = function (id) {
+    var estado   = document.getElementById('sel-' + id).value;
+    var respuesta = document.getElementById('resp-inp-' + id).value.trim();
+
+    fetch('/admin/sugerencias/' + id + '/estado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: estado, respuesta: respuesta }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success) {
+        var badge = document.getElementById('badge-' + id);
+        badge.className = 'badge-sug badge-' + estado;
+        badge.textContent = estado;
+
+        var respCell = document.getElementById('resp-' + id);
+        respCell.textContent = respuesta || '—';
+
+        document.getElementById('gestion-' + id).classList.remove('open');
+        showToast('Estado actualizado a "' + estado + '".', false);
+      } else {
+        showToast(data.error || 'Error al actualizar.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  };
+
+  var pendingDeleteId = null;
+
+  window.confirmarEliminar = function (id, vehiculo) {
+    pendingDeleteId = id;
+    document.getElementById('modal-txt').textContent =
+      '¿Confirmas eliminar la sugerencia del vehículo ' + vehiculo + '? Esta acción no se puede deshacer.';
+    document.getElementById('modal-eliminar').classList.add('open');
+  };
+
+  window.cerrarModal = function () {
+    pendingDeleteId = null;
+    document.getElementById('modal-eliminar').classList.remove('open');
+  };
+
+  document.getElementById('btn-confirm-del').addEventListener('click', function () {
+    if (!pendingDeleteId) return;
+    var id = pendingDeleteId;
+    cerrarModal();
+
+    fetch('/admin/sugerencias/' + id + '/eliminar', { method: 'DELETE' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success) {
+        var dataRow   = document.getElementById('row-' + id);
+        var gestionRow = document.getElementById('gestion-' + id);
+        if (dataRow)    dataRow.remove();
+        if (gestionRow) gestionRow.remove();
+        showToast('Sugerencia eliminada.', false);
+      } else {
+        showToast(data.error || 'Error al eliminar.', true);
+      }
+    })
+    .catch(function () { showToast('Error de red.', true); });
+  });
+
+  document.getElementById('modal-eliminar').addEventListener('click', function (e) {
+    if (e.target === this) cerrarModal();
+  });
+})();
+</script>
+{% endblock %}

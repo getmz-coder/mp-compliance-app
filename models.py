@@ -99,6 +99,17 @@ def init_db():
             ip_address  VARCHAR(45),
             timestamp   DATETIME
         );
+
+        CREATE TABLE IF NOT EXISTS sugerencias_filtros (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehiculo        VARCHAR(30),
+            filtro_id       INTEGER REFERENCES filtros_equipo(id),
+            usuario_id      INTEGER REFERENCES usuarios(id),
+            descripcion     TEXT,
+            estado          VARCHAR(20) DEFAULT 'pendiente',
+            respuesta_admin TEXT,
+            timestamp       DATETIME
+        );
     """)
 
     _migrate_equipos(conn)
