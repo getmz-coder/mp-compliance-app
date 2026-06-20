@@ -12,7 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 import config
-from models import get_db
+from models import get_db, init_db
 import sync_data
 
 TZ_COL = ZoneInfo('America/Bogota')
@@ -20,6 +20,8 @@ TZ_COL = ZoneInfo('America/Bogota')
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+init_db()
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -935,6 +937,7 @@ def cio_mis_solicitudes():
 @login_required
 def equipo_detalle(vehiculo):
     vehiculo = vehiculo.upper().strip()
+    from_page = request.args.get('origen', '')
     conn = get_db()
     sync_id = _current_sync_id(conn)
 
@@ -996,6 +999,7 @@ def equipo_detalle(vehiculo):
         filtros=filtros,
         historial=historial,
         sugerencias=sugerencias,
+        from_page=from_page,
     )
 
 

@@ -224,7 +224,7 @@
           {% for v in vehiculos %}
           <tr
             data-vehiculo="{{ v.equipo|lower }}"
-            onclick="window.location='{{ url_for('equipo_detalle', vehiculo=v.equipo) }}'"
+            onclick="window.location='{{ url_for('equipo_detalle', vehiculo=v.equipo, origen='flota') }}'"
           >
             <td><span class="veh-name">{{ v.equipo }}</span></td>
             <td class="tipo-cell">{{ v.tipo or '—' }}</td>
@@ -232,7 +232,7 @@
               <span class="filtros-count">{{ v.num_filtros }} filtro(s)</span>
             </td>
             <td>
-              <a href="{{ url_for('equipo_detalle', vehiculo=v.equipo) }}"
+              <a href="{{ url_for('equipo_detalle', vehiculo=v.equipo, origen='flota') }}"
                  class="btn-ver"
                  onclick="event.stopPropagation()">
                 Ver ficha

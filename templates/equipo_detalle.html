@@ -294,10 +294,17 @@
     Volver a Equipos MP
   </a>
   {% elif current_user.rol == 'tecnico' %}
+  {% if from_page == 'flota' %}
+  <a href="{{ url_for('taller_flota') }}" class="back-link">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver a Flota Completa
+  </a>
+  {% else %}
   <a href="{{ url_for('taller') }}" class="back-link">
     <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     Volver a Equipos en Taller
   </a>
+  {% endif %}
   {% else %}
   <a href="{{ url_for('admin_dashboard') }}" class="back-link">
     <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
