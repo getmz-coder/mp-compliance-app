@@ -259,6 +259,19 @@
   }
   .btn-modal-confirm:hover     { background: #b91c1c; }
   .btn-modal-confirm:disabled  { background: #fca5a5; cursor: not-allowed; }
+
+  @media (max-width: 768px) {
+    .audit-page { padding: 14px 12px 40px; }
+    .page-hdr { flex-direction: column; align-items: flex-start; }
+    .filter-grid { grid-template-columns: 1fr 1fr; }
+    .filter-actions { flex-wrap: wrap; }
+    .btn-filtrar, .btn-limpiar { flex: 1; justify-content: center; }
+    .pag-row { flex-direction: column; gap: 12px; align-items: flex-start; }
+    .pag-links { flex-wrap: wrap; }
+  }
+  @media (max-width: 480px) {
+    .filter-grid { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock %}
 

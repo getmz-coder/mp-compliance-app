@@ -160,6 +160,53 @@
       flex-shrink: 0;
     }
     .site-footer strong { color: rgba(255,255,255,0.7); font-weight: 600; }
+
+    /* ── Hamburger ── */
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      padding: 7px 9px;
+      cursor: pointer;
+      border-radius: 7px;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .hamburger svg {
+      width: 20px; height: 20px;
+      stroke: #fff; fill: none;
+      stroke-width: 2.2; stroke-linecap: round;
+      display: block;
+    }
+    .hamburger:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Responsive móvil ── */
+    @media (max-width: 768px) {
+      .topbar { padding: 0 12px; }
+      .topbar-brand { flex: 1; }
+      .topbar-nav {
+        position: absolute;
+        top: 56px; left: 0; right: 0;
+        display: none;
+        flex-direction: column;
+        margin-left: 0;
+        background: var(--azul);
+        border-top: 2px solid var(--verde);
+        padding: 8px 10px 14px;
+        gap: 4px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+        z-index: 150;
+      }
+      .topbar-nav.open { display: flex; }
+      .topbar-nav a { padding: 10px 14px; font-size: 14px; border-radius: 6px; }
+      .hamburger { display: inline-flex; }
+      .topbar-right { margin-left: 10px; gap: 8px; }
+      .topbar-user { display: none; }
+      .topbar-logout { font-size: 12px; padding: 4px 9px; }
+      .flash-container { padding: 0 14px; margin-top: 12px; }
+    }
   </style>
   {% block styles %}{% endblock %}
 </head>
@@ -173,7 +220,7 @@
       Seguimiento MP — GET
     </a>
 
-    <div class="topbar-nav">
+    <div class="topbar-nav" id="topbar-nav">
       {% if current_user.rol in ('admin', 'superadmin') %}
         <a href="{{ url_for('admin_dashboard') }}"
            {% if request.endpoint == 'admin_dashboard' %}class="active"{% endif %}>Dashboard</a>
@@ -192,6 +239,14 @@
            {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
       {% endif %}
     </div>
+
+    <button class="hamburger" id="hamburger-btn" aria-label="Menú" aria-expanded="false">
+      <svg viewBox="0 0 24 24">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
 
     <div class="topbar-right">
       <div class="topbar-user">
@@ -230,6 +285,25 @@
   <footer class="site-footer">
     <strong>Gerencia GET</strong> · Talma Servicios Aeroportuarios · 2026
   </footer>
+
+  <script>
+  (function(){
+    var btn = document.getElementById('hamburger-btn');
+    var nav = document.getElementById('topbar-nav');
+    if (!btn || !nav) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var open = nav.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', function(e) {
+      if (nav.classList.contains('open') && !btn.contains(e.target) && !nav.contains(e.target)) {
+        nav.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>
