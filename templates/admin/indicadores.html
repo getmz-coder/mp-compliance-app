@@ -40,12 +40,11 @@
   /* ── KPI Grid ── */
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 16px;
     margin-bottom: 28px;
   }
-  @media (max-width: 900px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 500px)  { .kpi-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 500px)  { .kpi-grid { grid-template-columns: 1fr 1fr; } }
 
   .kpi-card {
     background: #fff;
@@ -60,6 +59,7 @@
   .kpi-card.kpi-blue   { border-color: var(--azul); }
   .kpi-card.kpi-green  { border-color: var(--verde); }
   .kpi-card.kpi-red    { border-color: var(--rojo); }
+  .kpi-card.kpi-amber  { border-color: var(--ambar); }
   .kpi-card.kpi-pct-green  { border-color: var(--verde); }
   .kpi-card.kpi-pct-amber  { border-color: var(--ambar); }
   .kpi-card.kpi-pct-red    { border-color: var(--rojo); }
@@ -73,6 +73,7 @@
   .kpi-card.kpi-blue   .kpi-value { color: var(--azul); }
   .kpi-card.kpi-green  .kpi-value { color: var(--verde); }
   .kpi-card.kpi-red    .kpi-value { color: var(--rojo); }
+  .kpi-card.kpi-amber  .kpi-value { color: var(--ambar); }
   .kpi-card.kpi-pct-green .kpi-value { color: var(--verde); }
   .kpi-card.kpi-pct-amber .kpi-value { color: var(--ambar); }
   .kpi-card.kpi-pct-red   .kpi-value { color: var(--rojo); }
@@ -362,7 +363,12 @@
     <div class="kpi-card kpi-green">
       <div class="kpi-value">{{ ejecutados }}</div>
       <div class="kpi-label">Ejecutados</div>
-      <div class="kpi-sub">MP realizado</div>
+      <div class="kpi-sub">vía sistema</div>
+    </div>
+    <div class="kpi-card kpi-amber">
+      <div class="kpi-value">{{ sin_reporte_total }}</div>
+      <div class="kpi-label">Sin Reporte</div>
+      <div class="kpi-sub">ejecutados sin registrar</div>
     </div>
     <div class="kpi-card kpi-red">
       <div class="kpi-value">{{ no_ejecutados }}</div>
@@ -376,6 +382,7 @@
         {% if pct_ejecucion >= 80 %}Cumplimiento alto
         {% elif pct_ejecucion >= 60 %}Cumplimiento medio
         {% else %}Cumplimiento bajo{% endif %}
+        <span style="display:block;font-size:10.5px;margin-top:1px;color:#d1d5db;">(incl. sin reporte)</span>
       </div>
     </div>
   </div>
@@ -404,17 +411,24 @@
               <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
                     width="{{ familias_chart.bar_w }}" height="{{ familias_chart.row_h - 12 }}"
                     rx="4" fill="#f3f4f6"/>
-              {# Barra verde: ejecutados #}
+              {# Barra verde: ejecutados vía sistema #}
               {% if row.ejec_px > 0 %}
               <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
                     width="{{ row.ejec_px }}" height="{{ familias_chart.row_h - 12 }}"
                     rx="4" fill="#80AE3F" opacity="0.9"/>
               {% endif %}
+              {# Barra naranja: sin reporte, apilada sobre verde #}
+              {% if row.sin_px > 0 %}
+              <rect x="{{ row.bar_x + row.ejec_px }}" y="{{ row.y + 4 }}"
+                    width="{{ row.sin_px }}" height="{{ familias_chart.row_h - 12 }}"
+                    {% if row.ejec_px == 0 %}rx="4"{% endif %}
+                    fill="#E67E22" opacity="0.88"/>
+              {% endif %}
               {# Barra roja: no ejecutados, apilada #}
               {% if row.no_px > 0 %}
-              <rect x="{{ row.bar_x + row.ejec_px }}" y="{{ row.y + 4 }}"
+              <rect x="{{ row.bar_x + row.ejec_px + row.sin_px }}" y="{{ row.y + 4 }}"
                     width="{{ row.no_px }}" height="{{ familias_chart.row_h - 12 }}"
-                    {% if row.ejec_px == 0 %}rx="4"{% endif %}
+                    {% if row.ejec_px == 0 and row.sin_px == 0 %}rx="4"{% endif %}
                     fill="#dc2626" opacity="0.82"/>
               {% endif %}
               {# Label familia (izquierda) #}
@@ -428,9 +442,12 @@
             {% endfor %}
           </svg>
         </div>
-        <div style="display:flex;gap:16px;margin-top:10px;font-size:11.5px;">
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;flex-wrap:wrap;">
           <span style="display:flex;align-items:center;gap:5px;">
             <span style="width:12px;height:12px;background:#80AE3F;border-radius:2px;display:inline-block;"></span>Ejecutados
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:12px;height:12px;background:#E67E22;border-radius:2px;display:inline-block;"></span>Sin reporte
           </span>
           <span style="display:flex;align-items:center;gap:5px;">
             <span style="width:12px;height:12px;background:#dc2626;border-radius:2px;display:inline-block;"></span>No ejecutados
@@ -536,20 +553,24 @@
               <th>Familia</th>
               <th class="th-num">Sol.</th>
               <th class="th-num">Ejec.</th>
+              <th class="th-num">Sin rep.</th>
               <th class="th-num">No Ejec.</th>
               <th>% Ejec.</th>
             </tr>
           </thead>
           <tbody>
             {% for f in familias_cumplimiento %}
-              {% set ejec_f = f.ejecutados or 0 %}
-              {% set sol_f  = f.solicitados or 0 %}
-              {% set pct_f  = ((ejec_f / sol_f) * 100)|round|int if sol_f else 0 %}
-              {% set fc     = 'green' if pct_f >= 80 else ('amber' if pct_f >= 60 else 'red') %}
+              {% set ejec_f   = f.ejecutados or 0 %}
+              {% set sol_f    = f.solicitados or 0 %}
+              {% set sin_rep_f = f.sin_reporte if f.sin_reporte is defined else 0 %}
+              {% set total_f  = sol_f + sin_rep_f %}
+              {% set pct_f    = (((ejec_f + sin_rep_f) / total_f) * 100)|round|int if total_f else 0 %}
+              {% set fc       = 'green' if pct_f >= 80 else ('amber' if pct_f >= 60 else 'red') %}
             <tr>
               <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.familia }}">{{ f.familia }}</td>
               <td class="td-num">{{ sol_f }}</td>
               <td class="td-num" style="color:var(--verde)">{{ ejec_f }}</td>
+              <td class="td-num" style="color:var(--ambar)">{{ sin_rep_f }}</td>
               <td class="td-num" style="color:var(--rojo)">{{ f.no_ejecutados or 0 }}</td>
               <td>
                 <div class="prog-bar-wrap">

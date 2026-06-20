@@ -483,13 +483,13 @@
         {% endif %}
 
         {% if alerta_no_reportadas > 0 %}
-        <a href="{{ url_for('admin_no_reportadas') }}"
+        <a href="{{ url_for('admin_historial', accion='sin_reporte') }}"
            class="alerta-card alerta-card-rojo">
           <div class="alerta-icon">⚠️</div>
           <div>
             <div class="alerta-count">{{ alerta_no_reportadas }}</div>
             <div class="alerta-text">equipo(s) ejecutados sin pasar por el sistema</div>
-            <div class="alerta-action">Ver No Reportadas →</div>
+            <div class="alerta-action">Ver en Historial →</div>
           </div>
         </a>
         {% endif %}

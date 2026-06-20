@@ -24,18 +24,6 @@
       --thead-bg: #f8f9fb;
     }
 
-    [data-theme="dark"] {
-      --fondo:   #0f1117;
-      --texto:   #e5e7eb;
-      --gris:    #9ca3af;
-      --borde:   #2d3748;
-      --card-bg: #1e2235;
-      --nav-bg:  #0a1628;
-      --input-bg:#16213e;
-      --row-hover:#252a3d;
-      --thead-bg: #16213e;
-    }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--fondo);
@@ -45,82 +33,6 @@
       flex-direction: column;
       transition: background-color 0.25s, color 0.2s;
     }
-
-    /* ── Dark mode overrides globales ── */
-    [data-theme="dark"] .section-card,
-    [data-theme="dark"] .kpi-card,
-    [data-theme="dark"] .table-card,
-    [data-theme="dark"] .chart-wrap,
-    [data-theme="dark"] .modal-box,
-    [data-theme="dark"] .toolbar,
-    [data-theme="dark"] .card,
-    [data-theme="dark"] .equipo-card { background: var(--card-bg) !important; }
-
-    [data-theme="dark"] table thead tr,
-    [data-theme="dark"] .topbar-search-dd li:first-child { background: var(--thead-bg) !important; }
-
-    [data-theme="dark"] table tbody tr:hover,
-    [data-theme="dark"] .motivo-row:hover,
-    [data-theme="dark"] .topbar-search-dd li:hover { background: var(--row-hover) !important; }
-
-    [data-theme="dark"] table td,
-    [data-theme="dark"] table th,
-    [data-theme="dark"] .ind-table td,
-    [data-theme="dark"] .ind-table th { color: var(--texto); border-color: var(--borde); }
-
-    [data-theme="dark"] .topbar-search-dd {
-      background: var(--card-bg);
-      box-shadow: 0 8px 28px rgba(0,0,0,0.5);
-    }
-    [data-theme="dark"] .topbar-search-dd li { color: var(--texto); border-color: var(--borde); }
-
-    [data-theme="dark"] select,
-    [data-theme="dark"] input[type="text"],
-    [data-theme="dark"] input[type="password"],
-    [data-theme="dark"] textarea { background: var(--input-bg) !important; color: var(--texto) !important; border-color: #374151 !important; }
-
-    [data-theme="dark"] .section-hdr,
-    [data-theme="dark"] .modal-hdr { border-color: var(--borde) !important; }
-
-    [data-theme="dark"] .modal-hdr { background: #16213e !important; }
-    [data-theme="dark"] .modal-body > p,
-    [data-theme="dark"] .modal-footer { border-color: var(--borde) !important; }
-
-    [data-theme="dark"] .alert-success { background:#052e16; border-color:#166534; color:#86efac; }
-    [data-theme="dark"] .alert-error   { background:#450a0a; border-color:#991b1b; color:#fca5a5; }
-    [data-theme="dark"] .alert-info    { background:#0f2544; border-color:#1e40af; color:#93c5fd; }
-    [data-theme="dark"] .alert-warning { background:#3b1e00; border-color:#92400e; color:#fde68a; }
-
-    [data-theme="dark"] .badge-vencido { background:#3b0000; color:#fca5a5; border-color:#991b1b; }
-    [data-theme="dark"] .badge-proximo { background:#3b2000; color:#fde68a; border-color:#92400e; }
-    [data-theme="dark"] .badge-hoy     { background:#0f2544; color:#93c5fd; border-color:#1e40af; }
-    [data-theme="dark"] .badge-default { background:#1e2235; color:#d1d5db; border-color:#374151; }
-    [data-theme="dark"] .badge-sync    { background:#0f2544; color:#93c5fd; border-color:#1e40af; }
-
-    [data-theme="dark"] .row-solicitado  { background:#2a2200 !important; }
-    [data-theme="dark"] .row-entregado   { background:#052e16 !important; }
-    [data-theme="dark"] .row-no-entregado{ background:#2a0000 !important; }
-    [data-theme="dark"] .row-selected    { background:#0f2544 !important; }
-
-    [data-theme="dark"] .count-badge,
-    [data-theme="dark"] .sync-badge,
-    [data-theme="dark"] .motivo-pct-lbl { color: var(--gris); background: var(--input-bg); border-color: var(--borde); }
-
-    [data-theme="dark"] .prog-bar-bg { background: #2d3748; }
-    [data-theme="dark"] .bar-label   { fill: var(--texto) !important; }
-    [data-theme="dark"] .bar-bg-rect { fill: #2d3748 !important; }
-
-    [data-theme="dark"] .donut-legend-item { color: var(--texto); }
-
-    [data-theme="dark"] .btn-modal-cancel {
-      background: #1e2235; color: var(--gris); border-color: var(--borde);
-    }
-    [data-theme="dark"] .btn-modal-cancel:hover { background: var(--borde); color: var(--texto); }
-
-    [data-theme="dark"] .site-footer { background: #0a1628; }
-
-    [data-theme="dark"] .empty-state h3,
-    [data-theme="dark"] .empty-ind   { color: var(--gris); }
 
     /* ── Topbar ── */
     .topbar {
@@ -172,30 +84,6 @@
       letter-spacing: 0.1px;
     }
 
-    /* ── Dark mode toggle ── */
-    .theme-toggle {
-      background: none;
-      border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 20px;
-      width: 34px; height: 34px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      flex-shrink: 0;
-    }
-    .theme-toggle:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.4); }
-    .theme-toggle svg {
-      width: 16px; height: 16px;
-      stroke: rgba(255,255,255,0.85); fill: none;
-      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-      display: block;
-    }
-    .icon-sun, .icon-moon { display: none; }
-    html:not([data-theme="dark"]) .icon-sun  { display: block; }
-    html[data-theme="dark"]      .icon-moon { display: block; }
-
     .topbar-nav {
       display: flex;
       align-items: center;
@@ -206,9 +94,9 @@
     .topbar-nav a {
       color: rgba(255,255,255,0.72);
       text-decoration: none;
-      padding: 6px 13px;
+      padding: 6px 8px;
       border-radius: 6px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       transition: background 0.15s, color 0.15s;
       white-space: nowrap;
@@ -221,6 +109,7 @@
       align-items: center;
       gap: 14px;
       margin-left: auto;
+      white-space: nowrap;
       flex-shrink: 0;
     }
     .topbar-user {
@@ -311,7 +200,7 @@
       border-radius: 18px;
       color: #fff;
       font-size: 13px;
-      width: 190px;
+      width: 160px;
       outline: none;
       transition: background 0.15s, border-color 0.15s, width 0.2s;
     }
@@ -319,7 +208,7 @@
     .topbar-search-input:focus {
       background: rgba(255,255,255,0.18);
       border-color: rgba(255,255,255,0.5);
-      width: 230px;
+      width: 195px;
     }
     .topbar-search-icon {
       position: absolute;
@@ -429,13 +318,6 @@
     }
   </style>
   {% block styles %}{% endblock %}
-  <script>
-    /* Aplicar tema guardado ANTES del primer paint → sin flash */
-    (function(){
-      var t = localStorage.getItem('theme');
-      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    })();
-  </script>
 </head>
 <body>
 
@@ -465,27 +347,15 @@
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
         <a href="{{ url_for('admin_sugerencias') }}"
            {% if request.endpoint in ('admin_sugerencias',) %}class="active"{% endif %}>Sugerencias</a>
-        <a href="{{ url_for('admin_no_reportadas') }}"
-           {% if request.endpoint == 'admin_no_reportadas' %}class="active"{% endif %}>
-          No Reportadas
-          {% if no_reportadas_pendientes is defined and no_reportadas_pendientes > 0 %}
-            <span class="nav-badge">{{ no_reportadas_pendientes }}</span>
-          {% endif %}
-        </a>
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
         <a href="{{ url_for('cio_mis_solicitudes') }}"
            {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
+        <a href="{{ url_for('admin_historial') }}"
+           {% if request.endpoint == 'admin_historial' %}class="active"{% endif %}>Historial</a>
         <a href="{{ url_for('taller_flota') }}"
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
-        <a href="{{ url_for('admin_no_reportadas') }}"
-           {% if request.endpoint == 'admin_no_reportadas' %}class="active"{% endif %}>
-          No Reportadas
-          {% if no_reportadas_pendientes is defined and no_reportadas_pendientes > 0 %}
-            <span class="nav-badge">{{ no_reportadas_pendientes }}</span>
-          {% endif %}
-        </a>
       {% elif current_user.rol == 'tecnico' %}
         <a href="{{ url_for('taller') }}"
            {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>
@@ -513,27 +383,11 @@
     </button>
 
     <div class="topbar-right">
-      <button class="theme-toggle" id="theme-toggle-btn" aria-label="Cambiar tema" title="Modo claro/oscuro">
-        <svg class="icon-sun" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="5"/>
-          <line x1="12" y1="1" x2="12" y2="3"/>
-          <line x1="12" y1="21" x2="12" y2="23"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-          <line x1="1" y1="12" x2="3" y2="12"/>
-          <line x1="21" y1="12" x2="23" y2="12"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-        </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-      </button>
       <div class="topbar-user">
         <span class="topbar-user-name">{{ current_user.nombre_completo }}</span>
         <span class="topbar-user-rol">{{ current_user.rol }}</span>
       </div>
-      <a href="{{ url_for('logout') }}" class="topbar-logout">Cerrar sesión</a>
+      <a href="{{ url_for('logout') }}" class="topbar-logout">Salir</a>
     </div>
   </nav>
 
@@ -568,21 +422,6 @@
 
   <script>
   (function(){
-    /* ── Dark mode toggle ── */
-    var themeBtn = document.getElementById('theme-toggle-btn');
-    if (themeBtn) {
-      themeBtn.addEventListener('click', function () {
-        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (isDark) {
-          document.documentElement.removeAttribute('data-theme');
-          localStorage.setItem('theme', 'light');
-        } else {
-          document.documentElement.setAttribute('data-theme', 'dark');
-          localStorage.setItem('theme', 'dark');
-        }
-      });
-    }
-
     /* ── Hamburger ── */
     var btn = document.getElementById('hamburger-btn');
     var nav = document.getElementById('topbar-nav');

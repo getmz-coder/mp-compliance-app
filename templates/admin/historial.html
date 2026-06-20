@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Historial Solicitudes — Seguimiento MP GET{% endblock %}
+{% block title %}Historial — Seguimiento MP GET{% endblock %}
 
 {% block styles %}
 <style>
@@ -18,13 +18,8 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .page-hdr h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--azul);
-    letter-spacing: -0.3px;
-  }
-  .page-hdr p { font-size: 13px; color: var(--gris); margin-top: 3px; }
+  .page-hdr h1 { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-hdr p  { font-size: 13px; color: var(--gris); margin-top: 3px; }
 
   .btn-export {
     display: inline-flex;
@@ -42,11 +37,7 @@
     transition: background 0.15s, transform 0.1s;
     cursor: pointer;
   }
-  .btn-export svg {
-    width: 15px; height: 15px;
-    stroke: currentColor; fill: none;
-    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
-  }
+  .btn-export svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .btn-export:hover  { background: #6d9a32; }
   .btn-export:active { transform: scale(0.98); }
 
@@ -89,10 +80,7 @@
     transition: border-color 0.15s;
   }
   .filter-group input:focus,
-  .filter-group select:focus {
-    border-color: var(--cielo);
-    background: #fff;
-  }
+  .filter-group select:focus { border-color: var(--cielo); background: #fff; }
 
   .btn-filtrar {
     padding: 9px 20px;
@@ -175,11 +163,11 @@
   table.data-table tbody tr:hover { background: #f8fafc; }
   table.data-table tbody tr:last-child td { border-bottom: none; }
 
-  .vehiculo-link {
-    font-weight: 600;
-    color: var(--cielo);
-    text-decoration: none;
-  }
+  /* fila especial no-reportada */
+  table.data-table tbody tr.row-nr { background: #fffbf2; }
+  table.data-table tbody tr.row-nr:hover { background: #fff3dd; }
+
+  .vehiculo-link { font-weight: 600; color: var(--cielo); text-decoration: none; }
   .vehiculo-link:hover { text-decoration: underline; }
 
   .badge-estado {
@@ -190,9 +178,9 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
-  .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
-  .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+  .badge-vencido  { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-proximo  { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-default  { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
   .badge-sol-estado {
     display: inline-block;
@@ -201,8 +189,13 @@
     font-size: 11.5px;
     font-weight: 600;
   }
-  .badge-sol-pendiente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-sol-pendiente  { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
   .badge-sol-respondido { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+
+  /* estados no_reportada */
+  .badge-nr-pendiente    { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-nr-justificado  { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+  .badge-nr-sin-just     { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
 
   .badge-accion {
     display: inline-flex;
@@ -213,24 +206,13 @@
     font-size: 11.5px;
     font-weight: 600;
   }
-  .badge-ent { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
-  .badge-no  { background:#fff7f7; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-ent       { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+  .badge-no        { background:#fff7f7; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-sin-rep   { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }
 
-  .td-rutina {
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .td-motivo {
-    max-width: 180px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--gris);
-    font-size: 12.5px;
-  }
-  .td-ts { color: var(--gris); font-size: 12px; white-space: nowrap; }
+  .td-rutina { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-motivo { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gris); font-size: 12.5px; }
+  .td-ts     { color: var(--gris); font-size: 12px; white-space: nowrap; }
 
   /* ── Paginación ── */
   .pag-row {
@@ -260,53 +242,38 @@
     white-space: nowrap;
   }
   .pag-link:hover { background: #f0f2f5; border-color: var(--cielo); color: var(--cielo); }
-  .pag-link.active {
-    background: var(--azul);
-    border-color: var(--azul);
-    color: #fff;
-    font-weight: 700;
-    pointer-events: none;
-  }
-  .pag-link.disabled {
-    color: #d1d5db;
-    pointer-events: none;
-    background: #fafafa;
-  }
+  .pag-link.active { background: var(--azul); border-color: var(--azul); color: #fff; font-weight: 700; pointer-events: none; }
+  .pag-link.disabled { color: #d1d5db; pointer-events: none; background: #fafafa; }
 
-  .empty-state {
-    padding: 60px 24px;
-    text-align: center;
-    color: var(--gris);
-  }
-  .empty-state svg {
-    width: 44px; height: 44px;
-    stroke: #d1d5db; fill: none;
-    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
-    margin-bottom: 14px;
-  }
+  .empty-state { padding: 60px 24px; text-align: center; color: var(--gris); }
+  .empty-state svg { width: 44px; height: 44px; stroke: #d1d5db; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 14px; }
   .empty-state h3 { font-size: 15px; color: #374151; margin-bottom: 6px; }
   .empty-state p  { font-size: 13px; }
 
-  /* ── Botón eliminar ── */
+  /* ── Botones de acción en fila ── */
   .btn-del {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
     padding: 4px 10px;
-    background: #fff2f2;
-    color: #991b1b;
-    border: 1px solid #fca5a5;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
-    white-space: nowrap;
+    background: #fff2f2; color: #991b1b;
+    border: 1px solid #fca5a5; border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s; white-space: nowrap;
   }
   .btn-del:hover { background: #fee2e2; border-color: #f87171; }
   .btn-del svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* ── Modal confirmar eliminación ── */
+  .btn-just {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    background: #fff7ed; color: #9a3412;
+    border: 1px solid #fdba74; border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.12s; white-space: nowrap;
+  }
+  .btn-just:hover { background: #ffedd5; }
+  .btn-just svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── Modales ── */
   .modal-overlay {
     display: none;
     position: fixed;
@@ -322,7 +289,7 @@
     border-radius: 12px;
     box-shadow: 0 8px 40px rgba(0,0,0,0.22);
     padding: 28px 32px;
-    max-width: 420px;
+    max-width: 460px;
     width: 90%;
     animation: modalIn 0.15s ease;
   }
@@ -330,42 +297,40 @@
     from { opacity: 0; transform: scale(0.95) translateY(-8px); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
-  .modal-icon {
-    width: 44px; height: 44px;
-    background: #fff2f2;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
-  }
+  .modal-icon { width: 44px; height: 44px; background: #fff2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
   .modal-icon svg { width: 22px; height: 22px; stroke: #dc2626; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .modal-icon-ambar { background: #fff7ed; }
+  .modal-icon-ambar svg { stroke: var(--ambar); }
   .modal-box h3 { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 8px; }
-  .modal-box p  { font-size: 13.5px; color: #6b7280; line-height: 1.5; margin-bottom: 24px; }
+  .modal-box p  { font-size: 13.5px; color: #6b7280; line-height: 1.5; margin-bottom: 20px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-  .btn-modal-cancel {
-    padding: 9px 20px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    border-radius: 7px;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.12s;
-  }
-  .btn-modal-cancel:hover { background: #e5e7eb; }
-  .btn-modal-confirm {
-    padding: 9px 20px;
-    background: #dc2626;
-    color: #fff;
-    border: none;
-    border-radius: 7px;
-    font-size: 13.5px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.12s;
-  }
+  .btn-modal-cancel  { padding: 9px 20px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background 0.12s; }
+  .btn-modal-cancel:hover  { background: #e5e7eb; }
+  .btn-modal-confirm { padding: 9px 20px; background: #dc2626; color: #fff; border: none; border-radius: 7px; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background 0.12s; }
   .btn-modal-confirm:hover { background: #b91c1c; }
   .btn-modal-confirm:disabled { background: #fca5a5; cursor: not-allowed; }
+
+  /* modal justificar */
+  .modal-box.modal-just { max-width: 500px; padding: 0; overflow: hidden; }
+  .modal-just .modal-hdr { padding: 16px 22px; background: #f8f9fb; border-bottom: 1px solid var(--borde); display: flex; align-items: center; justify-content: space-between; }
+  .modal-just .modal-hdr h3 { font-size: 15px; font-weight: 700; color: var(--azul); margin: 0; }
+  .modal-just .modal-close { background: none; border: none; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background 0.15s; }
+  .modal-just .modal-close:hover { background: var(--borde); }
+  .modal-just .modal-close svg { width: 16px; height: 16px; stroke: var(--gris); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .modal-just .modal-body { padding: 22px; }
+  .modal-just .modal-info-row { background: #f8f9fb; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--gris); line-height: 1.6; margin-bottom: 16px; }
+  .modal-just .modal-info-row strong { color: var(--texto); }
+  .modal-just label { display: block; font-size: 12px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; margin-top: 16px; }
+  .modal-just label:first-of-type { margin-top: 0; }
+  .modal-just select, .modal-just textarea { width: 100%; padding: 9px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 13.5px; color: var(--texto); background: #fafafa; outline: none; font-family: inherit; transition: border-color 0.15s; }
+  .modal-just select:focus, .modal-just textarea:focus { border-color: var(--cielo); background: #fff; }
+  .modal-just textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .modal-just .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--borde); }
+  .btn-just-cancel { padding: 9px 20px; border: 1.5px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 13.5px; font-weight: 600; color: var(--gris); cursor: pointer; transition: background 0.12s; }
+  .btn-just-cancel:hover { background: #f3f4f6; }
+  .btn-just-save   { padding: 9px 22px; border: none; border-radius: 8px; background: var(--ambar); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background 0.12s; }
+  .btn-just-save:hover { background: #d4680f; }
+  .btn-just-save:disabled { background: #fde68a; cursor: not-allowed; }
 
   @media (max-width: 768px) {
     .hist-page { padding: 14px 12px 40px; }
@@ -375,9 +340,7 @@
     .pag-row { flex-direction: column; gap: 12px; align-items: flex-start; }
     .pag-links { flex-wrap: wrap; }
   }
-  @media (max-width: 480px) {
-    .filter-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 480px) { .filter-grid { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
 
@@ -387,12 +350,14 @@
   <div class="page-hdr">
     <div>
       <h1>Historial de Solicitudes y Respuestas</h1>
-      <p>Trazabilidad completa de todos los equipos solicitados al taller</p>
+      <p>Trazabilidad completa incluyendo ejecuciones detectadas sin reporte</p>
     </div>
+    {% if es_admin %}
     <a href="{{ url_for('admin_export') }}" class="btn-export">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Exportar Excel
     </a>
+    {% endif %}
   </div>
 
   <!-- Filtros -->
@@ -414,6 +379,7 @@
             <option value="ejecutado"    {% if accion_fil == 'ejecutado'    %}selected{% endif %}>Ejecutado</option>
             <option value="no_ejecutado" {% if accion_fil == 'no_ejecutado' %}selected{% endif %}>No ejecutado</option>
             <option value="pendiente"    {% if accion_fil == 'pendiente'    %}selected{% endif %}>Pendiente</option>
+            <option value="sin_reporte"  {% if accion_fil == 'sin_reporte'  %}selected{% endif %}>Sin reporte</option>
           </select>
         </div>
         <div class="filter-group">
@@ -451,14 +417,14 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Fecha Solicitud</th>
+            <th>Fecha</th>
             <th>Vehículo</th>
             <th>Familia</th>
             <th>Rutina</th>
             <th>Desviación</th>
             <th>Solicitado por</th>
             <th>Estado</th>
-            <th>Fecha Respuesta</th>
+            <th>Fecha Resp.</th>
             <th>Acción</th>
             <th>Motivo / Comentario</th>
             <th></th>
@@ -466,55 +432,120 @@
         </thead>
         <tbody>
           {% for f in filas %}
-          <tr id="sol-row-{{ f.id }}">
+          <tr id="row-{{ f.tipo }}-{{ f.row_id }}"
+              {% if f.tipo == 'no_reportada' %}class="row-nr"{% endif %}>
+
+            {# ── Fecha ── #}
             <td class="td-ts">
-              {{ f.fecha_solicitud[:16].replace('T', ' ') if f.fecha_solicitud else '—' }}
+              {{ f.fecha[:16].replace('T', ' ') if f.fecha else '—' }}
             </td>
+
+            {# ── Vehículo ── #}
             <td>
               <a href="{{ url_for('equipo_detalle', vehiculo=f.vehiculo) }}"
                  class="vehiculo-link">{{ f.vehiculo }}</a>
             </td>
+
+            {# ── Familia ── #}
             <td style="white-space:nowrap;">{{ f.familia or '—' }}</td>
+
+            {# ── Rutina ── #}
             <td class="td-rutina" title="{{ f.rutina or '' }}">{{ f.rutina or '—' }}</td>
-            <td style="white-space:nowrap;">{{ f.desviacion or '—' }}</td>
-            <td style="white-space:nowrap;">{{ f.solicitado_por or '—' }}</td>
-            <td>
-              {% if f.estado == 'pendiente' %}
-                <span class="badge-sol-estado badge-sol-pendiente">Pendiente</span>
+
+            {# ── Desviación ── #}
+            <td style="white-space:nowrap;font-size:12px;">
+              {% if f.tipo == 'no_reportada' %}
+                {% if f.ind_desviacion_anterior is not none %}
+                  <span style="color:var(--rojo);font-weight:700;">{{ f.ind_desviacion_anterior }}%</span>
+                  <span style="color:var(--gris);"> → </span>
+                  <span style="color:var(--verde);font-weight:700;">{{ f.ind_desviacion_nuevo }}%</span>
+                {% else %}—{% endif %}
               {% else %}
-                <span class="badge-sol-estado badge-sol-respondido">Respondido</span>
+                {{ f.desviacion or '—' }}
               {% endif %}
             </td>
+
+            {# ── Solicitado por ── #}
+            <td style="white-space:nowrap;">
+              {% if f.tipo == 'no_reportada' %}
+                <span style="color:var(--gris);font-size:12px;font-style:italic;">detección auto.</span>
+              {% else %}
+                {{ f.solicitado_por or '—' }}
+              {% endif %}
+            </td>
+
+            {# ── Estado ── #}
+            <td>
+              {% if f.tipo == 'no_reportada' %}
+                {% if f.nr_estado == 'pendiente' %}
+                  <span class="badge-sol-estado badge-nr-pendiente">Pendiente</span>
+                {% elif f.nr_estado == 'justificado' %}
+                  <span class="badge-sol-estado badge-nr-justificado">Justificado</span>
+                {% elif f.nr_estado == 'sin_justificar' %}
+                  <span class="badge-sol-estado badge-nr-sin-just">Sin justificar</span>
+                {% else %}
+                  <span class="badge-sol-estado badge-default">{{ f.nr_estado or '—' }}</span>
+                {% endif %}
+              {% else %}
+                {% if f.estado_sol == 'pendiente' %}
+                  <span class="badge-sol-estado badge-sol-pendiente">Pendiente</span>
+                {% else %}
+                  <span class="badge-sol-estado badge-sol-respondido">Respondido</span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            {# ── Fecha Respuesta ── #}
             <td class="td-ts">
               {{ f.fecha_respuesta[:16].replace('T', ' ') if f.fecha_respuesta else '—' }}
             </td>
+
+            {# ── Acción ── #}
             <td>
               {% if f.accion == 'ejecutado' %}
                 <span class="badge-accion badge-ent">✓ Ejecutado</span>
               {% elif f.accion == 'no_ejecutado' %}
                 <span class="badge-accion badge-no">✗ No ejecutado</span>
+              {% elif f.accion == 'sin_reporte' %}
+                <span class="badge-accion badge-sin-rep">⚠ Sin reporte</span>
               {% else %}
                 <span style="color:#9ca3af;font-size:12px;">—</span>
               {% endif %}
             </td>
+
+            {# ── Motivo / Comentario / Justificación ── #}
             <td class="td-motivo"
-                title="{{ (f.motivo or '') + (' — ' + f.comentario_libre if f.comentario_libre else '') }}">
-              {% if f.motivo %}
-                {{ f.motivo }}{% if f.comentario_libre %} — {{ f.comentario_libre }}{% endif %}
-              {% elif f.comentario_libre %}
-                {{ f.comentario_libre }}
+                title="{% if f.tipo == 'no_reportada' %}{{ f.justificacion or '' }}{% else %}{{ (f.motivo or '') + (' — ' + f.comentario_libre if f.comentario_libre else '') }}{% endif %}">
+              {% if f.tipo == 'no_reportada' %}
+                {% if f.justificacion %}{{ f.justificacion }}{% else %}<span style="color:#d1d5db;">—</span>{% endif %}
               {% else %}
-                <span style="color:#d1d5db;">—</span>
+                {% if f.motivo %}
+                  {{ f.motivo }}{% if f.comentario_libre %} — {{ f.comentario_libre }}{% endif %}
+                {% elif f.comentario_libre %}
+                  {{ f.comentario_libre }}
+                {% else %}
+                  <span style="color:#d1d5db;">—</span>
+                {% endif %}
               {% endif %}
             </td>
-            <td style="padding:6px 10px;">
-              <button class="btn-del"
-                      data-sid="{{ f.id }}"
-                      data-vehiculo="{{ f.vehiculo }}"
-                      onclick="confirmarEliminar(this)">
-                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                Eliminar
-              </button>
+
+            {# ── Acciones ── #}
+            <td style="padding:6px 10px;white-space:nowrap;">
+              {% if f.tipo == 'solicitud' and es_admin %}
+                <button class="btn-del"
+                        data-sid="{{ f.row_id }}"
+                        data-vehiculo="{{ f.vehiculo }}"
+                        onclick="confirmarEliminar(this)">
+                  <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  Eliminar
+                </button>
+              {% elif f.tipo == 'no_reportada' and es_admin %}
+                <button class="btn-just"
+                        onclick="abrirModalJust({{ f.row_id }}, '{{ (f.vehiculo or '')|e }}', '{{ (f.familia or '')|e }}', '{{ (f.rutina or '')|replace("'", "\\'")|replace('"', '&quot;') }}', {{ f.ind_desviacion_anterior or 0 }}, {{ f.ind_desviacion_nuevo or 0 }}, '{{ f.nr_estado or 'pendiente' }}', '{{ (f.justificacion or '')|e|replace("'", "\\'") }}')">
+                  <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Gestionar
+                </button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -560,14 +591,15 @@
     <div class="empty-state">
       <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       <h3>Sin registros</h3>
-      <p>No hay solicitudes que coincidan con los filtros aplicados.</p>
+      <p>No hay registros que coincidan con los filtros aplicados.</p>
     </div>
     {% endif %}
   </div>
 
 </div>
 
-<!-- Modal confirmación eliminación -->
+<!-- ── Modal confirmar eliminación ── -->
+{% if es_admin %}
 <div class="modal-overlay" id="modalEliminar">
   <div class="modal-box">
     <div class="modal-icon">
@@ -576,13 +608,46 @@
     <h3>¿Eliminar esta solicitud?</h3>
     <p id="modalEliminarMsg">Se eliminará la solicitud y su respuesta asociada (si tiene). Esta acción no se puede deshacer.</p>
     <div class="modal-actions">
-      <button class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-modal-cancel" onclick="cerrarModalEliminar()">Cancelar</button>
       <button class="btn-modal-confirm" id="btnConfirmarEliminar">Eliminar</button>
     </div>
   </div>
 </div>
 
+<!-- ── Modal gestionar no-reportada ── -->
+<div class="modal-overlay" id="modalJust">
+  <div class="modal-box modal-just">
+    <div class="modal-hdr">
+      <h3>Gestionar Ejecución Sin Reporte</h3>
+      <button class="modal-close" onclick="cerrarModalJust()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info-row" id="modalJustInfo"></div>
+      <label for="modalJustEstado">Estado</label>
+      <select id="modalJustEstado">
+        <option value="pendiente">Pendiente (sin revisión)</option>
+        <option value="justificado">Justificado</option>
+        <option value="sin_justificar">Sin Justificar</option>
+      </select>
+      <label for="modalJustText">Justificación <span style="font-weight:400;text-transform:none;font-size:11px;">(opcional)</span></label>
+      <textarea id="modalJustText" placeholder="Describe por qué el MP fue ejecutado sin registrar en el sistema..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-just-cancel" onclick="cerrarModalJust()">Cancelar</button>
+      <button class="btn-just-save" id="btnGuardarJust" onclick="guardarJust()">Guardar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
+(function () {
+  {% if es_admin %}
+  /* ════════════════════════════════
+     Modal eliminar solicitud
+  ════════════════════════════════ */
   var _pendingSid = null;
   var _pendingRow = null;
 
@@ -592,24 +657,25 @@
     btn.textContent = 'Eliminar';
   }
 
-  function confirmarEliminar(btn) {
+  window.confirmarEliminar = function (btn) {
     _pendingSid = btn.dataset.sid;
-    _pendingRow = document.getElementById('sol-row-' + _pendingSid);
+    _pendingRow = document.getElementById('row-solicitud-' + _pendingSid);
     document.getElementById('modalEliminarMsg').textContent =
       'Se eliminará la solicitud del vehículo ' + btn.dataset.vehiculo +
       ' y su respuesta asociada (si tiene). Esta acción no se puede deshacer.';
     _resetBtnEliminar();
     document.getElementById('modalEliminar').classList.add('visible');
-  }
+  };
 
-  function cerrarModal() {
+  function cerrarModalEliminar() {
     document.getElementById('modalEliminar').classList.remove('visible');
     _resetBtnEliminar();
     _pendingSid = null;
     _pendingRow = null;
   }
+  window.cerrarModalEliminar = cerrarModalEliminar;
 
-  document.getElementById('btnConfirmarEliminar').addEventListener('click', function() {
+  document.getElementById('btnConfirmarEliminar').addEventListener('click', function () {
     if (!_pendingSid) return;
     var btn = this;
     btn.disabled = true;
@@ -619,31 +685,107 @@
       method: 'DELETE',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
       if (data.success) {
         if (_pendingRow) {
           _pendingRow.style.transition = 'opacity 0.25s';
           _pendingRow.style.opacity = '0';
-          setTimeout(function() { _pendingRow.remove(); }, 260);
+          setTimeout(function () { _pendingRow.remove(); }, 260);
         }
-        cerrarModal();
+        cerrarModalEliminar();
       } else {
         alert('Error: ' + (data.error || 'No se pudo eliminar.'));
         btn.disabled = false;
         btn.textContent = 'Eliminar';
       }
     })
-    .catch(function() {
+    .catch(function () {
       alert('Error de red. Intenta de nuevo.');
       btn.disabled = false;
       btn.textContent = 'Eliminar';
     });
   });
 
-  document.getElementById('modalEliminar').addEventListener('click', function(e) {
-    if (e.target === this) cerrarModal();
+  document.getElementById('modalEliminar').addEventListener('click', function (e) {
+    if (e.target === this) cerrarModalEliminar();
   });
+
+  /* ════════════════════════════════
+     Modal gestionar no-reportada
+  ════════════════════════════════ */
+  var _activeNrId = null;
+  var modalJust   = document.getElementById('modalJust');
+
+  window.abrirModalJust = function (id, vehiculo, familia, rutina, indAntes, indNuevo, estado, just) {
+    _activeNrId = id;
+    var info = document.getElementById('modalJustInfo');
+    if (info) {
+      info.innerHTML =
+        '<strong>' + vehiculo + '</strong> &mdash; ' + (familia || '—') + '<br>' +
+        '<span style="font-size:11.5px;">' + (rutina.length > 80 ? rutina.substring(0, 80) + '…' : rutina) + '</span><br>' +
+        '<span style="font-size:11.5px;">Desv. anterior: <strong style="color:var(--rojo);">' + indAntes + '%</strong> → ' +
+        'Nueva: <strong style="color:var(--verde);">' + indNuevo + '%</strong></span>';
+    }
+    var selEst = document.getElementById('modalJustEstado');
+    var txtJust = document.getElementById('modalJustText');
+    if (selEst)  selEst.value  = estado || 'pendiente';
+    if (txtJust) txtJust.value = just   || '';
+    var btn = document.getElementById('btnGuardarJust');
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    if (modalJust) modalJust.classList.add('visible');
+    if (txtJust) txtJust.focus();
+  };
+
+  function cerrarModalJust() {
+    if (modalJust) modalJust.classList.remove('visible');
+    _activeNrId = null;
+  }
+  window.cerrarModalJust = cerrarModalJust;
+
+  window.guardarJust = function () {
+    if (!_activeNrId) return;
+    var estadoVal = (document.getElementById('modalJustEstado') || {}).value || 'pendiente';
+    var justVal   = ((document.getElementById('modalJustText') || {}).value || '').trim();
+    var btn = document.getElementById('btnGuardarJust');
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+
+    fetch('/admin/no-reportadas/' + _activeNrId + '/justificar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: estadoVal, justificacion: justVal || null })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert('Error: ' + (data.error || 'No se pudo guardar.'));
+        if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+      }
+    })
+    .catch(function () {
+      alert('Error de conexión.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    });
+  };
+
+  if (modalJust) {
+    modalJust.addEventListener('click', function (e) {
+      if (e.target === this) cerrarModalJust();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var mel = document.getElementById('modalEliminar');
+      var mjust = document.getElementById('modalJust');
+      if (mel && mel.classList.contains('visible'))   cerrarModalEliminar();
+      if (mjust && mjust.classList.contains('visible')) cerrarModalJust();
+    }
+  });
+  {% endif %}
+})();
 </script>
 
 {% endblock %}

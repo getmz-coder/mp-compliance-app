@@ -4,12 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ingresar — Seguimiento MP GET</title>
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    })();
-  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -21,15 +15,6 @@
       --borde-login: #d1d5db;
       --input-bg:    #fafafa;
     }
-    [data-theme="dark"] {
-      --fondo-login: #0f1117;
-      --card-login:  #1e2235;
-      --texto-login: #e5e7eb;
-      --gris-login:  #9ca3af;
-      --borde-login: #374151;
-      --input-bg:    #16213e;
-    }
-
     body {
       min-height: 100vh;
       display: flex;
@@ -97,36 +82,6 @@
       text-align: center;
     }
 
-    /* ── Toggle tema (login) ── */
-    .login-theme-toggle {
-      position: fixed;
-      top: 16px; right: 16px;
-      background: rgba(0,45,110,0.08);
-      border: 1px solid rgba(0,45,110,0.18);
-      border-radius: 20px;
-      width: 36px; height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    [data-theme="dark"] .login-theme-toggle {
-      background: rgba(255,255,255,0.08);
-      border-color: rgba(255,255,255,0.18);
-    }
-    .login-theme-toggle:hover { background: rgba(0,45,110,0.15); }
-    [data-theme="dark"] .login-theme-toggle:hover { background: rgba(255,255,255,0.14); }
-    .login-theme-toggle svg {
-      width: 16px; height: 16px;
-      stroke: #002D6E; fill: none;
-      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-    }
-    [data-theme="dark"] .login-theme-toggle svg { stroke: #9ca3af; }
-    .lt-sun, .lt-moon { display: none; }
-    html:not([data-theme="dark"]) .lt-sun  { display: block; }
-    html[data-theme="dark"]      .lt-moon { display: block; }
-
     /* Alerta de error */
     .alert-error {
       background: #fff2f2;
@@ -141,10 +96,6 @@
       align-items: center;
       gap: 8px;
     }
-    [data-theme="dark"] .alert-error {
-      background: #450a0a; border-color: #991b1b; color: #fca5a5;
-    }
-
     .alert-error svg {
       flex-shrink: 0; width: 16px; height: 16px;
       stroke: #dc2626; fill: none; stroke-width: 2;
@@ -200,10 +151,6 @@
       padding: 10px 14px; margin-bottom: 20px;
       font-size: 13.5px; color: #1e40af;
     }
-    [data-theme="dark"] .flash-info {
-      background: #0f2544; border-color: #1e40af; color: #93c5fd;
-    }
-
     /* Pie */
     footer { margin-top: 32px; font-size: 12px; color: var(--gris-login); text-align: center; line-height: 1.6; }
     footer strong { color: var(--gris-login); font-weight: 600; }
@@ -222,29 +169,10 @@
         padding: 28px 18px 24px; border-radius: 10px;
       }
       footer { margin-top: 20px; }
-      .login-theme-toggle { top: 10px; right: 10px; }
     }
   </style>
 </head>
 <body>
-
-  <!-- Toggle dark mode (esquina superior derecha) -->
-  <button class="login-theme-toggle" id="login-theme-btn" aria-label="Cambiar tema" title="Modo claro/oscuro">
-    <svg class="lt-sun" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="5"/>
-      <line x1="12" y1="1" x2="12" y2="3"/>
-      <line x1="12" y1="21" x2="12" y2="23"/>
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-      <line x1="1" y1="12" x2="3" y2="12"/>
-      <line x1="21" y1="12" x2="23" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-    </svg>
-    <svg class="lt-moon" viewBox="0 0 24 24">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  </button>
 
   <div class="card">
 
@@ -309,18 +237,6 @@
     Uso interno — acceso restringido a personal autorizado
   </footer>
 
-  <script>
-    document.getElementById('login-theme-btn').addEventListener('click', function () {
-      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      if (isDark) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-      }
-    });
-  </script>
 
 </body>
 </html>

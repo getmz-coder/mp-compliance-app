@@ -85,21 +85,6 @@ def tecnico_required(f):
     return decorated
 
 
-@app.context_processor
-def inject_no_reportadas():
-    if not current_user.is_authenticated:
-        return {}
-    if current_user.rol not in ('admin', 'superadmin', 'cio'):
-        return {}
-    try:
-        conn = get_db()
-        c = conn.execute(
-            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado = 'pendiente'"
-        ).fetchone()['c']
-        conn.close()
-        return {'no_reportadas_pendientes': c}
-    except Exception:
-        return {'no_reportadas_pendientes': 0}
 
 
 def _log_actividad(conn, usuario_id, accion_tipo, detalle):
@@ -361,7 +346,7 @@ def admin_sync():
                 if res.get('no_reportadas', 0) > 0:
                     flash(
                         f'{res["no_reportadas"]} equipo(s) detectado(s) como ejecutados '
-                        f'sin pasar por el sistema. Revisa "No Reportadas".',
+                        f'sin pasar por el sistema. Revísalos en Historial → filtro "Sin Reporte".',
                         'warning'
                     )
             except Exception as exc:
@@ -399,62 +384,130 @@ def admin_sync():
 # ---------------------------------------------------------------------------
 
 @app.route('/admin/historial')
-@admin_required
+@login_required
 def admin_historial():
-    page        = max(1, request.args.get('page', 1, type=int))
-    per_page    = 50
-    fecha_desde = request.args.get('fecha_desde', '').strip()
-    fecha_hasta = request.args.get('fecha_hasta', '').strip()
-    accion_fil  = request.args.get('accion', '').strip()
-    familia_fil = request.args.get('familia', '').strip()
+    if current_user.rol not in ('admin', 'superadmin', 'cio'):
+        flash('Acceso restringido.', 'error')
+        return redirect(url_for('dashboard_redirect'))
+
+    es_admin     = current_user.rol in ('admin', 'superadmin')
+    page         = max(1, request.args.get('page', 1, type=int))
+    per_page     = 50
+    fecha_desde  = request.args.get('fecha_desde', '').strip()
+    fecha_hasta  = request.args.get('fecha_hasta', '').strip()
+    accion_fil   = request.args.get('accion', '').strip()
+    familia_fil  = request.args.get('familia', '').strip()
     vehiculo_fil = request.args.get('vehiculo', '').strip()
 
-    where_parts, params = [], []
+    include_sol = (accion_fil != 'sin_reporte')
+    include_nr  = (accion_fil in ('', 'sin_reporte'))
 
-    if fecha_desde:
-        where_parts.append("s.fecha_solicitud >= ?")
-        params.append(fecha_desde)
-    if fecha_hasta:
-        where_parts.append("s.fecha_solicitud <= ?")
-        params.append(fecha_hasta + 'T23:59:59')
-    if accion_fil == 'pendiente':
-        where_parts.append("s.estado = 'pendiente'")
-    elif accion_fil in ('ejecutado', 'no_ejecutado'):
-        where_parts.append("r.accion = ?")
-        params.append(accion_fil)
-    if familia_fil:
-        where_parts.append("e.familia = ?")
-        params.append(familia_fil)
-    if vehiculo_fil:
-        where_parts.append("UPPER(e.vehiculo) LIKE ?")
-        params.append(f'%{vehiculo_fil.upper()}%')
+    # ── WHERE para solicitudes ──
+    sol_where_parts, sol_params = [], []
+    if include_sol:
+        if fecha_desde:
+            sol_where_parts.append("s.fecha_solicitud >= ?")
+            sol_params.append(fecha_desde)
+        if fecha_hasta:
+            sol_where_parts.append("s.fecha_solicitud <= ?")
+            sol_params.append(fecha_hasta + 'T23:59:59')
+        if accion_fil == 'pendiente':
+            sol_where_parts.append("s.estado = 'pendiente'")
+        elif accion_fil in ('ejecutado', 'no_ejecutado'):
+            sol_where_parts.append("r.accion = ?")
+            sol_params.append(accion_fil)
+        if familia_fil:
+            sol_where_parts.append("e.familia = ?")
+            sol_params.append(familia_fil)
+        if vehiculo_fil:
+            sol_where_parts.append("UPPER(e.vehiculo) LIKE ?")
+            sol_params.append(f'%{vehiculo_fil.upper()}%')
 
-    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+    # ── WHERE para no_reportadas ──
+    nr_where_parts, nr_params = [], []
+    if include_nr:
+        if fecha_desde:
+            nr_where_parts.append("n.timestamp >= ?")
+            nr_params.append(fecha_desde)
+        if fecha_hasta:
+            nr_where_parts.append("n.timestamp <= ?")
+            nr_params.append(fecha_hasta + 'T23:59:59')
+        if familia_fil:
+            nr_where_parts.append("n.familia = ?")
+            nr_params.append(familia_fil)
+        if vehiculo_fil:
+            nr_where_parts.append("UPPER(n.vehiculo) LIKE ?")
+            nr_params.append(f'%{vehiculo_fil.upper()}%')
 
-    base_from = f"""
+    sol_where_sql = ('WHERE ' + ' AND '.join(sol_where_parts)) if sol_where_parts else ''
+    nr_where_sql  = ('WHERE ' + ' AND '.join(nr_where_parts))  if nr_where_parts  else ''
+
+    sol_sql = f"""
+        SELECT
+            'solicitud'       AS tipo,
+            s.id              AS row_id,
+            s.fecha_solicitud AS fecha,
+            e.vehiculo, e.familia, e.rutina,
+            e.desviacion, e.ind_desviacion, e.estado_mp,
+            u.nombre_completo AS solicitado_por,
+            s.estado          AS estado_sol,
+            r.accion,
+            r.timestamp       AS fecha_respuesta,
+            m.descripcion     AS motivo,
+            r.comentario_libre,
+            NULL              AS ind_desviacion_anterior,
+            NULL              AS ind_desviacion_nuevo,
+            NULL              AS nr_estado,
+            NULL              AS justificacion
         FROM solicitudes s
         JOIN equipos e   ON e.id = s.equipo_id
         JOIN usuarios u  ON u.id = s.solicitado_por
         LEFT JOIN respuestas r       ON r.solicitud_id = s.id
         LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
-        {where_sql}
-    """
+        {sol_where_sql}
+    """ if include_sol else None
+
+    nr_sql = f"""
+        SELECT
+            'no_reportada'        AS tipo,
+            n.id                  AS row_id,
+            n.timestamp           AS fecha,
+            n.vehiculo, n.familia, n.rutina,
+            NULL                  AS desviacion,
+            NULL                  AS ind_desviacion,
+            NULL                  AS estado_mp,
+            NULL                  AS solicitado_por,
+            NULL                  AS estado_sol,
+            'sin_reporte'         AS accion,
+            NULL                  AS fecha_respuesta,
+            NULL                  AS motivo,
+            n.justificacion       AS comentario_libre,
+            n.ind_desviacion_anterior,
+            n.ind_desviacion_nuevo,
+            n.estado              AS nr_estado,
+            n.justificacion
+        FROM ejecuciones_no_reportadas n
+        {nr_where_sql}
+    """ if include_nr else None
+
+    parts = [p for p in [sol_sql, nr_sql] if p]
+    all_params = (sol_params if include_sol else []) + (nr_params if include_nr else [])
 
     conn = get_db()
-    total  = conn.execute(f"SELECT COUNT(*) AS c {base_from}", params).fetchone()['c']
-    offset = (page - 1) * per_page
 
-    filas = conn.execute(
-        f"""SELECT s.id, s.fecha_solicitud, s.estado,
-                   e.vehiculo, e.familia, e.rutina, e.desviacion, e.ind_desviacion, e.estado_mp,
-                   u.nombre_completo AS solicitado_por,
-                   r.accion, r.timestamp AS fecha_respuesta,
-                   m.descripcion AS motivo, r.comentario_libre
-            {base_from}
-            ORDER BY s.fecha_solicitud DESC
-            LIMIT ? OFFSET ?""",
-        params + [per_page, offset]
-    ).fetchall()
+    if not parts:
+        total = 0
+        filas = []
+    else:
+        union_sql = ' UNION ALL '.join(parts)
+        total  = conn.execute(
+            f"SELECT COUNT(*) AS c FROM ({union_sql})", all_params
+        ).fetchone()['c']
+        offset = (page - 1) * per_page
+        filas  = conn.execute(
+            f"SELECT * FROM ({union_sql}) ORDER BY fecha DESC LIMIT ? OFFSET ?",
+            all_params + [per_page, offset]
+        ).fetchall()
 
     familias = [row['familia'] for row in conn.execute(
         "SELECT DISTINCT familia FROM equipos WHERE familia IS NOT NULL ORDER BY familia"
@@ -475,6 +528,7 @@ def admin_historial():
         accion_fil=accion_fil,
         familia_fil=familia_fil,
         vehiculo_fil=vehiculo_fil,
+        es_admin=es_admin,
     )
 
 
@@ -1628,12 +1682,15 @@ def _build_familias_chart_data(familias_cumplimiento):
     SVG_W = PCT_X + 46
     rows = []
     for i, f in enumerate(familias_cumplimiento):
-        sol = f['solicitados'] or 0
-        ejec = f['ejecutados'] or 0
+        sol     = f['solicitados']  or 0
+        ejec    = f['ejecutados']   or 0
         no_ejec = f['no_ejecutados'] or 0
-        pct = round(ejec / sol * 100) if sol else 0
-        ejec_px = round((ejec / sol) * BAR_W) if sol else 0
-        no_px = round((no_ejec / sol) * BAR_W) if sol else 0
+        sin_rep = f.get('sin_reporte', 0) or 0
+        total_base = sol + sin_rep
+        pct = round((ejec + sin_rep) / total_base * 100) if total_base else 0
+        ejec_px  = round((ejec    / total_base) * BAR_W) if total_base else 0
+        sin_px   = round((sin_rep / total_base) * BAR_W) if total_base else 0
+        no_px    = round((no_ejec / total_base) * BAR_W) if total_base else 0
         y = i * ROW_H + 6
         fc = '#80AE3F' if pct >= 80 else ('#E67E22' if pct >= 60 else '#dc2626')
         rows.append({
@@ -1641,8 +1698,10 @@ def _build_familias_chart_data(familias_cumplimiento):
             'solicitados': sol,
             'ejecutados': ejec,
             'no_ejecutados': no_ejec,
+            'sin_reporte': sin_rep,
             'pct': pct,
             'ejec_px': ejec_px,
+            'sin_px': sin_px,
             'no_px': no_px,
             'bar_x': LABEL_W,
             'y': y,
@@ -1686,8 +1745,14 @@ def admin_indicadores():
         total_solicitados = row['total']  or 0
         ejecutados        = row['ejec']   or 0
         no_ejecutados     = row['no_ej']  or 0
-        if total_solicitados:
-            pct_ejecucion = round(ejecutados / total_solicitados * 100)
+
+    sin_reporte_total = conn.execute(
+        "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas"
+    ).fetchone()['c'] or 0
+
+    total_con_nr = total_solicitados + sin_reporte_total
+    if total_con_nr:
+        pct_ejecucion = round((ejecutados + sin_reporte_total) / total_con_nr * 100)
 
     top_motivos = conn.execute(
         """SELECT CASE WHEN r.motivo_id IS NOT NULL
@@ -1704,7 +1769,7 @@ def admin_indicadores():
     ).fetchall()
     total_no_ej_global = sum(m['cantidad'] for m in top_motivos) or 1
 
-    familias_cumplimiento = conn.execute(
+    familias_cumplimiento_raw = conn.execute(
         """SELECT e.familia,
                   COUNT(s.id) AS solicitados,
                   SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
@@ -1716,6 +1781,21 @@ def admin_indicadores():
            GROUP BY e.familia
            ORDER BY e.familia"""
     ).fetchall()
+
+    nr_por_familia = {
+        r['familia']: r['cnt']
+        for r in conn.execute(
+            """SELECT familia, COUNT(*) AS cnt
+               FROM ejecuciones_no_reportadas
+               WHERE familia IS NOT NULL
+               GROUP BY familia"""
+        ).fetchall()
+    }
+
+    familias_cumplimiento = [
+        dict(f, sin_reporte=nr_por_familia.get(f['familia'], 0))
+        for f in familias_cumplimiento_raw
+    ]
 
     historial_sync = conn.execute(
         """SELECT s.sync_id,
@@ -1729,8 +1809,8 @@ def admin_indicadores():
            ORDER BY s.sync_id DESC"""
     ).fetchall()
 
-    donut_segments   = _build_donut_segments(top_motivos, total_no_ej_global)
-    familias_chart   = _build_familias_chart_data(familias_cumplimiento)
+    donut_segments = _build_donut_segments(top_motivos, total_no_ej_global)
+    familias_chart = _build_familias_chart_data(familias_cumplimiento)
 
     conn.close()
 
@@ -1738,6 +1818,7 @@ def admin_indicadores():
         total_solicitados=total_solicitados,
         ejecutados=ejecutados,
         no_ejecutados=no_ejecutados,
+        sin_reporte_total=sin_reporte_total,
         pct_ejecucion=pct_ejecucion,
         top_motivos=top_motivos,
         total_no_ej_global=total_no_ej_global,
@@ -1792,48 +1873,6 @@ def api_buscar_vehiculo():
 # ---------------------------------------------------------------------------
 # Ejecuciones No Reportadas
 # ---------------------------------------------------------------------------
-
-@app.route('/admin/no-reportadas')
-@login_required
-def admin_no_reportadas():
-    if current_user.rol not in ('admin', 'superadmin', 'cio'):
-        flash('Acceso restringido.', 'error')
-        return redirect(url_for('dashboard_redirect'))
-
-    estado_fil   = request.args.get('estado', '').strip()
-    vehiculo_fil = request.args.get('vehiculo', '').strip()
-
-    where_parts, params = [], []
-    if estado_fil:
-        where_parts.append("n.estado = ?")
-        params.append(estado_fil)
-    if vehiculo_fil:
-        where_parts.append("UPPER(n.vehiculo) LIKE ?")
-        params.append(f'%{vehiculo_fil.upper()}%')
-
-    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
-
-    conn = get_db()
-    filas = conn.execute(
-        f"""SELECT n.id, n.vehiculo, n.familia, n.rutina,
-                   n.ind_desviacion_anterior, n.ind_desviacion_nuevo,
-                   n.sync_id_anterior, n.sync_id_nuevo,
-                   n.estado, n.justificacion, n.timestamp,
-                   u.nombre_completo AS registrado_por_nombre
-            FROM ejecuciones_no_reportadas n
-            LEFT JOIN usuarios u ON u.id = n.registrado_por
-            {where_sql}
-            ORDER BY n.timestamp DESC""",
-        params
-    ).fetchall()
-    conn.close()
-
-    return render_template('admin/no_reportadas.html',
-        filas=filas,
-        estado_fil=estado_fil,
-        vehiculo_fil=vehiculo_fil,
-        es_admin=(current_user.rol in ('admin', 'superadmin')),
-    )
 
 
 @app.route('/admin/no-reportadas/<int:nr_id>/justificar', methods=['POST'])
