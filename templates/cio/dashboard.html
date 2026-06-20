@@ -955,6 +955,7 @@
     var visible = 0;
 
     rows.forEach(function (tr) {
+      if (tr.dataset.solEstado === 'ejecutado') { tr.style.display = 'none'; return; }
       var rowCat    = (tr.dataset.categoria      || '').toLowerCase();
       var rowFam    = (tr.dataset.familia        || '').toLowerCase();
       var rowEst    = (tr.dataset.estado         || '').toLowerCase();
