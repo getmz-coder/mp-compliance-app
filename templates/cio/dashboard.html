@@ -319,6 +319,22 @@
     text-overflow: ellipsis;
   }
 
+  .badge-no-ej-prev {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .empty-state {
     padding: 60px 24px;
     text-align: center;
@@ -572,7 +588,7 @@
   <div class="page-hdr">
     <div class="page-hdr-left">
       <h1>Equipos para Mantenimiento Preventivo</h1>
-      <p>Solicita equipos a Operaciones y registra el resultado de cada entrega</p>
+      <p>Solicita vehículos a Operaciones y registra el resultado de cada entrega</p>
       {% if ultima_actualizacion %}
         <div class="ultima-actualizacion">Última actualización: {{ ultima_actualizacion }}</div>
       {% else %}
@@ -588,7 +604,7 @@
   <div class="kpi-grid">
     <div class="kpi-card kpi-blue">
       <div class="kpi-value">{{ total }}</div>
-      <div class="kpi-label">Total Equipos</div>
+      <div class="kpi-label">Vehículos pendientes</div>
       <div class="kpi-sub">en este ciclo</div>
     </div>
     <div class="kpi-card kpi-red">
@@ -607,18 +623,27 @@
       <div class="kpi-sub">a Operaciones</div>
     </div>
     <div class="kpi-card kpi-sky">
-      <div class="kpi-value">{{ respondidos }}</div>
-      <div class="kpi-label">Respondidos</div>
-      <div class="kpi-sub">resultado registrado</div>
+      <div class="kpi-value">{{ ejecutados_count }}</div>
+      <div class="kpi-label">Ejecutados</div>
+      <div class="kpi-sub">MP completado</div>
     </div>
   </div>
 
-  {% if total == 0 %}
+  {% if total == 0 and ejecutados_count == 0 %}
   <div class="table-card">
     <div class="empty-state">
       <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       <h3>No hay equipos cargados</h3>
       <p>El administrador debe sincronizar la programación MP antes de continuar.</p>
+    </div>
+  </div>
+
+  {% elif total == 0 %}
+  <div class="table-card">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <h3>Todos los vehículos ejecutados</h3>
+      <p>Todos los vehículos solicitados en este ciclo ya fueron marcados como ejecutados.</p>
     </div>
   </div>
 
@@ -662,7 +687,7 @@
     <select id="fil-sol">
       <option value="">Todos</option>
       <option value="pendiente">Pendiente respuesta</option>
-      <option value="respondido">Respondido</option>
+      <option value="no_ejecutado">No ejecutado</option>
       <option value="no-solicitado">No solicitado</option>
     </select>
 
@@ -671,7 +696,7 @@
       <input type="text" id="fil-buscar" placeholder="Buscar vehículo..." autocomplete="off">
     </div>
 
-    <span class="toolbar-count" id="toolbar-count">{{ equipos|length }} equipo(s) mostrados</span>
+    <span class="toolbar-count" id="toolbar-count">{{ equipos|length }} vehículo(s) mostrados</span>
   </div>
 
   <!-- Tabla -->
@@ -687,7 +712,7 @@
               </th>
               <th>Vehículo</th>
               <th>Familia</th>
-              <th>Rutina</th>
+              <th>Rutina(s)</th>
               <th>Desviación</th>
               <th>Ind. Desv.</th>
               <th>Estado MP</th>
@@ -697,22 +722,21 @@
           </thead>
           <tbody id="equipos-body">
             {% for equipo in equipos %}
-            {% set sol = solicitudes_map.get(equipo.id) %}
-            {% set is_sol = sol is not none %}
+            {% set sol_state = equipo.sol_state %}
             <tr
               data-familia="{{ equipo.familia or '' }}"
               data-categoria="{{ equipo.categoria or '' }}"
               data-estado="{{ equipo.estado_mp or '' }}"
               data-vehiculo="{{ equipo.vehiculo or '' }}"
               data-estado-vehiculo="{{ equipo.estado_vehiculo or '' }}"
-              data-sol-estado="{% if is_sol %}{{ sol.estado }}{% else %}no-solicitado{% endif %}"
-              class="{% if is_sol %}{% if sol.estado == 'respondido' %}{% if sol.accion == 'ejecutado' %}row-entregado{% else %}row-no-entregado{% endif %}{% else %}row-solicitado{% endif %}{% endif %}"
+              data-sol-estado="{{ sol_state or 'no-solicitado' }}"
+              class="{% if sol_state == 'pendiente' %}row-solicitado{% elif sol_state == 'no_ejecutado' %}row-no-entregado{% endif %}"
             >
               <td class="td-check">
-                {% if not is_sol %}
-                  <input type="checkbox" name="equipo_ids" value="{{ equipo.id }}" class="row-check">
+                {% if sol_state == 'pendiente' %}
+                  <span class="dot-sol" title="Pendiente de respuesta"></span>
                 {% else %}
-                  <span class="dot-sol" title="Solicitado a Operaciones"></span>
+                  <input type="checkbox" name="vehiculos" value="{{ equipo.vehiculo }}" class="row-check">
                 {% endif %}
               </td>
               <td>
@@ -720,11 +744,12 @@
                    class="vehiculo-link">{{ equipo.vehiculo }}</a>
               </td>
               <td>{{ equipo.familia or '—' }}</td>
-              <td class="rutina-cell" title="{{ equipo.rutina or '' }}">{{ equipo.rutina or '—' }}</td>
+              <td class="rutina-cell" title="{{ equipo.rutinas_str or '' }}">{{ equipo.rutinas_str or '—' }}</td>
               <td>{{ equipo.desviacion or '—' }}</td>
               <td>
                 {% if equipo.ind_desviacion is not none %}
-                  <span class="{% if (equipo.ind_desviacion|int) > 0 %}ind-pos{% elif (equipo.ind_desviacion|int) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                  {% set ind_val = equipo.ind_desviacion|string|replace('%','')|trim %}
+                  <span class="{% if ind_val|int > 0 %}ind-pos{% elif ind_val|int < 0 %}ind-neg{% else %}ind-zero{% endif %}">
                     {{ equipo.ind_desviacion }}%
                   </span>
                 {% else %}—{% endif %}
@@ -741,24 +766,18 @@
                   <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
                 {% endif %}
               </td>
-              <td style="min-width:200px;">
-                {% if is_sol %}
-                  {% if sol.estado == 'pendiente' %}
-                    <div class="resp-btns" data-sol-id="{{ sol.id }}">
-                      <button type="button" class="btn-ent"
-                              onclick="responderEntregado({{ sol.id }}, this)">✓ Ejecutado</button>
-                      <button type="button" class="btn-no"
-                              onclick="abrirModal({{ sol.id }})">✗ No ejecutado</button>
-                    </div>
-                  {% elif sol.estado == 'respondido' %}
-                    {% if sol.accion == 'ejecutado' %}
-                      <span class="badge-resp-ent">✓ Ejecutado</span>
-                    {% else %}
-                      {% set motivo_label = sol.motivo_desc or sol.comentario_libre or 'Sin motivo' %}
-                      <span class="badge-resp-no"
-                            title="{{ motivo_label }}">✗ {{ motivo_label[:30] }}{% if motivo_label|length > 30 %}…{% endif %}</span>
-                    {% endif %}
-                  {% endif %}
+              <td style="min-width:220px;">
+                {% if sol_state == 'pendiente' %}
+                  <div class="resp-btns" data-vehiculo="{{ equipo.vehiculo }}">
+                    <button type="button" class="btn-ent"
+                            onclick="responderEntregado('{{ equipo.vehiculo }}')">✓ Ejecutado</button>
+                    <button type="button" class="btn-no"
+                            onclick="abrirModal('{{ equipo.vehiculo }}')">✗ No ejecutado</button>
+                  </div>
+                {% elif sol_state == 'no_ejecutado' %}
+                  <div class="badge-no-ej-prev" title="{{ equipo.motivo_no_ej_str }}">
+                    ⚠ No ejecutado — {{ equipo.motivo_no_ej_str[:40] }}{% if equipo.motivo_no_ej_str|length > 40 %}…{% endif %}
+                  </div>
                 {% endif %}
               </td>
               <td>
@@ -774,7 +793,7 @@
         <div class="empty-state" style="padding:40px 24px;">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <h3>Sin resultados</h3>
-          <p>Ningún equipo coincide con los filtros aplicados.</p>
+          <p>Ningún vehículo coincide con los filtros aplicados.</p>
         </div>
       </div>
     </div>
@@ -783,13 +802,13 @@
   <!-- Sticky action bar -->
   <div class="action-bar" id="action-bar">
     <div class="action-bar-info">
-      <strong id="sel-count">0</strong> equipo(s) seleccionado(s) para solicitar a Operaciones
+      <strong id="sel-count">0</strong> vehículo(s) seleccionado(s) para solicitar a Operaciones
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
       <button type="button" class="btn-clear-sel" id="btn-clear">Limpiar selección</button>
       <button type="submit" form="solicitar-form" class="btn-solicitar">
         <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Solicitar Equipos
+        Solicitar Vehículos
       </button>
     </div>
   </div>
@@ -798,7 +817,7 @@
 
 </div>
 
-<!-- ══ Modal: No entregado ══ -->
+<!-- ══ Modal: No ejecutado ══ -->
 <div id="modal-no-ent" class="modal-overlay" style="display:none;" onclick="overlayClick(event)">
   <div class="modal-box">
     <div class="modal-hdr">
@@ -806,7 +825,7 @@
       <button type="button" class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p>Indica el motivo por el que Operaciones no entregó el equipo al taller.</p>
+      <p>Indica el motivo por el que Operaciones no entregó el vehículo al taller.</p>
       <div class="form-group">
         <label for="modal-motivo">Motivo <span style="color:var(--rojo)">*</span></label>
         <select id="modal-motivo">
@@ -821,7 +840,7 @@
     </div>
     <div class="modal-footer">
       <button type="button" class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
-      <button type="button" class="btn-modal-confirm" onclick="confirmarNoEntregado()">Confirmar</button>
+      <button type="button" class="btn-modal-confirm" onclick="confirmarNoEjecutado()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -884,7 +903,7 @@
     });
 
     if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
-    if (toolCount) toolCount.textContent = visible + ' equipo(s) mostrados';
+    if (toolCount) toolCount.textContent = visible + ' vehículo(s) mostrados';
   }
 
   checks.forEach(function (cb) {
@@ -934,7 +953,7 @@
     form.addEventListener('submit', function (e) {
       if (document.querySelectorAll('.row-check:checked').length === 0) {
         e.preventDefault();
-        alert('Selecciona al menos un equipo antes de solicitar.');
+        alert('Selecciona al menos un vehículo antes de solicitar.');
       }
     });
   }
@@ -954,8 +973,8 @@
   }
 
   /* ── Modal state ── */
-  var currentSolId = null;
-  var motivosCache = null;
+  var currentVehiculo = null;
+  var motivosCache    = null;
 
   window.overlayClick = function (e) {
     if (e.target === document.getElementById('modal-no-ent')) cerrarModal();
@@ -969,8 +988,8 @@
       .catch(function () { mostrarToast('Error al cargar motivos.', 'err'); });
   }
 
-  window.abrirModal = function (solId) {
-    currentSolId = solId;
+  window.abrirModal = function (vehiculo) {
+    currentVehiculo = vehiculo;
     cargarMotivos(function (motivos) {
       var sel = document.getElementById('modal-motivo');
       sel.innerHTML = '<option value="">— Selecciona un motivo —</option>';
@@ -992,12 +1011,20 @@
   window.cerrarModal = function () {
     document.getElementById('modal-no-ent').style.display = 'none';
     document.body.style.overflow = '';
-    currentSolId = null;
+    currentVehiculo = null;
   };
 
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   /* ── Responder (fetch) ── */
-  function enviarRespuesta(solId, accion, motivoId, motivoDesc, comentario) {
-    var payload = { solicitud_id: solId, accion: accion };
+  function enviarRespuesta(vehiculo, accion, motivoId, motivoDesc, comentario) {
+    var payload = { vehiculo: vehiculo, accion: accion };
     if (motivoId)   payload.motivo_id       = parseInt(motivoId, 10);
     if (comentario) payload.comentario_libre = comentario;
 
@@ -1012,56 +1039,62 @@
         mostrarToast(data.error || 'Error al registrar.', 'err');
         return;
       }
-      /* Actualizar fila visualmente */
-      var container = document.querySelector('.resp-btns[data-sol-id="' + solId + '"]');
+
+      var container = document.querySelector('.resp-btns[data-vehiculo="' + escHtml(vehiculo) + '"]');
       if (!container) return;
       var tr = container.closest('tr');
 
       if (accion === 'ejecutado') {
-        container.outerHTML = '<span class="badge-resp-ent">✓ Ejecutado</span>';
+        /* ocultar la fila — vehículo ejecutado no aparece más */
         if (tr) {
-          tr.classList.remove('row-solicitado', 'row-no-entregado');
-          tr.classList.add('row-entregado');
-          tr.dataset.solEstado = 'respondido';
+          tr.style.display = 'none';
+          tr.dataset.solEstado = 'ejecutado';
         }
-        mostrarToast('Ejecutado registrado correctamente.', 'ok');
+        /* actualizar KPI ejecutados */
+        var kpiEj = document.querySelector('.kpi-card.kpi-sky .kpi-value');
+        if (kpiEj) kpiEj.textContent = parseInt(kpiEj.textContent || '0', 10) + 1;
+        /* actualizar contador visible */
+        applyFilters();
+        mostrarToast('Ejecutado registrado. El vehículo salió del panel.', 'ok');
       } else {
-        var label = motivoDesc || comentario || 'Sin motivo';
-        var labelCorto = label.length > 30 ? label.substring(0, 30) + '…' : label;
-        container.outerHTML =
-          '<span class="badge-resp-no" title="' + escHtml(label) + '">✗ ' + escHtml(labelCorto) + '</span>';
+        var label     = (data.motivo_desc) || comentario || 'Sin motivo';
+        var labelCorto = label.length > 40 ? label.substring(0, 40) + '…' : label;
+        /* mostrar badge no ejecutado + checkbox para re-solicitar */
+        var td = container.parentNode;
+        container.outerHTML = '<div class="badge-no-ej-prev" title="' + escHtml(label) + '">⚠ No ejecutado — ' + escHtml(labelCorto) + '</div>';
+        /* agregar checkbox en la celda de selección */
         if (tr) {
-          tr.classList.remove('row-solicitado', 'row-entregado');
+          tr.classList.remove('row-solicitado');
           tr.classList.add('row-no-entregado');
-          tr.dataset.solEstado = 'respondido';
+          tr.dataset.solEstado = 'no_ejecutado';
+          var tdCheck = tr.querySelector('.td-check');
+          if (tdCheck) {
+            tdCheck.innerHTML = '<input type="checkbox" name="vehiculos" value="' + escHtml(vehiculo) + '" class="row-check">';
+            var newCb = tdCheck.querySelector('.row-check');
+            if (newCb) {
+              newCb.addEventListener('change', function () {
+                tr.classList.toggle('row-selected', newCb.checked);
+                updateCounter();
+                if (selAll) selAll.indeterminate = true;
+              });
+            }
+          }
         }
         mostrarToast('No ejecutado registrado correctamente.', 'ok');
       }
-
-      /* Actualizar KPI respondidos */
-      var kpiEl = document.querySelector('.kpi-card.kpi-sky .kpi-value');
-      if (kpiEl) kpiEl.textContent = parseInt(kpiEl.textContent || '0', 10) + 1;
     })
     .catch(function () {
       mostrarToast('Error de conexión. Intenta nuevamente.', 'err');
     });
   }
 
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  window.responderEntregado = function (solId) {
-    if (!confirm('¿Confirmar que Operaciones entregó este equipo al taller?')) return;
-    enviarRespuesta(solId, 'ejecutado', null, null, null);
+  window.responderEntregado = function (vehiculo) {
+    if (!confirm('¿Confirmar que Operaciones entregó el vehículo ' + vehiculo + ' al taller?')) return;
+    enviarRespuesta(vehiculo, 'ejecutado', null, null, null);
   };
 
-  window.confirmarNoEntregado = function () {
-    var sel     = document.getElementById('modal-motivo');
+  window.confirmarNoEjecutado = function () {
+    var sel      = document.getElementById('modal-motivo');
     var motivoId = sel.value;
     if (!motivoId) {
       sel.classList.add('error');
@@ -1069,14 +1102,13 @@
       setTimeout(function () { sel.classList.remove('error'); }, 1800);
       return;
     }
-    var motivoDesc  = sel.options[sel.selectedIndex].textContent;
-    var comentario  = document.getElementById('modal-comentario').value.trim() || null;
-    var solId = currentSolId;
+    var motivoDesc = sel.options[sel.selectedIndex].textContent;
+    var comentario = document.getElementById('modal-comentario').value.trim() || null;
+    var veh        = currentVehiculo;
     cerrarModal();
-    enviarRespuesta(solId, 'no_ejecutado', motivoId, motivoDesc, comentario);
+    enviarRespuesta(veh, 'no_ejecutado', motivoId, motivoDesc, comentario);
   };
 
-  /* Cerrar modal con Escape */
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') cerrarModal();
   });

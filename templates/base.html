@@ -224,6 +224,8 @@
       {% if current_user.rol in ('admin', 'superadmin') %}
         <a href="{{ url_for('admin_dashboard') }}"
            {% if request.endpoint == 'admin_dashboard' %}class="active"{% endif %}>Dashboard</a>
+        <a href="{{ url_for('admin_indicadores') }}"
+           {% if request.endpoint == 'admin_indicadores' %}class="active"{% endif %}>Indicadores</a>
         <a href="{{ url_for('admin_sync') }}"
            {% if request.endpoint == 'admin_sync' %}class="active"{% endif %}>Sincronizar</a>
         <a href="{{ url_for('admin_historial') }}"
@@ -237,6 +239,9 @@
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
         <a href="{{ url_for('cio_mis_solicitudes') }}"
            {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
+      {% elif current_user.rol == 'tecnico' %}
+        <a href="{{ url_for('taller') }}"
+           {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>
       {% endif %}
     </div>
 

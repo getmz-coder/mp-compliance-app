@@ -2,6 +2,9 @@
 import logging
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TZ_COL = ZoneInfo('America/Bogota')
 
 from models import get_db
 
@@ -54,8 +57,8 @@ def sync_programacion(filepath):
 
     df = df[df['consecutivo'].map(lambda x: _clean(x) is not None)]
 
-    sync_id = int(datetime.now().timestamp())
-    sync_timestamp = datetime.now().isoformat()
+    sync_id = int(datetime.now(TZ_COL).timestamp())
+    sync_timestamp = datetime.now(TZ_COL).isoformat()
 
     conn = get_db()
     cur = conn.cursor()

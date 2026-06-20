@@ -1,7 +1,10 @@
 import sqlite3
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash
+
+TZ_COL = ZoneInfo('America/Bogota')
 
 import config
 
@@ -156,7 +159,7 @@ def create_user(username, password, nombre, rol):
     cur.execute(
         """INSERT INTO usuarios (username, password_hash, nombre_completo, rol, activo, created_at)
            VALUES (?, ?, ?, ?, 1, ?)""",
-        (username, password_hash, nombre, rol, datetime.now().isoformat())
+        (username, password_hash, nombre, rol, datetime.now(TZ_COL).isoformat())
     )
     conn.commit()
     user_id = cur.lastrowid
@@ -177,6 +180,9 @@ if __name__ == '__main__':
 
     uid = create_user('cio_bog', 'cio123', 'CIO BOG', 'cio')
     print(f"  Usuario cio_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
+
+    uid = create_user('tecnico_bog', 'tec123', 'Técnico-Almacén BOG', 'tecnico')
+    print(f"  Usuario tecnico_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 
     uid = create_user('mz13', 'Mzaba*13', 'Super Admin GET', 'superadmin')
     print(f"  Usuario mz13 {'creado (id={})'.format(uid) if uid else 'ya existía'}.")

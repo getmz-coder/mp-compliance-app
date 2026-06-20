@@ -1,6 +1,7 @@
 import os
 from functools import wraps
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import (
@@ -13,6 +14,8 @@ from werkzeug.utils import secure_filename
 import config
 from models import get_db
 import sync_data
+
+TZ_COL = ZoneInfo('America/Bogota')
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -68,11 +71,22 @@ def cio_required(f):
     return decorated
 
 
+def tecnico_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if current_user.rol not in ('tecnico', 'admin', 'superadmin'):
+            flash('Acceso restringido.', 'error')
+            return redirect(url_for('dashboard_redirect'))
+        return f(*args, **kwargs)
+    return decorated
+
+
 def _log_actividad(conn, usuario_id, accion_tipo, detalle):
     conn.execute(
         """INSERT INTO log_actividad (usuario_id, accion_tipo, detalle, ip_address, timestamp)
            VALUES (?, ?, ?, ?, ?)""",
-        (usuario_id, accion_tipo, detalle, request.remote_addr, datetime.now().isoformat())
+        (usuario_id, accion_tipo, detalle, request.remote_addr, datetime.now(TZ_COL).isoformat())
     )
 
 
@@ -156,6 +170,7 @@ def dashboard_redirect():
         'admin':      'admin_dashboard',
         'superadmin': 'admin_dashboard',
         'cio':        'cio_dashboard',
+        'tecnico':    'taller',
     }
     return redirect(url_for(destinos.get(current_user.rol, 'login')))
 
@@ -271,6 +286,11 @@ def admin_sync():
                 flash(msg, 'success')
             except Exception as exc:
                 flash(f'Error en programación MP: {exc}', 'error')
+            else:
+                try:
+                    os.remove(save_path)
+                except Exception as exc:
+                    app.logger.error('No se pudo eliminar programacion_mp.xlsx: %s', exc)
 
     if has_filt:
         if not _allowed_excel(file_filt.filename):
@@ -285,6 +305,11 @@ def admin_sync():
                 flash(msg, 'success')
             except Exception as exc:
                 flash(f'Error en maestro filtración: {exc}', 'error')
+            else:
+                try:
+                    os.remove(save_path)
+                except Exception as exc:
+                    app.logger.error('No se pudo eliminar maestro_filtracion.xlsx: %s', exc)
 
     return redirect(url_for('admin_sync'))
 
@@ -455,7 +480,7 @@ def admin_export():
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"reporte_mp_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"reporte_mp_{datetime.now(TZ_COL).strftime('%Y%m%d')}.xlsx"
     return send_file(
         buf,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -468,7 +493,7 @@ def admin_export():
 @admin_required
 def admin_usuarios():
     is_superadmin = current_user.rol == 'superadmin'
-    valid_roles_create = ('admin', 'cio', 'superadmin') if is_superadmin else ('admin', 'cio')
+    valid_roles_create = ('admin', 'cio', 'tecnico', 'superadmin') if is_superadmin else ('admin', 'cio', 'tecnico')
 
     if request.method == 'POST':
         action = request.form.get('action', '')
@@ -538,7 +563,7 @@ def admin_usuarios():
                                (username, password_hash, nombre_completo, rol, activo, created_at)
                            VALUES (?, ?, ?, ?, 1, ?)""",
                         (username, generate_password_hash(password), nombre, rol,
-                         datetime.now().isoformat())
+                         datetime.now(TZ_COL).isoformat())
                     )
                     conn.commit()
                     flash(f'Usuario "{username}" creado exitosamente.', 'success')
@@ -595,14 +620,40 @@ def cio_dashboard():
     conn = get_db()
     sync_id = _current_sync_id(conn)
 
-    equipos = []
-    familias = []
-    estados  = []
-    categorias = []
-    estados_vehiculo = []
+    equipos_grouped = []
+    familias, estados, categorias, estados_vehiculo = [], [], [], []
+    total = vencidos = proximos = ya_solicitados = ejecutados_count = 0
+    ultima_actualizacion = None
 
     if sync_id:
-        equipos = conn.execute(
+        rows_sol = conn.execute(
+            """SELECT s.id, s.equipo_id, s.estado, e.vehiculo,
+                      r.accion, m.descripcion AS motivo_desc, r.comentario_libre
+               FROM solicitudes s
+               JOIN equipos e ON e.id = s.equipo_id
+               LEFT JOIN respuestas r ON r.solicitud_id = s.id
+               LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+               WHERE s.sync_id = ?""",
+            (sync_id,)
+        ).fetchall()
+
+        sol_by_equipo = {}
+        for row in rows_sol:
+            eid = row['equipo_id']
+            existing = sol_by_equipo.get(eid)
+            entry = {
+                'sol_id':           row['id'],
+                'estado':           row['estado'],
+                'accion':           row['accion'],
+                'motivo_desc':      row['motivo_desc'],
+                'comentario_libre': row['comentario_libre'],
+            }
+            if existing is None:
+                sol_by_equipo[eid] = entry
+            elif existing['estado'] == 'respondido' and row['estado'] == 'pendiente':
+                sol_by_equipo[eid] = entry
+
+        all_equipos = conn.execute(
             """SELECT * FROM equipos
                WHERE sync_id = ?
                AND CAST(ind_desviacion AS INTEGER) >= -10
@@ -610,83 +661,122 @@ def cio_dashboard():
             (sync_id,)
         ).fetchall()
 
-        familias = [r['familia'] for r in conn.execute(
-            """SELECT DISTINCT familia FROM equipos
-               WHERE sync_id = ? AND familia IS NOT NULL
-               AND CAST(ind_desviacion AS INTEGER) >= -10
-               ORDER BY familia""",
-            (sync_id,)
-        ).fetchall()]
+        vehicles = {}
+        for equipo in all_equipos:
+            sol = sol_by_equipo.get(equipo['id'])
+            if sol and sol['accion'] == 'ejecutado' and sol['estado'] == 'respondido':
+                continue
 
-        estados = [r['estado_mp'] for r in conn.execute(
-            """SELECT DISTINCT estado_mp FROM equipos
-               WHERE sync_id = ? AND estado_mp IS NOT NULL
-               AND CAST(ind_desviacion AS INTEGER) >= -10
-               ORDER BY estado_mp""",
-            (sync_id,)
-        ).fetchall()]
+            v = equipo['vehiculo']
+            if v not in vehicles:
+                vehicles[v] = {
+                    'vehiculo':           v,
+                    'familia':            equipo['familia'],
+                    'categoria':          equipo['categoria'],
+                    'estado_vehiculo':    equipo['estado_vehiculo'],
+                    'rutinas':            [],
+                    'ind_desviacion':     equipo['ind_desviacion'],
+                    'desviacion':         equipo['desviacion'],
+                    'estado_mp':          equipo['estado_mp'],
+                    'equipo_ids':         [],
+                    'sol_ids_pendientes': [],
+                    'motivos_no_ej':      [],
+                    '_has_pendiente':     False,
+                    '_has_no_ej':         False,
+                }
 
-        categorias = [r['categoria'] for r in conn.execute(
-            """SELECT DISTINCT categoria FROM equipos
-               WHERE sync_id = ? AND categoria IS NOT NULL
-               AND CAST(ind_desviacion AS INTEGER) >= -10
-               ORDER BY categoria""",
-            (sync_id,)
-        ).fetchall()]
+            vd = vehicles[v]
+            vd['equipo_ids'].append(equipo['id'])
+            if equipo['rutina']:
+                vd['rutinas'].append(equipo['rutina'])
 
-        estados_vehiculo = [r['estado_vehiculo'] for r in conn.execute(
-            """SELECT DISTINCT estado_vehiculo FROM equipos
-               WHERE sync_id = ? AND estado_vehiculo IS NOT NULL
-               AND CAST(ind_desviacion AS INTEGER) >= -10
-               ORDER BY estado_vehiculo""",
-            (sync_id,)
-        ).fetchall()]
+            em   = (equipo['estado_mp'] or '').lower()
+            curr = (vd['estado_mp'] or '').lower()
+            if 'vencido' in em and 'vencido' not in curr:
+                vd['estado_mp'] = equipo['estado_mp']
 
-    vencidos  = sum(1 for e in equipos if e['estado_mp'] and 'vencido' in e['estado_mp'].lower())
-    proximos  = sum(1 for e in equipos if e['estado_mp'] and ('próximo' in e['estado_mp'].lower() or 'proximo' in e['estado_mp'].lower()))
+            if sol:
+                if sol['estado'] == 'pendiente':
+                    vd['sol_ids_pendientes'].append(sol['sol_id'])
+                    vd['_has_pendiente'] = True
+                elif sol['accion'] == 'no_ejecutado':
+                    mot = sol['motivo_desc'] or sol['comentario_libre'] or 'Sin motivo'
+                    if mot not in vd['motivos_no_ej']:
+                        vd['motivos_no_ej'].append(mot)
+                    vd['_has_no_ej'] = True
 
-    solicitudes_map = {}
-    if sync_id:
-        rows_sol = conn.execute(
-            """SELECT s.id, s.equipo_id, s.estado, s.solicitado_por,
-                      r.accion, m.descripcion AS motivo_desc, r.comentario_libre
-               FROM solicitudes s
-               LEFT JOIN respuestas r ON r.solicitud_id = s.id
-               LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
-               WHERE s.sync_id = ?""",
-            (sync_id,)
-        ).fetchall()
+        for vd in vehicles.values():
+            if vd['_has_pendiente']:
+                vd['sol_state'] = 'pendiente'
+            elif vd['_has_no_ej']:
+                vd['sol_state'] = 'no_ejecutado'
+            else:
+                vd['sol_state'] = None
+            vd['rutinas_str']      = ', '.join(vd['rutinas'])
+            vd['motivo_no_ej_str'] = ' / '.join(vd['motivos_no_ej'])
+            del vd['_has_pendiente'], vd['_has_no_ej']
+
+        def _sk(vd):
+            try:
+                return -(int(str(vd['ind_desviacion']).replace('%', '').strip())
+                         if vd['ind_desviacion'] is not None else 0)
+            except (ValueError, TypeError):
+                return 0
+
+        equipos_grouped = sorted(vehicles.values(), key=_sk)
+
+        _seen = {'fam': set(), 'est': set(), 'cat': set(), 'eveh': set()}
+        for vd in equipos_grouped:
+            if vd['familia'] and vd['familia'] not in _seen['fam']:
+                familias.append(vd['familia']); _seen['fam'].add(vd['familia'])
+            if vd['estado_mp'] and vd['estado_mp'] not in _seen['est']:
+                estados.append(vd['estado_mp']); _seen['est'].add(vd['estado_mp'])
+            if vd['categoria'] and vd['categoria'] not in _seen['cat']:
+                categorias.append(vd['categoria']); _seen['cat'].add(vd['categoria'])
+            if vd['estado_vehiculo'] and vd['estado_vehiculo'] not in _seen['eveh']:
+                estados_vehiculo.append(vd['estado_vehiculo']); _seen['eveh'].add(vd['estado_vehiculo'])
+        familias.sort(); estados.sort(); categorias.sort(); estados_vehiculo.sort()
+
+        total          = len(equipos_grouped)
+        vencidos       = sum(1 for vd in equipos_grouped
+                             if vd['estado_mp'] and 'vencido' in vd['estado_mp'].lower())
+        proximos       = sum(1 for vd in equipos_grouped
+                             if vd['estado_mp'] and
+                             ('próximo' in vd['estado_mp'].lower() or 'proximo' in vd['estado_mp'].lower()))
+        ya_solicitados = sum(1 for vd in equipos_grouped if vd['sol_state'] is not None)
+
+        veh_sol_acciones = {}
         for row in rows_sol:
-            solicitudes_map[row['equipo_id']] = {
-                'id':             row['id'],
-                'estado':         row['estado'],
-                'solicitado_por': row['solicitado_por'],
-                'accion':         row['accion'],
-                'motivo_desc':    row['motivo_desc'],
-                'comentario_libre': row['comentario_libre'],
-            }
+            veh = row['vehiculo']
+            if veh not in veh_sol_acciones:
+                veh_sol_acciones[veh] = []
+            if row['accion']:
+                veh_sol_acciones[veh].append(row['accion'])
 
-    respondidos = sum(1 for s in solicitudes_map.values() if s['estado'] == 'respondido')
+        ejecutados_count = sum(
+            1 for veh, acciones in veh_sol_acciones.items()
+            if acciones and all(a == 'ejecutado' for a in acciones)
+            and veh not in vehicles
+        )
 
-    row_ult = conn.execute(
-        "SELECT fecha_programacion FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
-    ).fetchone()
-    ultima_actualizacion = _format_fecha_actualizacion(row_ult['fecha_programacion']) if row_ult else None
+        row_ult = conn.execute(
+            "SELECT fecha_programacion FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
+        ).fetchone()
+        ultima_actualizacion = _format_fecha_actualizacion(row_ult['fecha_programacion']) if row_ult else None
 
     conn.close()
 
     return render_template('cio/dashboard.html',
-        equipos=equipos,
+        equipos=equipos_grouped,
         familias=familias,
         estados=estados,
         categorias=categorias,
         estados_vehiculo=estados_vehiculo,
-        total=len(equipos),
+        total=total,
         vencidos=vencidos,
         proximos=proximos,
-        ya_solicitados=len(solicitudes_map),
-        respondidos=respondidos,
-        solicitudes_map=solicitudes_map,
+        ya_solicitados=ya_solicitados,
+        ejecutados_count=ejecutados_count,
         current_sync_id=sync_id,
         ultima_actualizacion=ultima_actualizacion,
     )
@@ -695,44 +785,52 @@ def cio_dashboard():
 @app.route('/cio/solicitar', methods=['POST'])
 @cio_required
 def cio_solicitar():
-    equipo_ids = request.form.getlist('equipo_ids')
-    if not equipo_ids:
-        flash('No seleccionaste ningún equipo.', 'error')
+    vehiculos = request.form.getlist('vehiculos')
+    if not vehiculos:
+        flash('No seleccionaste ningún vehículo.', 'error')
         return redirect(url_for('cio_dashboard'))
 
     conn = get_db()
     sync_id = _current_sync_id(conn)
-    ahora   = datetime.now().isoformat()
+    ahora   = datetime.now(TZ_COL).isoformat()
     registrados = 0
 
-    for raw_id in equipo_ids:
-        try:
-            eid = int(raw_id)
-        except ValueError:
-            continue
+    for vehiculo in vehiculos:
+        vehiculo = vehiculo.strip().upper()
+        equipo_rows = conn.execute(
+            """SELECT id FROM equipos
+               WHERE UPPER(vehiculo) = ? AND sync_id = ?
+               AND CAST(ind_desviacion AS INTEGER) >= -10""",
+            (vehiculo, sync_id)
+        ).fetchall()
 
-        existing = conn.execute(
-            "SELECT id FROM solicitudes WHERE equipo_id = ? AND sync_id = ?",
-            (eid, sync_id)
-        ).fetchone()
+        for row in equipo_rows:
+            eid = row['id']
+            existing_pendiente = conn.execute(
+                """SELECT id FROM solicitudes
+                   WHERE equipo_id = ? AND sync_id = ? AND estado = 'pendiente'""",
+                (eid, sync_id)
+            ).fetchone()
+            if not existing_pendiente:
+                conn.execute(
+                    """INSERT INTO solicitudes
+                           (equipo_id, solicitado_por, fecha_solicitud, sync_id, estado)
+                       VALUES (?, ?, ?, ?, 'pendiente')""",
+                    (eid, current_user.id, ahora, sync_id)
+                )
+                registrados += 1
 
-        if not existing:
-            conn.execute(
-                """INSERT INTO solicitudes
-                       (equipo_id, solicitado_por, fecha_solicitud, sync_id, estado)
-                   VALUES (?, ?, ?, ?, 'pendiente')""",
-                (eid, current_user.id, ahora, sync_id)
-            )
-            registrados += 1
-
+    if registrados:
+        _log_actividad(conn, current_user.id, 'solicitud',
+                       f'Solicitó {registrados} rutina(s): {", ".join(vehiculos)}')
     conn.commit()
     conn.close()
 
     if registrados:
-        flash(f'{registrados} equipo(s) solicitados exitosamente. '
+        flash(f'{len(vehiculos)} vehículo(s) solicitados — {registrados} rutina(s) registradas. '
               'Notifica a Operaciones para coordinar la entrega.', 'success')
     else:
-        flash('Los equipos seleccionados ya estaban solicitados en este ciclo.', 'warning')
+        flash('Los vehículos seleccionados ya tenían solicitudes pendientes en este ciclo.', 'warning')
 
     return redirect(url_for('cio_dashboard'))
 
@@ -751,43 +849,31 @@ def cio_motivos():
 @app.route('/cio/responder', methods=['POST'])
 @cio_required
 def cio_responder():
-    data = request.get_json(force=True) or {}
-    solicitud_id  = data.get('solicitud_id')
-    accion        = data.get('accion')
-    motivo_id     = data.get('motivo_id')
-    comentario    = (data.get('comentario_libre') or '').strip() or None
+    data        = request.get_json(force=True) or {}
+    vehiculo    = (data.get('vehiculo') or '').strip().upper()
+    accion      = data.get('accion')
+    motivo_id   = data.get('motivo_id')
+    comentario  = (data.get('comentario_libre') or '').strip() or None
 
-    if not solicitud_id or accion not in ('ejecutado', 'no_ejecutado'):
+    if not vehiculo or accion not in ('ejecutado', 'no_ejecutado'):
         return jsonify({'success': False, 'error': 'Datos inválidos.'}), 400
 
     if accion == 'no_ejecutado' and not motivo_id:
         return jsonify({'success': False, 'error': 'Motivo obligatorio para "No ejecutado".'}), 400
 
     conn = get_db()
-    solicitud = conn.execute(
-        "SELECT * FROM solicitudes WHERE id = ?", (solicitud_id,)
-    ).fetchone()
+    sync_id = _current_sync_id(conn)
 
-    if not solicitud:
+    solicitudes = conn.execute(
+        """SELECT s.id FROM solicitudes s
+           JOIN equipos e ON e.id = s.equipo_id
+           WHERE UPPER(e.vehiculo) = ? AND s.sync_id = ? AND s.estado = 'pendiente'""",
+        (vehiculo, sync_id)
+    ).fetchall()
+
+    if not solicitudes:
         conn.close()
-        return jsonify({'success': False, 'error': 'Solicitud no encontrada.'}), 404
-
-    if solicitud['solicitado_por'] != current_user.id:
-        conn.close()
-        return jsonify({'success': False, 'error': 'Sin permiso para esta solicitud.'}), 403
-
-    if solicitud['estado'] == 'respondido':
-        conn.close()
-        return jsonify({'success': False, 'error': 'Solicitud ya respondida.'}), 409
-
-    ahora = datetime.now().isoformat()
-    conn.execute(
-        """INSERT INTO respuestas
-               (solicitud_id, respondido_por, accion, motivo_id, comentario_libre, timestamp, ip_address)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (solicitud_id, current_user.id, accion, motivo_id or None, comentario, ahora, request.remote_addr)
-    )
-    conn.execute("UPDATE solicitudes SET estado = 'respondido' WHERE id = ?", (solicitud_id,))
+        return jsonify({'success': False, 'error': 'No hay solicitudes pendientes para este vehículo.'}), 404
 
     motivo_desc = None
     if motivo_id:
@@ -797,9 +883,19 @@ def cio_responder():
         if m:
             motivo_desc = m['descripcion']
 
+    ahora = datetime.now(TZ_COL).isoformat()
+    for sol in solicitudes:
+        conn.execute(
+            """INSERT INTO respuestas
+                   (solicitud_id, respondido_por, accion, motivo_id, comentario_libre, timestamp, ip_address)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (sol['id'], current_user.id, accion, motivo_id or None, comentario, ahora, request.remote_addr)
+        )
+        conn.execute("UPDATE solicitudes SET estado = 'respondido' WHERE id = ?", (sol['id'],))
+
     conn.commit()
     conn.close()
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'accion': accion, 'motivo_desc': motivo_desc})
 
 
 @app.route('/cio/mis-solicitudes')
@@ -884,6 +980,47 @@ def equipo_detalle(vehiculo):
         rutinas=rutinas,
         filtros=filtros,
         historial=historial,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Técnico — equipos en taller
+# ---------------------------------------------------------------------------
+
+@app.route('/taller')
+@tecnico_required
+def taller():
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    equipos_taller = []
+    familias, categorias = [], []
+
+    if sync_id:
+        rows = conn.execute(
+            """SELECT e.vehiculo, e.familia, e.categoria,
+                      GROUP_CONCAT(DISTINCT e.rutina) AS rutinas,
+                      MAX(r.timestamp) AS fecha_ejecucion
+               FROM equipos e
+               JOIN solicitudes s ON s.equipo_id = e.id AND s.sync_id = e.sync_id
+               JOIN respuestas r  ON r.solicitud_id = s.id AND r.accion = 'ejecutado'
+               WHERE e.sync_id = ?
+               GROUP BY e.vehiculo
+               ORDER BY e.vehiculo""",
+            (sync_id,)
+        ).fetchall()
+
+        equipos_taller = [dict(row) for row in rows]
+        familias   = sorted({r['familia']   for r in equipos_taller if r['familia']})
+        categorias = sorted({r['categoria'] for r in equipos_taller if r['categoria']})
+
+    conn.close()
+
+    return render_template('tecnico/taller.html',
+        equipos=equipos_taller,
+        familias=familias,
+        categorias=categorias,
+        current_sync_id=sync_id,
     )
 
 
@@ -1007,6 +1144,90 @@ def admin_eliminar_log(log_id):
     finally:
         conn.close()
     return jsonify({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# Admin — indicadores
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/indicadores')
+@admin_required
+def admin_indicadores():
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    total_solicitados = ejecutados = no_ejecutados = 0
+    pct_ejecucion = 0
+
+    if sync_id:
+        row = conn.execute(
+            """SELECT COUNT(s.id) AS total,
+                      SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejec,
+                      SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ej
+               FROM solicitudes s
+               LEFT JOIN respuestas r ON r.solicitud_id = s.id
+               WHERE s.sync_id = ?""",
+            (sync_id,)
+        ).fetchone()
+        total_solicitados = row['total']  or 0
+        ejecutados        = row['ejec']   or 0
+        no_ejecutados     = row['no_ej']  or 0
+        if total_solicitados:
+            pct_ejecucion = round(ejecutados / total_solicitados * 100)
+
+    top_motivos = conn.execute(
+        """SELECT CASE WHEN r.motivo_id IS NOT NULL
+                       THEN COALESCE(m.descripcion, 'Desconocido')
+                       ELSE 'Comentario libre'
+                  END AS motivo,
+                  COUNT(*) AS cantidad
+           FROM respuestas r
+           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
+           WHERE r.accion = 'no_ejecutado'
+           GROUP BY r.motivo_id
+           ORDER BY cantidad DESC
+           LIMIT 10"""
+    ).fetchall()
+    total_no_ej_global = sum(m['cantidad'] for m in top_motivos) or 1
+
+    familias_cumplimiento = conn.execute(
+        """SELECT e.familia,
+                  COUNT(s.id) AS solicitados,
+                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
+                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
+           FROM solicitudes s
+           JOIN equipos e ON e.id = s.equipo_id
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           WHERE e.familia IS NOT NULL
+           GROUP BY e.familia
+           ORDER BY e.familia"""
+    ).fetchall()
+
+    historial_sync = conn.execute(
+        """SELECT s.sync_id,
+                  MIN(s.fecha_solicitud)                                        AS primera_solicitud,
+                  COUNT(s.id)                                                   AS total_solicitados,
+                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END)  AS ejecutados,
+                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END)  AS no_ejecutados
+           FROM solicitudes s
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           GROUP BY s.sync_id
+           ORDER BY s.sync_id DESC"""
+    ).fetchall()
+
+    conn.close()
+
+    return render_template('admin/indicadores.html',
+        total_solicitados=total_solicitados,
+        ejecutados=ejecutados,
+        no_ejecutados=no_ejecutados,
+        pct_ejecucion=pct_ejecucion,
+        top_motivos=top_motivos,
+        total_no_ej_global=total_no_ej_global,
+        familias_cumplimiento=familias_cumplimiento,
+        historial_sync=historial_sync,
+        current_sync_id=sync_id,
+    )
 
 
 # ---------------------------------------------------------------------------
