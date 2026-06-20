@@ -110,6 +110,21 @@ def init_db():
             respuesta_admin TEXT,
             timestamp       DATETIME
         );
+
+        CREATE TABLE IF NOT EXISTS ejecuciones_no_reportadas (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehiculo                VARCHAR(30),
+            familia                 VARCHAR(100),
+            rutina                  TEXT,
+            ind_desviacion_anterior INTEGER,
+            ind_desviacion_nuevo    INTEGER,
+            sync_id_anterior        INTEGER,
+            sync_id_nuevo           INTEGER,
+            estado                  VARCHAR(20) DEFAULT 'pendiente',
+            justificacion           TEXT,
+            registrado_por          INTEGER REFERENCES usuarios(id),
+            timestamp               DATETIME
+        );
     """)
 
     _migrate_equipos(conn)

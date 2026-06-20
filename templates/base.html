@@ -363,6 +363,24 @@
       .topbar-search-wrap { display: none; }
     }
 
+    /* ── Badge contador navbar ── */
+    .nav-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      background: var(--rojo);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 9px;
+      margin-left: 5px;
+      line-height: 1;
+      vertical-align: middle;
+    }
+
     /* ── Hamburger ── */
     .hamburger {
       display: none;
@@ -447,6 +465,13 @@
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
         <a href="{{ url_for('admin_sugerencias') }}"
            {% if request.endpoint in ('admin_sugerencias',) %}class="active"{% endif %}>Sugerencias</a>
+        <a href="{{ url_for('admin_no_reportadas') }}"
+           {% if request.endpoint == 'admin_no_reportadas' %}class="active"{% endif %}>
+          No Reportadas
+          {% if no_reportadas_pendientes is defined and no_reportadas_pendientes > 0 %}
+            <span class="nav-badge">{{ no_reportadas_pendientes }}</span>
+          {% endif %}
+        </a>
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
@@ -454,6 +479,13 @@
            {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
         <a href="{{ url_for('taller_flota') }}"
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
+        <a href="{{ url_for('admin_no_reportadas') }}"
+           {% if request.endpoint == 'admin_no_reportadas' %}class="active"{% endif %}>
+          No Reportadas
+          {% if no_reportadas_pendientes is defined and no_reportadas_pendientes > 0 %}
+            <span class="nav-badge">{{ no_reportadas_pendientes }}</span>
+          {% endif %}
+        </a>
       {% elif current_user.rol == 'tecnico' %}
         <a href="{{ url_for('taller') }}"
            {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>

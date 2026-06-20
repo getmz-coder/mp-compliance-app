@@ -65,6 +65,25 @@ def sync_programacion(filepath):
     nuevos = 0
     actualizados = 0
 
+    # Snapshot de vehículos en zona de riesgo ANTES del UPSERT
+    prev_en_riesgo = {}
+    for r in cur.execute(
+        """SELECT vehiculo, CAST(ind_desviacion AS INTEGER) AS ind,
+                  familia, rutina, sync_id
+           FROM equipos
+           WHERE CAST(ind_desviacion AS INTEGER) >= -10
+             AND vehiculo IS NOT NULL"""
+    ).fetchall():
+        v = r['vehiculo']
+        ind = r['ind'] if r['ind'] is not None else -999
+        if v not in prev_en_riesgo or ind > (prev_en_riesgo[v]['ind'] or -999):
+            prev_en_riesgo[v] = {
+                'ind':     ind,
+                'familia': r['familia'],
+                'rutina':  r['rutina'],
+                'sync_id': r['sync_id'],
+            }
+
     for _, row in df.iterrows():
         consecutivo_raw = _get_col(row, 'consecutivo')
         if consecutivo_raw is None:
@@ -140,6 +159,58 @@ def sync_programacion(filepath):
             """, (consecutivo, *vals))
             nuevos += 1
 
+    # Detección de ejecuciones no reportadas
+    no_reportadas = 0
+    ahora_nr = datetime.now(TZ_COL).isoformat()
+    for vehiculo, prev in prev_en_riesgo.items():
+        new_rows = cur.execute(
+            """SELECT CAST(ind_desviacion AS INTEGER) AS ind
+               FROM equipos
+               WHERE UPPER(vehiculo) = ? AND sync_id = ?""",
+            (vehiculo.upper(), sync_id)
+        ).fetchall()
+        if not new_rows:
+            continue
+        new_inds = [r['ind'] for r in new_rows if r['ind'] is not None]
+        if not new_inds or max(new_inds) >= -10:
+            continue  # sigue en zona de riesgo o sin dato
+
+        prev_sync_id = prev['sync_id']
+        if not prev_sync_id:
+            continue
+
+        ejecutado = cur.execute(
+            """SELECT 1 FROM respuestas r
+               JOIN solicitudes s ON s.id = r.solicitud_id
+               JOIN equipos e     ON e.id = s.equipo_id
+               WHERE UPPER(e.vehiculo) = ? AND s.sync_id = ? AND r.accion = 'ejecutado'
+               LIMIT 1""",
+            (vehiculo.upper(), prev_sync_id)
+        ).fetchone()
+        if ejecutado:
+            continue
+
+        ya = cur.execute(
+            """SELECT 1 FROM ejecuciones_no_reportadas
+               WHERE UPPER(vehiculo) = ? AND sync_id_anterior = ? AND sync_id_nuevo = ?
+               LIMIT 1""",
+            (vehiculo.upper(), prev_sync_id, sync_id)
+        ).fetchone()
+        if ya:
+            continue
+
+        cur.execute(
+            """INSERT INTO ejecuciones_no_reportadas
+                   (vehiculo, familia, rutina, ind_desviacion_anterior,
+                    ind_desviacion_nuevo, sync_id_anterior, sync_id_nuevo,
+                    estado, timestamp)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?)""",
+            (vehiculo, prev['familia'], prev['rutina'],
+             prev['ind'], min(new_inds),
+             prev_sync_id, sync_id, ahora_nr)
+        )
+        no_reportadas += 1
+
     conn.commit()
     conn.close()
 
@@ -148,6 +219,7 @@ def sync_programacion(filepath):
         'actualizados': actualizados,
         'total': nuevos + actualizados,
         'sync_id': sync_id,
+        'no_reportadas': no_reportadas,
     }
 
 

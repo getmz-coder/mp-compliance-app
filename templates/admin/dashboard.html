@@ -443,7 +443,7 @@
   <!-- ── Alertas de gestión ── -->
   <div class="alertas-section">
     <div class="alertas-grid">
-      {% set hay_alertas = alerta_vencidos > 0 or alerta_pendientes > 0 or alerta_no_ej > 0 %}
+      {% set hay_alertas = alerta_vencidos > 0 or alerta_pendientes > 0 or alerta_no_ej > 0 or alerta_no_reportadas > 0 %}
       {% if hay_alertas %}
 
         {% if alerta_vencidos > 0 %}
@@ -478,6 +478,18 @@
             <div class="alerta-count">{{ alerta_no_ej }}</div>
             <div class="alerta-text">equipo(s) marcados como no ejecutados</div>
             <div class="alerta-action">Ver en historial →</div>
+          </div>
+        </a>
+        {% endif %}
+
+        {% if alerta_no_reportadas > 0 %}
+        <a href="{{ url_for('admin_no_reportadas') }}"
+           class="alerta-card alerta-card-rojo">
+          <div class="alerta-icon">⚠️</div>
+          <div>
+            <div class="alerta-count">{{ alerta_no_reportadas }}</div>
+            <div class="alerta-text">equipo(s) ejecutados sin pasar por el sistema</div>
+            <div class="alerta-action">Ver No Reportadas →</div>
           </div>
         </a>
         {% endif %}

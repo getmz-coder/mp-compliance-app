@@ -85,6 +85,23 @@ def tecnico_required(f):
     return decorated
 
 
+@app.context_processor
+def inject_no_reportadas():
+    if not current_user.is_authenticated:
+        return {}
+    if current_user.rol not in ('admin', 'superadmin', 'cio'):
+        return {}
+    try:
+        conn = get_db()
+        c = conn.execute(
+            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado = 'pendiente'"
+        ).fetchone()['c']
+        conn.close()
+        return {'no_reportadas_pendientes': c}
+    except Exception:
+        return {'no_reportadas_pendientes': 0}
+
+
 def _log_actividad(conn, usuario_id, accion_tipo, detalle):
     conn.execute(
         """INSERT INTO log_actividad (usuario_id, accion_tipo, detalle, ip_address, timestamp)
@@ -191,10 +208,11 @@ def admin_dashboard():
     total_equipos = 0
     solicitados   = 0
     respondidos   = 0
-    alerta_vencidos   = 0
-    alerta_pendientes = 0
-    alerta_no_ej      = 0
-    sol_equipo_ids    = frozenset()
+    alerta_vencidos      = 0
+    alerta_pendientes    = 0
+    alerta_no_ej         = 0
+    alerta_no_reportadas = 0
+    sol_equipo_ids       = frozenset()
 
     if sync_id:
         total_equipos = conn.execute(
@@ -286,6 +304,10 @@ def admin_dashboard():
             ).fetchall()
         )
 
+        alerta_no_reportadas = conn.execute(
+            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado = 'pendiente'"
+        ).fetchone()['c'] or 0
+
     conn.close()
 
     return render_template('admin/dashboard.html',
@@ -301,6 +323,7 @@ def admin_dashboard():
         alerta_vencidos=alerta_vencidos,
         alerta_pendientes=alerta_pendientes,
         alerta_no_ej=alerta_no_ej,
+        alerta_no_reportadas=alerta_no_reportadas,
         sol_equipo_ids=sol_equipo_ids,
     )
 
@@ -335,6 +358,12 @@ def admin_sync():
                        f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
                        f'(ciclo {res["sync_id"]})')
                 flash(msg, 'success')
+                if res.get('no_reportadas', 0) > 0:
+                    flash(
+                        f'{res["no_reportadas"]} equipo(s) detectado(s) como ejecutados '
+                        f'sin pasar por el sistema. Revisa "No Reportadas".',
+                        'warning'
+                    )
             except Exception as exc:
                 flash(f'Error en programación MP: {exc}', 'error')
             else:
@@ -1758,6 +1787,82 @@ def api_buscar_vehiculo():
             results.append(v)
 
     return jsonify(sorted(results)[:12])
+
+
+# ---------------------------------------------------------------------------
+# Ejecuciones No Reportadas
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/no-reportadas')
+@login_required
+def admin_no_reportadas():
+    if current_user.rol not in ('admin', 'superadmin', 'cio'):
+        flash('Acceso restringido.', 'error')
+        return redirect(url_for('dashboard_redirect'))
+
+    estado_fil   = request.args.get('estado', '').strip()
+    vehiculo_fil = request.args.get('vehiculo', '').strip()
+
+    where_parts, params = [], []
+    if estado_fil:
+        where_parts.append("n.estado = ?")
+        params.append(estado_fil)
+    if vehiculo_fil:
+        where_parts.append("UPPER(n.vehiculo) LIKE ?")
+        params.append(f'%{vehiculo_fil.upper()}%')
+
+    where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
+
+    conn = get_db()
+    filas = conn.execute(
+        f"""SELECT n.id, n.vehiculo, n.familia, n.rutina,
+                   n.ind_desviacion_anterior, n.ind_desviacion_nuevo,
+                   n.sync_id_anterior, n.sync_id_nuevo,
+                   n.estado, n.justificacion, n.timestamp,
+                   u.nombre_completo AS registrado_por_nombre
+            FROM ejecuciones_no_reportadas n
+            LEFT JOIN usuarios u ON u.id = n.registrado_por
+            {where_sql}
+            ORDER BY n.timestamp DESC""",
+        params
+    ).fetchall()
+    conn.close()
+
+    return render_template('admin/no_reportadas.html',
+        filas=filas,
+        estado_fil=estado_fil,
+        vehiculo_fil=vehiculo_fil,
+        es_admin=(current_user.rol in ('admin', 'superadmin')),
+    )
+
+
+@app.route('/admin/no-reportadas/<int:nr_id>/justificar', methods=['POST'])
+@admin_required
+def admin_no_reportadas_justificar(nr_id):
+    data         = request.get_json(force=True) or {}
+    estado       = data.get('estado', '')
+    justificacion = (data.get('justificacion') or '').strip() or None
+
+    if estado not in ('justificado', 'sin_justificar'):
+        return jsonify({'success': False, 'error': 'Estado inválido.'}), 400
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Registro no encontrado.'}), 404
+        conn.execute(
+            """UPDATE ejecuciones_no_reportadas
+               SET estado = ?, justificacion = ?, registrado_por = ?
+               WHERE id = ?""",
+            (estado, justificacion, current_user.id, nr_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'estado': estado})
 
 
 # ---------------------------------------------------------------------------
