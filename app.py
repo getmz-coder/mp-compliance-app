@@ -1,4 +1,5 @@
 import os
+import math
 from functools import wraps
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -1549,6 +1550,88 @@ def admin_eliminar_log(log_id):
 
 
 # ---------------------------------------------------------------------------
+# Admin — indicadores — helpers de gráficos SVG
+# ---------------------------------------------------------------------------
+
+_DONUT_COLORS = ['#002D6E', '#80AE3F', '#E67E22', '#1E88E5', '#dc2626',
+                 '#6b7280', '#8b5cf6', '#06b6d4']
+
+def _build_donut_segments(items, total):
+    """Calcula los paths SVG para el gráfico donut de motivos."""
+    if not items or not total:
+        return []
+    cx = cy = 100
+    R, r = 88, 52
+    segments = []
+    angle = -math.pi / 2  # arranca desde el tope
+    for i, item in enumerate(items):
+        frac = item['cantidad'] / total
+        span = 2 * math.pi * min(frac, 0.9999)
+        end = angle + span
+        large = 1 if span > math.pi else 0
+        x1 = round(cx + R * math.cos(angle), 3)
+        y1 = round(cy + R * math.sin(angle), 3)
+        x2 = round(cx + R * math.cos(end), 3)
+        y2 = round(cy + R * math.sin(end), 3)
+        x3 = round(cx + r * math.cos(end), 3)
+        y3 = round(cy + r * math.sin(end), 3)
+        x4 = round(cx + r * math.cos(angle), 3)
+        y4 = round(cy + r * math.sin(angle), 3)
+        path = (f"M {x1} {y1} A {R} {R} 0 {large} 1 {x2} {y2} "
+                f"L {x3} {y3} A {r} {r} 0 {large} 0 {x4} {y4} Z")
+        segments.append({
+            'path': path,
+            'color': _DONUT_COLORS[i % len(_DONUT_COLORS)],
+            'label': item['motivo'],
+            'count': item['cantidad'],
+            'pct': round(frac * 100),
+        })
+        angle = end
+    return segments
+
+
+def _build_familias_chart_data(familias_cumplimiento):
+    """Calcula posiciones SVG para el gráfico de barras horizontales por familia."""
+    ROW_H = 36
+    LABEL_W = 170
+    BAR_W = 320
+    PCT_X = LABEL_W + BAR_W + 10
+    SVG_W = PCT_X + 46
+    rows = []
+    for i, f in enumerate(familias_cumplimiento):
+        sol = f['solicitados'] or 0
+        ejec = f['ejecutados'] or 0
+        no_ejec = f['no_ejecutados'] or 0
+        pct = round(ejec / sol * 100) if sol else 0
+        ejec_px = round((ejec / sol) * BAR_W) if sol else 0
+        no_px = round((no_ejec / sol) * BAR_W) if sol else 0
+        y = i * ROW_H + 6
+        fc = '#80AE3F' if pct >= 80 else ('#E67E22' if pct >= 60 else '#dc2626')
+        rows.append({
+            'familia': f['familia'],
+            'solicitados': sol,
+            'ejecutados': ejec,
+            'no_ejecutados': no_ejec,
+            'pct': pct,
+            'ejec_px': ejec_px,
+            'no_px': no_px,
+            'bar_x': LABEL_W,
+            'y': y,
+            'y_text': y + ROW_H // 2 + 1,
+            'pct_x': PCT_X,
+            'pct_color': fc,
+        })
+    return {
+        'rows': rows,
+        'svg_h': max(len(rows) * ROW_H + 12, 40),
+        'svg_w': SVG_W,
+        'label_w': LABEL_W,
+        'bar_w': BAR_W,
+        'row_h': ROW_H,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Admin — indicadores
 # ---------------------------------------------------------------------------
 
@@ -1617,6 +1700,9 @@ def admin_indicadores():
            ORDER BY s.sync_id DESC"""
     ).fetchall()
 
+    donut_segments   = _build_donut_segments(top_motivos, total_no_ej_global)
+    familias_chart   = _build_familias_chart_data(familias_cumplimiento)
+
     conn.close()
 
     return render_template('admin/indicadores.html',
@@ -1629,6 +1715,8 @@ def admin_indicadores():
         familias_cumplimiento=familias_cumplimiento,
         historial_sync=historial_sync,
         current_sync_id=sync_id,
+        donut_segments=donut_segments,
+        familias_chart=familias_chart,
     )
 
 

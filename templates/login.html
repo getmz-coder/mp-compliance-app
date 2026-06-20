@@ -4,8 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ingresar — Seguimiento MP GET</title>
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --fondo-login: #F0F2F5;
+      --card-login:  #ffffff;
+      --texto-login: #111827;
+      --gris-login:  #6b7280;
+      --borde-login: #d1d5db;
+      --input-bg:    #fafafa;
+    }
+    [data-theme="dark"] {
+      --fondo-login: #0f1117;
+      --card-login:  #1e2235;
+      --texto-login: #e5e7eb;
+      --gris-login:  #9ca3af;
+      --borde-login: #374151;
+      --input-bg:    #16213e;
+    }
 
     body {
       min-height: 100vh;
@@ -13,21 +36,23 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background-color: #F0F2F5;
+      background-color: var(--fondo-login);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #1a1a2e;
+      color: var(--texto-login);
+      transition: background-color 0.25s, color 0.2s;
     }
 
     .card {
-      background: #ffffff;
+      background: var(--card-login);
       border-radius: 12px;
       box-shadow: 0 4px 24px rgba(0, 45, 110, 0.12);
       padding: 48px 44px 40px;
       width: 100%;
       max-width: 420px;
+      transition: background-color 0.25s;
     }
 
-    /* Encabezado */
+    /* ── Logo corporativo ── */
     .brand {
       display: flex;
       flex-direction: column;
@@ -35,42 +60,72 @@
       margin-bottom: 32px;
     }
 
-    .brand-icon {
-      width: 56px;
-      height: 56px;
-      background: #002D6E;
-      border-radius: 12px;
+    .brand-logo {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 10px;
+      line-height: 1;
     }
-
-    .brand-icon svg {
-      width: 30px;
-      height: 30px;
-      fill: none;
-      stroke: #ffffff;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+    .bl-talma {
+      font-size: 42px;
+      font-weight: 800;
+      color: #002D6E;
+      letter-spacing: -2px;
+    }
+    .bl-get {
+      font-size: 24px;
+      font-weight: 800;
+      color: #80AE3F;
+      letter-spacing: -1px;
     }
 
     .brand-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #002D6E;
-      letter-spacing: -0.3px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--texto-login);
+      letter-spacing: 0.5px;
       text-align: center;
-      line-height: 1.3;
+      text-transform: uppercase;
+      opacity: 0.75;
     }
 
     .brand-sub {
-      font-size: 13px;
-      color: #6b7280;
+      font-size: 12.5px;
+      color: var(--gris-login);
       margin-top: 4px;
       text-align: center;
     }
+
+    /* ── Toggle tema (login) ── */
+    .login-theme-toggle {
+      position: fixed;
+      top: 16px; right: 16px;
+      background: rgba(0,45,110,0.08);
+      border: 1px solid rgba(0,45,110,0.18);
+      border-radius: 20px;
+      width: 36px; height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    [data-theme="dark"] .login-theme-toggle {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.18);
+    }
+    .login-theme-toggle:hover { background: rgba(0,45,110,0.15); }
+    [data-theme="dark"] .login-theme-toggle:hover { background: rgba(255,255,255,0.14); }
+    .login-theme-toggle svg {
+      width: 16px; height: 16px;
+      stroke: #002D6E; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    [data-theme="dark"] .login-theme-toggle svg { stroke: #9ca3af; }
+    .lt-sun, .lt-moon { display: none; }
+    html:not([data-theme="dark"]) .lt-sun  { display: block; }
+    html[data-theme="dark"]      .lt-moon { display: block; }
 
     /* Alerta de error */
     .alert-error {
@@ -86,42 +141,32 @@
       align-items: center;
       gap: 8px;
     }
+    [data-theme="dark"] .alert-error {
+      background: #450a0a; border-color: #991b1b; color: #fca5a5;
+    }
 
     .alert-error svg {
-      flex-shrink: 0;
-      width: 16px;
-      height: 16px;
-      stroke: #dc2626;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      flex-shrink: 0; width: 16px; height: 16px;
+      stroke: #dc2626; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
     }
 
     /* Formulario */
-    .field {
-      margin-bottom: 18px;
-    }
+    .field { margin-bottom: 18px; }
 
     label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-      letter-spacing: 0.1px;
+      display: block; font-size: 13px; font-weight: 600;
+      color: var(--texto-login); margin-bottom: 6px; letter-spacing: 0.1px;
     }
 
     input[type="text"],
     input[type="password"] {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1.5px solid #d1d5db;
-      border-radius: 7px;
-      font-size: 14.5px;
-      color: #111827;
-      background: #fafafa;
-      transition: border-color 0.18s, box-shadow 0.18s;
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid var(--borde-login);
+      border-radius: 7px; font-size: 14.5px;
+      color: var(--texto-login);
+      background: var(--input-bg);
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.2s;
       outline: none;
     }
 
@@ -129,113 +174,86 @@
     input[type="password"]:focus {
       border-color: #1E88E5;
       box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.15);
-      background: #ffffff;
     }
 
     /* Checkbox recordarme */
-    .remember-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 26px;
-    }
-
-    .remember-row input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: #002D6E;
-      cursor: pointer;
-    }
-
-    .remember-row label {
-      margin-bottom: 0;
-      font-weight: 400;
-      font-size: 13.5px;
-      color: #4b5563;
-      cursor: pointer;
-    }
+    .remember-row { display: flex; align-items: center; gap: 8px; margin-bottom: 26px; }
+    .remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #002D6E; cursor: pointer; }
+    .remember-row label { margin-bottom: 0; font-weight: 400; font-size: 13.5px; color: var(--gris-login); cursor: pointer; }
 
     /* Botón */
     .btn-ingresar {
-      width: 100%;
-      padding: 12px;
-      background: #80AE3F;
-      color: #ffffff;
-      font-size: 15px;
-      font-weight: 600;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      letter-spacing: 0.2px;
+      width: 100%; padding: 12px;
+      background: #80AE3F; color: #ffffff;
+      font-size: 15px; font-weight: 600;
+      border: none; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.2px;
       transition: background 0.18s, transform 0.1s;
     }
+    .btn-ingresar:hover  { background: #6d9a32; }
+    .btn-ingresar:active { transform: scale(0.99); }
 
-    .btn-ingresar:hover {
-      background: #6d9a32;
-    }
-
-    .btn-ingresar:active {
-      transform: scale(0.99);
-    }
-
-    /* Flash messages de flask-login */
+    /* Flash messages */
     .flash-info {
-      background: #eff6ff;
-      border: 1px solid #93c5fd;
-      border-left: 4px solid #1E88E5;
-      border-radius: 6px;
-      padding: 10px 14px;
-      margin-bottom: 20px;
-      font-size: 13.5px;
-      color: #1e40af;
+      background: #eff6ff; border: 1px solid #93c5fd;
+      border-left: 4px solid #1E88E5; border-radius: 6px;
+      padding: 10px 14px; margin-bottom: 20px;
+      font-size: 13.5px; color: #1e40af;
+    }
+    [data-theme="dark"] .flash-info {
+      background: #0f2544; border-color: #1e40af; color: #93c5fd;
     }
 
     /* Pie */
-    footer {
-      margin-top: 32px;
-      font-size: 12px;
-      color: #9ca3af;
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    footer strong {
-      color: #6b7280;
-      font-weight: 600;
-    }
+    footer { margin-top: 32px; font-size: 12px; color: var(--gris-login); text-align: center; line-height: 1.6; }
+    footer strong { color: var(--gris-login); font-weight: 600; }
 
     /* Divisor decorativo */
     .divider {
       height: 1px;
-      background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+      background: linear-gradient(to right, transparent, var(--borde-login), transparent);
       margin: 28px 0 0;
     }
 
     @media (max-width: 768px) {
       body { padding: 20px 0; align-items: stretch; }
       .card {
-        width: 95%;
-        max-width: none;
-        margin: 0 auto;
-        padding: 28px 18px 24px;
-        border-radius: 10px;
+        width: 95%; max-width: none; margin: 0 auto;
+        padding: 28px 18px 24px; border-radius: 10px;
       }
       footer { margin-top: 20px; }
+      .login-theme-toggle { top: 10px; right: 10px; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Toggle dark mode (esquina superior derecha) -->
+  <button class="login-theme-toggle" id="login-theme-btn" aria-label="Cambiar tema" title="Modo claro/oscuro">
+    <svg class="lt-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg class="lt-moon" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+
   <div class="card">
 
     <div class="brand">
-      <div class="brand-icon">
-        <!-- Icono: herramienta / llave de tuerca -->
-        <svg viewBox="0 0 24 24">
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-        </svg>
+      <div class="brand-logo">
+        <span class="bl-talma">TALMA</span>
+        <span class="bl-get">GET</span>
       </div>
-      <div class="brand-title">Seguimiento MP — GET</div>
+      <div class="brand-title">Seguimiento MP</div>
       <div class="brand-sub">Mantenimiento Preventivo GSE · BOG</div>
     </div>
 
@@ -290,6 +308,19 @@
     <strong>Gerencia GET</strong> · Talma Servicios Aeroportuarios<br>
     Uso interno — acceso restringido a personal autorizado
   </footer>
+
+  <script>
+    document.getElementById('login-theme-btn').addEventListener('click', function () {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+      }
+    });
+  </script>
 
 </body>
 </html>

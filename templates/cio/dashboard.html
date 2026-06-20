@@ -759,6 +759,7 @@
               data-vehiculo="{{ equipo.vehiculo or '' }}"
               data-estado-vehiculo="{{ equipo.estado_vehiculo or '' }}"
               data-sol-estado="{{ sol_state or 'no-solicitado' }}"
+              data-rutina="{{ (equipo.rutinas_str or '')|truncate(60, True, '…') }}"
               class="{% if sol_state == 'pendiente' %}row-solicitado{% elif sol_state == 'no_ejecutado' %}row-no-entregado{% endif %}"
             >
               <td class="td-check">
@@ -846,7 +847,7 @@
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
       <button type="button" class="btn-clear-sel" id="btn-clear">Limpiar selección</button>
-      <button type="submit" form="solicitar-form" class="btn-solicitar">
+      <button type="button" class="btn-solicitar" id="btn-abrir-confirm">
         <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Solicitar Vehículos
       </button>
@@ -881,6 +882,34 @@
     <div class="modal-footer">
       <button type="button" class="btn-modal-cancel" onclick="cerrarModal()">Cancelar</button>
       <button type="button" class="btn-modal-confirm" onclick="confirmarNoEjecutado()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal: Confirmar solicitud ══ -->
+<div id="modal-confirmar-sol" class="modal-overlay" style="display:none;" onclick="overlayClickConfirm(event)">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-hdr" style="background:#eff6ff;">
+      <h3 style="color:var(--azul);">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--cielo);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;margin-right:6px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Confirmar Solicitud
+      </h3>
+      <button type="button" class="modal-close" onclick="cerrarModalConfirm()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-resumen-titulo" style="font-size:15px;font-weight:700;color:var(--azul);margin-bottom:12px;"></p>
+      <div id="confirm-familias" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;"></div>
+      <p style="font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px;">Vehículos seleccionados</p>
+      <div id="confirm-lista-vehiculos"
+           style="max-height:220px;overflow-y:auto;border:1px solid var(--borde);border-radius:8px;background:#f8f9fb;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-modal-cancel" onclick="cerrarModalConfirm()">Cancelar</button>
+      <button type="button" id="btn-confirmar-sol"
+              style="padding:9px 22px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;transition:background 0.15s;">
+        Confirmar Solicitud
+      </button>
     </div>
   </div>
 </div>
@@ -988,15 +1017,83 @@
   if (filSol)    filSol.addEventListener('change', applyFilters);
   if (filBus)    filBus.addEventListener('input',  applyFilters);
 
-  var form = document.getElementById('solicitar-form');
-  if (form) {
-    form.addEventListener('submit', function (e) {
-      if (document.querySelectorAll('.row-check:checked').length === 0) {
-        e.preventDefault();
-        alert('Selecciona al menos un vehículo antes de solicitar.');
+  /* ── Modal confirmación solicitud ── */
+  var btnAbrirConfirm = document.getElementById('btn-abrir-confirm');
+  var modalConfirm    = document.getElementById('modal-confirmar-sol');
+  var btnConfirmarSol = document.getElementById('btn-confirmar-sol');
+
+  function cerrarModalConfirm() {
+    if (modalConfirm) { modalConfirm.style.display = 'none'; document.body.style.overflow = ''; }
+  }
+  window.cerrarModalConfirm = cerrarModalConfirm;
+  window.overlayClickConfirm = function (e) {
+    if (e.target === modalConfirm) cerrarModalConfirm();
+  };
+
+  if (btnAbrirConfirm) {
+    btnAbrirConfirm.addEventListener('click', function () {
+      var checked = document.querySelectorAll('.row-check:checked');
+      if (checked.length === 0) {
+        mostrarToast('Selecciona al menos un vehículo antes de solicitar.', 'err');
+        return;
       }
+      var byFamily = {};
+      var vehiculosInfo = [];
+      checked.forEach(function (cb) {
+        var tr = cb.closest('tr');
+        var veh = tr ? (tr.dataset.vehiculo || cb.value) : cb.value;
+        var fam = tr ? (tr.dataset.familia || '—') : '—';
+        var rut = tr ? (tr.dataset.rutina || '—') : '—';
+        byFamily[fam] = (byFamily[fam] || 0) + 1;
+        vehiculosInfo.push({ veh: veh, fam: fam, rut: rut });
+      });
+      /* Título */
+      var tituloEl = document.getElementById('confirm-resumen-titulo');
+      if (tituloEl) tituloEl.textContent = 'Vas a solicitar ' + checked.length + ' equipo(s):';
+      /* Chips por familia */
+      var famsEl = document.getElementById('confirm-familias');
+      if (famsEl) {
+        famsEl.innerHTML = '';
+        Object.keys(byFamily).sort().forEach(function (fam) {
+          var chip = document.createElement('span');
+          chip.style.cssText = 'display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eff6ff;color:#002D6E;border:1px solid #bfdbfe;';
+          chip.textContent = byFamily[fam] + ' ' + (fam || '—');
+          famsEl.appendChild(chip);
+        });
+      }
+      /* Lista de vehículos */
+      var listaEl = document.getElementById('confirm-lista-vehiculos');
+      if (listaEl) {
+        listaEl.innerHTML = '';
+        vehiculosInfo.forEach(function (v) {
+          var row = document.createElement('div');
+          row.style.cssText = 'padding:8px 14px;border-bottom:1px solid #f3f4f6;display:flex;flex-direction:column;gap:1px;';
+          row.innerHTML = '<span style="font-weight:600;font-size:13px;color:#002D6E;">' + escHtml(v.veh) + '</span>'
+                        + '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(v.rut) + '</span>';
+          listaEl.appendChild(row);
+        });
+        /* Quitar borde del último */
+        var lastRow = listaEl.lastElementChild;
+        if (lastRow) lastRow.style.borderBottom = 'none';
+      }
+      modalConfirm.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
     });
   }
+
+  if (btnConfirmarSol) {
+    btnConfirmarSol.addEventListener('click', function () {
+      cerrarModalConfirm();
+      var form = document.getElementById('solicitar-form');
+      if (form) form.submit();
+    });
+    btnConfirmarSol.addEventListener('mouseover', function () { this.style.background = '#6d9a32'; });
+    btnConfirmarSol.addEventListener('mouseout',  function () { this.style.background = 'var(--verde)'; });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { cerrarModal(); cerrarModalConfirm(); }
+  });
 
   /* ── Toast ── */
   function mostrarToast(msg, tipo) {
@@ -1148,10 +1245,6 @@
     cerrarModal();
     enviarRespuesta(veh, 'no_ejecutado', motivoId, motivoDesc, comentario);
   };
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') cerrarModal();
-  });
 
 })();
 </script>

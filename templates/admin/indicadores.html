@@ -246,6 +246,77 @@
     font-size: 13.5px;
   }
 
+  /* ── SVG Charts ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .chart-wrap {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .chart-body {
+    padding: 20px 20px 16px;
+  }
+  .chart-svg-area {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .bar-label {
+    font-size: 11.5px;
+    fill: var(--texto);
+    dominant-baseline: middle;
+  }
+  .bar-pct-label {
+    font-size: 11px;
+    font-weight: 700;
+    dominant-baseline: middle;
+  }
+  .bar-bg-rect { fill: #f3f4f6; rx: 3; }
+
+  /* Donut + leyenda */
+  .donut-layout {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .donut-svg-wrap { flex-shrink: 0; }
+  .donut-legend {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--texto);
+    line-height: 1.3;
+  }
+  .donut-legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .donut-legend-pct {
+    font-weight: 700;
+    margin-left: auto;
+    padding-left: 6px;
+    white-space: nowrap;
+    color: var(--gris);
+    font-size: 11.5px;
+  }
+
   /* ── Sync table ── */
   .badge-sync {
     display: inline-block;
@@ -308,6 +379,114 @@
       </div>
     </div>
   </div>
+
+  <!-- ══ Gráficos SVG ══ -->
+  {% if donut_segments or (familias_chart and familias_chart.rows) %}
+  <div class="charts-grid">
+
+    <!-- Barras horizontales: % ejecución por familia -->
+    <div class="chart-wrap">
+      <div class="section-hdr">
+        <h2>
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Ejecución por Familia
+        </h2>
+      </div>
+      {% if familias_chart and familias_chart.rows %}
+      <div class="chart-body">
+        <div class="chart-svg-area">
+          <svg xmlns="http://www.w3.org/2000/svg"
+               width="{{ familias_chart.svg_w }}"
+               height="{{ familias_chart.svg_h }}"
+               style="display:block;min-width:{{ familias_chart.svg_w }}px;">
+            {% for row in familias_chart.rows %}
+              {# Fondo gris de la barra #}
+              <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
+                    width="{{ familias_chart.bar_w }}" height="{{ familias_chart.row_h - 12 }}"
+                    rx="4" fill="#f3f4f6"/>
+              {# Barra verde: ejecutados #}
+              {% if row.ejec_px > 0 %}
+              <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
+                    width="{{ row.ejec_px }}" height="{{ familias_chart.row_h - 12 }}"
+                    rx="4" fill="#80AE3F" opacity="0.9"/>
+              {% endif %}
+              {# Barra roja: no ejecutados, apilada #}
+              {% if row.no_px > 0 %}
+              <rect x="{{ row.bar_x + row.ejec_px }}" y="{{ row.y + 4 }}"
+                    width="{{ row.no_px }}" height="{{ familias_chart.row_h - 12 }}"
+                    {% if row.ejec_px == 0 %}rx="4"{% endif %}
+                    fill="#dc2626" opacity="0.82"/>
+              {% endif %}
+              {# Label familia (izquierda) #}
+              <text x="{{ row.bar_x - 6 }}" y="{{ row.y_text }}"
+                    class="bar-label" text-anchor="end">
+                {% if row.familia|length > 16 %}{{ row.familia[:16] }}…{% else %}{{ row.familia }}{% endif %}
+              </text>
+              {# Porcentaje (derecha) #}
+              <text x="{{ row.pct_x }}" y="{{ row.y_text }}"
+                    class="bar-pct-label" fill="{{ row.pct_color }}">{{ row.pct }}%</text>
+            {% endfor %}
+          </svg>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:11.5px;">
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:12px;height:12px;background:#80AE3F;border-radius:2px;display:inline-block;"></span>Ejecutados
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:12px;height:12px;background:#dc2626;border-radius:2px;display:inline-block;"></span>No ejecutados
+          </span>
+        </div>
+      </div>
+      {% else %}
+        <div class="empty-ind">Sin datos de familias aún.</div>
+      {% endif %}
+    </div>
+
+    <!-- Donut: distribución de motivos de no ejecución -->
+    <div class="chart-wrap">
+      <div class="section-hdr">
+        <h2>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/></svg>
+          Distribución de Motivos
+        </h2>
+        <span class="count-badge">{{ no_ejecutados }} no ejec.</span>
+      </div>
+      {% if donut_segments %}
+      <div class="chart-body">
+        <div class="donut-layout">
+          <div class="donut-svg-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="200" height="200" viewBox="0 0 200 200"
+                 style="display:block;">
+              {% for seg in donut_segments %}
+                <path d="{{ seg.path }}" fill="{{ seg.color }}" opacity="0.92"/>
+              {% endfor %}
+              {# Texto central #}
+              <text x="100" y="97" text-anchor="middle"
+                    font-size="22" font-weight="700" fill="#111827">{{ no_ejecutados }}</text>
+              <text x="100" y="113" text-anchor="middle"
+                    font-size="10" fill="#6b7280">no ejec.</text>
+            </svg>
+          </div>
+          <div class="donut-legend">
+            {% for seg in donut_segments %}
+            <div class="donut-legend-item">
+              <span class="donut-legend-dot" style="background:{{ seg.color }};"></span>
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    title="{{ seg.label }}">{{ seg.label }}</span>
+              <span class="donut-legend-pct">{{ seg.pct }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+        <div class="empty-ind">Sin registros de no ejecución aún.</div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endif %}
 
   <!-- Secciones: Motivos + Familias -->
   <div class="sections-grid">
