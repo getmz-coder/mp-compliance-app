@@ -1219,6 +1219,104 @@ def admin_limpiar_preview():
     return jsonify(counts)
 
 
+@app.route('/admin/motivos', methods=['GET', 'POST'])
+@superadmin_required
+def admin_motivos():
+    conn = get_db()
+    if request.method == 'POST':
+        codigo = request.form.get('codigo', '').strip().upper()[:10]
+        descripcion = request.form.get('descripcion', '').strip()[:200]
+        orden = request.form.get('orden', type=int) or 99
+
+        errores = []
+        if not codigo:
+            errores.append('El código es obligatorio.')
+        if not descripcion:
+            errores.append('La descripción es obligatoria.')
+        if not errores:
+            dup = conn.execute(
+                "SELECT id FROM catalogo_motivos WHERE codigo = ?", (codigo,)
+            ).fetchone()
+            if dup:
+                errores.append(f'Ya existe un motivo con código "{codigo}".')
+        if errores:
+            for e in errores:
+                flash(e, 'error')
+        else:
+            conn.execute(
+                "INSERT INTO catalogo_motivos (codigo, descripcion, activo, orden) VALUES (?, ?, 1, ?)",
+                (codigo, descripcion, orden)
+            )
+            _log_actividad(conn, current_user.id, 'motivo_crear',
+                           f'Motivo creado: {codigo} — {descripcion}')
+            conn.commit()
+            flash(f'Motivo "{codigo}" creado.', 'success')
+        conn.close()
+        return redirect(url_for('admin_motivos'))
+
+    motivos = conn.execute(
+        "SELECT * FROM catalogo_motivos ORDER BY orden ASC, id ASC"
+    ).fetchall()
+    conn.close()
+    return render_template('admin/motivos.html', motivos=motivos)
+
+
+@app.route('/admin/motivos/<int:motivo_id>/editar', methods=['POST'])
+@superadmin_required
+def admin_motivo_editar(motivo_id):
+    data = request.get_json(force=True) or {}
+    codigo = (data.get('codigo') or '').strip().upper()[:10]
+    descripcion = (data.get('descripcion') or '').strip()[:200]
+    try:
+        orden = int(data.get('orden'))
+    except (TypeError, ValueError):
+        orden = 99
+
+    if not codigo or not descripcion:
+        return jsonify({'success': False, 'error': 'Código y descripción son obligatorios.'}), 400
+
+    conn = get_db()
+    try:
+        dup = conn.execute(
+            "SELECT id FROM catalogo_motivos WHERE codigo = ? AND id != ?", (codigo, motivo_id)
+        ).fetchone()
+        if dup:
+            return jsonify({'success': False, 'error': f'El código "{codigo}" ya existe en otro motivo.'}), 400
+        conn.execute(
+            "UPDATE catalogo_motivos SET codigo = ?, descripcion = ?, orden = ? WHERE id = ?",
+            (codigo, descripcion, orden, motivo_id)
+        )
+        _log_actividad(conn, current_user.id, 'motivo_editar',
+                       f'Motivo id={motivo_id} actualizado: {codigo} — {descripcion}')
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/admin/motivos/<int:motivo_id>/toggle', methods=['POST'])
+@superadmin_required
+def admin_motivo_toggle(motivo_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT activo, codigo FROM catalogo_motivos WHERE id = ?", (motivo_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Motivo no encontrado.'}), 404
+        nuevo = 0 if row['activo'] else 1
+        conn.execute(
+            "UPDATE catalogo_motivos SET activo = ? WHERE id = ?", (nuevo, motivo_id)
+        )
+        verb = 'activado' if nuevo else 'desactivado'
+        _log_actividad(conn, current_user.id, 'motivo_toggle',
+                       f'Motivo {row["codigo"]} (id={motivo_id}) {verb}')
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'activo': nuevo})
+
+
 # ---------------------------------------------------------------------------
 # CIO
 # ---------------------------------------------------------------------------

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Catálogo de Motivos — Superadmin{% endblock %}
+
+{% block styles %}
+<style>
+  .motivos-page { max-width: 860px; margin: 0 auto; padding: 28px 28px 60px; }
+  .page-hdr { margin-bottom: 28px; }
+  .page-hdr h1 { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-hdr p  { font-size: 13px; color: var(--gris); margin-top: 3px; }
+
+  .content-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); overflow: hidden; margin-bottom: 24px; }
+  .card-hdr { padding: 16px 22px; border-bottom: 1px solid var(--borde); display: flex; align-items: center; gap: 8px; }
+  .card-hdr h2 { font-size: 14px; font-weight: 700; color: var(--azul); display: flex; align-items: center; gap: 7px; }
+  .card-hdr h2 svg { width: 15px; height: 15px; stroke: var(--cielo); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .count-badge { margin-left: auto; font-size: 12px; color: var(--gris); background: #f3f4f6; border: 1px solid var(--borde); padding: 2px 9px; border-radius: 12px; }
+
+  table.mot-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.mot-table thead tr { background: #f8f9fb; border-bottom: 2px solid var(--borde); }
+  table.mot-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+  table.mot-table td { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  table.mot-table tbody tr:last-child td { border-bottom: none; }
+  table.mot-table tbody tr:hover { background: #f8fafc; }
+  table.mot-table tbody tr.inactivo td { color: #9ca3af; }
+  table.mot-table tbody tr.inactivo { background: #f9fafb; }
+
+  .badge-mot { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 700; }
+  .badge-mot-si { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-mot-no { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+
+  .td-codigo { font-family: 'Courier New', monospace; font-weight: 700; font-size: 12.5px; color: var(--azul); }
+
+  .btn-sm { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid; white-space: nowrap; transition: background 0.15s, color 0.15s; background: transparent; }
+  .btn-edit  { color: var(--cielo); border-color: var(--cielo); }
+  .btn-edit:hover  { background: var(--cielo); color: #fff; }
+  .btn-deact { color: var(--rojo); border-color: var(--rojo); }
+  .btn-deact:hover { background: var(--rojo); color: #fff; }
+  .btn-act   { color: var(--verde); border-color: var(--verde); }
+  .btn-act:hover   { background: var(--verde); color: #fff; }
+
+  .edit-input { padding: 5px 8px; border: 1.5px solid var(--cielo); border-radius: 6px; font-size: 13px; font-family: inherit; width: 100%; outline: none; box-sizing: border-box; }
+  .btn-save   { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; background: var(--verde); color: #fff; }
+  .btn-save:hover { background: #5e8a28; }
+  .btn-cancel-edit { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid #d1d5db; background: #f3f4f6; color: var(--gris); }
+
+  .td-acciones { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
+
+  /* Formulario agregar */
+  .add-form { padding: 18px 22px; border-top: 1px solid var(--borde); }
+  .add-form h3 { font-size: 13px; font-weight: 700; color: var(--azul); margin-bottom: 14px; }
+  .add-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .add-group { display: flex; flex-direction: column; gap: 5px; }
+  .add-group label { font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.3px; }
+  .add-group input { padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px; font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; background: #fafafa; }
+  .add-group input:focus { border-color: var(--verde); background: #fff; }
+  .add-group.wide { flex: 1; min-width: 200px; }
+  .btn-agregar { padding: 8px 18px; background: var(--azul); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+  .btn-agregar:hover { background: #001f4e; }
+
+  @media (max-width: 768px) { .motivos-page { padding: 14px 12px 40px; } .add-row { flex-direction: column; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="motivos-page">
+
+  <div class="page-hdr">
+    <h1>Catálogo de Motivos</h1>
+    <p>Gestiona los motivos disponibles para el CIO al registrar no-ejecuciones</p>
+  </div>
+
+  <div class="content-card">
+    <div class="card-hdr">
+      <h2>
+        <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Motivos registrados
+      </h2>
+      <span class="count-badge">{{ motivos|length }}</span>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="mot-table">
+        <thead>
+          <tr>
+            <th>Orden</th>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in motivos %}
+          <tr id="row-{{ m.id }}" class="{{ '' if m.activo else 'inactivo' }}">
+            <td id="cell-orden-{{ m.id }}">{{ m.orden }}</td>
+            <td id="cell-codigo-{{ m.id }}" class="td-codigo">{{ m.codigo }}</td>
+            <td id="cell-desc-{{ m.id }}">{{ m.descripcion }}</td>
+            <td>
+              <span class="badge-mot {{ 'badge-mot-si' if m.activo else 'badge-mot-no' }}"
+                    id="badge-{{ m.id }}">{{ 'Activo' if m.activo else 'Inactivo' }}</span>
+            </td>
+            <td>
+              <div class="td-acciones">
+                <button class="btn-sm btn-edit" id="btn-edit-{{ m.id }}"
+                        onclick="iniciarEdicion({{ m.id }})">
+                  Editar
+                </button>
+                <button class="btn-sm {{ 'btn-deact' if m.activo else 'btn-act' }}"
+                        id="btn-toggle-{{ m.id }}"
+                        onclick="toggleMotivo({{ m.id }})">
+                  {{ 'Desactivar' if m.activo else 'Activar' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="padding:30px;text-align:center;color:var(--gris);">Sin motivos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Formulario agregar -->
+    <div class="add-form">
+      <h3>Agregar nuevo motivo</h3>
+      <form method="POST" action="{{ url_for('admin_motivos') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="add-row">
+          <div class="add-group">
+            <label>Código</label>
+            <input type="text" name="codigo" placeholder="M05" maxlength="10" required style="width:80px;">
+          </div>
+          <div class="add-group wide">
+            <label>Descripción</label>
+            <input type="text" name="descripcion" placeholder="Descripción del motivo" maxlength="200" required>
+          </div>
+          <div class="add-group">
+            <label>Orden</label>
+            <input type="number" name="orden" value="{{ (motivos|length) + 1 }}" min="1" style="width:70px;">
+          </div>
+          <button type="submit" class="btn-agregar">Agregar motivo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var _csrfToken = '{{ csrf_token() }}';
+
+/* Guarda los valores originales de cada fila para poder cancelar */
+var _filaData = {};
+{% for m in motivos %}
+_filaData[{{ m.id }}] = {
+  codigo: {{ m.codigo | tojson }},
+  orden: {{ m.orden }},
+  desc: {{ m.descripcion | tojson }},
+  activo: {{ 1 if m.activo else 0 }}
+};
+{% endfor %}
+
+function iniciarEdicion(id) {
+  var d = _filaData[id];
+  document.getElementById('cell-orden-' + id).innerHTML =
+    '<input class="edit-input" id="ei-orden-' + id + '" type="number" value="' + d.orden + '" min="1" style="width:60px;">';
+  document.getElementById('cell-codigo-' + id).innerHTML =
+    '<input class="edit-input" id="ei-codigo-' + id + '" type="text" value="' + d.codigo + '" maxlength="10" style="width:80px;">';
+  document.getElementById('cell-desc-' + id).innerHTML =
+    '<input class="edit-input" id="ei-desc-' + id + '" type="text" value="" maxlength="200">';
+  document.getElementById('ei-desc-' + id).value = d.desc;
+
+  document.getElementById('row-' + id).querySelector('.td-acciones').innerHTML =
+    '<button class="btn-save" onclick="guardarEdicion(' + id + ')">Guardar</button>' +
+    '<button class="btn-cancel-edit" onclick="cancelarEdicion(' + id + ')">Cancelar</button>';
+}
+
+function cancelarEdicion(id) {
+  var d = _filaData[id];
+  document.getElementById('cell-orden-' + id).textContent  = d.orden;
+  document.getElementById('cell-codigo-' + id).textContent = d.codigo;
+  document.getElementById('cell-desc-' + id).textContent   = d.desc;
+  _restaurarBotonesAccion(id);
+}
+
+function _restaurarBotonesAccion(id) {
+  var d = _filaData[id];
+  document.getElementById('row-' + id).querySelector('.td-acciones').innerHTML =
+    '<button class="btn-sm btn-edit" id="btn-edit-' + id + '" onclick="iniciarEdicion(' + id + ')">Editar</button>' +
+    '<button class="btn-sm ' + (d.activo ? 'btn-deact' : 'btn-act') + '" id="btn-toggle-' + id + '" onclick="toggleMotivo(' + id + ')">' +
+    (d.activo ? 'Desactivar' : 'Activar') + '</button>';
+}
+
+function guardarEdicion(id) {
+  var codigo = document.getElementById('ei-codigo-' + id).value.trim();
+  var desc   = document.getElementById('ei-desc-' + id).value.trim();
+  var orden  = parseInt(document.getElementById('ei-orden-' + id).value) || 99;
+  if (!codigo || !desc) { alert('Código y descripción son obligatorios.'); return; }
+
+  fetch('/admin/motivos/' + id + '/editar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken },
+    body: JSON.stringify({ codigo: codigo, descripcion: desc, orden: orden }),
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data.success) { alert(data.error || 'Error al guardar.'); return; }
+    _filaData[id].codigo = codigo;
+    _filaData[id].desc   = desc;
+    _filaData[id].orden  = orden;
+    document.getElementById('cell-orden-' + id).textContent  = orden;
+    document.getElementById('cell-codigo-' + id).textContent = codigo;
+    document.getElementById('cell-desc-' + id).textContent   = desc;
+    _restaurarBotonesAccion(id);
+  }).catch(function(e){ alert('Error: ' + e); });
+}
+
+function toggleMotivo(id) {
+  fetch('/admin/motivos/' + id + '/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken },
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data.success) { alert(data.error || 'Error.'); return; }
+    var activo = data.activo === 1;
+    _filaData[id].activo = activo ? 1 : 0;
+    var badge = document.getElementById('badge-' + id);
+    badge.textContent = activo ? 'Activo' : 'Inactivo';
+    badge.className = 'badge-mot ' + (activo ? 'badge-mot-si' : 'badge-mot-no');
+    document.getElementById('row-' + id).className = activo ? '' : 'inactivo';
+    _restaurarBotonesAccion(id);
+  }).catch(function(e){ alert('Error: ' + e); });
+}
+</script>
+{% endblock %}
