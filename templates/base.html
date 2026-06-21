@@ -348,6 +348,12 @@
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
         <a href="{{ url_for('admin_sugerencias') }}"
            {% if request.endpoint in ('admin_sugerencias',) %}class="active"{% endif %}>Sugerencias</a>
+        {% if current_user.rol == 'superadmin' %}
+          <a href="{{ url_for('admin_motivos') }}"
+             {% if request.endpoint == 'admin_motivos' %}class="active"{% endif %}>Motivos</a>
+          <a href="{{ url_for('admin_sistema') }}"
+             {% if request.endpoint == 'admin_sistema' %}class="active"{% endif %}>Sistema</a>
+        {% endif %}
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>

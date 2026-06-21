@@ -167,6 +167,15 @@ def tecnico_required(f):
     return decorated
 
 
+def superadmin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if current_user.rol != 'superadmin':
+            flash('Acceso restringido a superadministradores.', 'error')
+            return redirect(url_for('dashboard_redirect'))
+        return f(*args, **kwargs)
+    return decorated
 
 
 def _log_actividad(conn, usuario_id, accion_tipo, detalle):
