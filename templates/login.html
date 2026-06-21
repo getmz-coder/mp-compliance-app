@@ -47,11 +47,18 @@
     }
 
     .brand-logo {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
       margin-bottom: 10px;
       line-height: 1;
+    }
+    .brand-logo img {
+      max-width: 200px;
+      height: auto;
+      display: block;
+    }
+    .bl-fallback {
+      display: none;
+      align-items: baseline;
+      gap: 8px;
     }
     .bl-talma {
       font-size: 42px;
@@ -179,8 +186,13 @@
 
     <div class="brand">
       <div class="brand-logo">
-        <span class="bl-talma">TALMA</span>
-        <span class="bl-get">GET</span>
+        <img src="{{ url_for('static', filename='logo_talma.png') }}"
+             alt="TALMA GET"
+             onerror="this.onerror=null; this.style.display='none'; document.getElementById('login-logo-text').style.display='flex';">
+        <div id="login-logo-text" class="bl-fallback">
+          <span class="bl-talma">TALMA</span>
+          <span class="bl-get">GET</span>
+        </div>
       </div>
       <div class="brand-title">Seguimiento MP</div>
       <div class="brand-sub">Mantenimiento Preventivo GSE · BOG</div>

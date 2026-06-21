@@ -324,8 +324,13 @@
 
   <nav class="topbar">
     <a class="topbar-brand" href="{{ url_for('dashboard_redirect') }}">
-      <span class="brand-talma">TALMA</span>
-      <span class="brand-get">GET</span>
+      <img src="{{ url_for('static', filename='logo_talma.png') }}"
+           alt="TALMA GET"
+           style="height:32px; width:auto; display:block;"
+           onerror="this.onerror=null; this.style.display='none'; document.getElementById('nav-brand-text').style.display='inline-flex';">
+      <span id="nav-brand-text" style="display:none; align-items:baseline; gap:0;">
+        <span class="brand-talma">TALMA</span><span class="brand-get">GET</span>
+      </span>
       <span class="brand-sep">·</span>
       <span class="brand-sub">Seguimiento MP</span>
     </a>

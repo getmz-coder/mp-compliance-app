@@ -2044,27 +2044,22 @@ def taller():
     conn = get_db()
     sync_id = _current_sync_id(conn)
 
-    equipos_taller = []
-    familias, categorias = [], []
+    rows = conn.execute(
+        """SELECT e.vehiculo, MAX(e.familia) AS familia, MAX(e.categoria) AS categoria,
+                  GROUP_CONCAT(DISTINCT e.rutina) AS rutinas,
+                  MAX(r.timestamp) AS fecha_ejecucion
+           FROM equipos e
+           JOIN solicitudes s ON s.equipo_id = e.id
+           JOIN respuestas r  ON r.solicitud_id = s.id
+                             AND r.accion = 'ejecutado'
+                             AND (r.verificacion IS NULL OR r.verificacion = 'no_confirmada')
+           GROUP BY e.vehiculo
+           ORDER BY e.vehiculo"""
+    ).fetchall()
 
-    if sync_id:
-        rows = conn.execute(
-            """SELECT e.vehiculo, e.familia, e.categoria,
-                      GROUP_CONCAT(DISTINCT e.rutina) AS rutinas,
-                      MAX(r.timestamp) AS fecha_ejecucion
-               FROM equipos e
-               JOIN solicitudes s ON s.equipo_id = e.id AND s.sync_id = e.sync_id
-               JOIN respuestas r  ON r.solicitud_id = s.id AND r.accion = 'ejecutado'
-               WHERE e.sync_id = ?
-               GROUP BY e.vehiculo
-               ORDER BY e.vehiculo""",
-            (sync_id,)
-        ).fetchall()
-
-        equipos_taller = [dict(row) for row in rows]
-        familias   = sorted({r['familia']   for r in equipos_taller if r['familia']})
-        categorias = sorted({r['categoria'] for r in equipos_taller if r['categoria']})
-
+    equipos_taller = [dict(row) for row in rows]
+    familias   = sorted({r['familia']   for r in equipos_taller if r['familia']})
+    categorias = sorted({r['categoria'] for r in equipos_taller if r['categoria']})
     conn.close()
 
     return render_template('tecnico/taller.html',
