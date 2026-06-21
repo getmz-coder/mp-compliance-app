@@ -1014,7 +1014,42 @@ def admin_usuarios():
     return render_template('admin/usuarios.html',
         usuarios=usuarios,
         valid_roles_create=valid_roles_create,
+        is_superadmin=is_superadmin,
     )
+
+
+@app.route('/admin/usuario/<int:user_id>/reset-password', methods=['POST'])
+@superadmin_required
+def admin_reset_password(user_id):
+    nueva = request.form.get('nueva_password', '').strip()
+    confirmar = request.form.get('confirmar_password', '').strip()
+
+    if len(nueva) < 8:
+        flash('La contraseña debe tener mínimo 8 caracteres.', 'error')
+        return redirect(url_for('admin_usuarios'))
+    if nueva != confirmar:
+        flash('Las contraseñas no coinciden.', 'error')
+        return redirect(url_for('admin_usuarios'))
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT username FROM usuarios WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not row:
+            flash('Usuario no encontrado.', 'error')
+            return redirect(url_for('admin_usuarios'))
+        conn.execute(
+            "UPDATE usuarios SET password_hash = ? WHERE id = ?",
+            (generate_password_hash(nueva), user_id)
+        )
+        _log_actividad(conn, current_user.id, 'reset_password',
+                       f'Contraseña reseteada para usuario {row["username"]} (id={user_id})')
+        conn.commit()
+        flash(f'Contraseña de "{row["username"]}" actualizada correctamente.', 'success')
+    finally:
+        conn.close()
+    return redirect(url_for('admin_usuarios'))
 
 
 # ---------------------------------------------------------------------------
