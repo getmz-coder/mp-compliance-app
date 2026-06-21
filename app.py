@@ -2198,6 +2198,19 @@ def exportar_ficha_equipo(vehiculo):
            ORDER BY hcf.timestamp DESC""",
         (vehiculo,)
     ).fetchall()
+
+    homo_rows = conn.execute(
+        """SELECT f.nombre_articulo, f.codigo_sap AS sap_principal,
+                  h.codigo_sap, h.descripcion, h.estado, h.grupo
+           FROM filtros_equipo f
+           JOIN homologos h ON h.grupo = (
+               SELECT grupo FROM homologos
+               WHERE codigo_sap = f.codigo_sap LIMIT 1
+           )
+           WHERE UPPER(f.equipo) = ?
+           ORDER BY h.grupo, h.estado DESC, h.codigo_sap""",
+        (vehiculo,)
+    ).fetchall()
     conn.close()
 
     wb  = Workbook()
@@ -2243,6 +2256,26 @@ def exportar_ficha_equipo(vehiculo):
     for col in ws2.columns:
         mx = max((len(str(c.value or '')) for c in col), default=8)
         ws2.column_dimensions[col[0].column_letter].width = min(mx + 4, 50)
+
+    if homo_rows:
+        ws3 = wb.create_sheet('Homólogos')
+        ws3.append(['Filtro', 'SAP Principal', 'Grupo', 'Código SAP Homólogo', 'Descripción', 'Estado'])
+        for cell in ws3[1]:
+            cell.fill = azul
+            cell.font = wfont
+            cell.alignment = ctr
+        for h in homo_rows:
+            ws3.append([
+                h['nombre_articulo'] or '',
+                h['sap_principal'] or '',
+                h['grupo'],
+                h['codigo_sap'] or '',
+                h['descripcion'] or '',
+                h['estado'] or '',
+            ])
+        for col in ws3.columns:
+            mx = max((len(str(c.value or '')) for c in col), default=8)
+            ws3.column_dimensions[col[0].column_letter].width = min(mx + 4, 50)
 
     buf = io.BytesIO()
     wb.save(buf)
