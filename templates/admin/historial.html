@@ -210,6 +210,19 @@
   .badge-no        { background:#fff7f7; color:#991b1b; border:1px solid #fca5a5; }
   .badge-sin-rep   { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }
 
+  .badge-verif {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 10.5px;
+    font-weight: 600;
+    margin-top: 3px;
+  }
+  .badge-verif-ok  { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+  .badge-verif-no  { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+
   .td-rutina { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .td-motivo { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gris); font-size: 12.5px; }
   .td-ts     { color: var(--gris); font-size: 12px; white-space: nowrap; }
@@ -503,7 +516,14 @@
             {# ── Acción ── #}
             <td>
               {% if f.accion == 'ejecutado' %}
-                <span class="badge-accion badge-ent">✓ Ejecutado</span>
+                <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start;">
+                  <span class="badge-accion badge-ent">✓ Ejecutado</span>
+                  {% if f.verificacion == 'confirmada' %}
+                    <span class="badge-verif badge-verif-ok">✓ Verificado</span>
+                  {% elif f.verificacion == 'no_confirmada' %}
+                    <span class="badge-verif badge-verif-no" title="Ind. desv. no cambió ({{ f.ind_desv_anterior }}% → {{ f.ind_desv_posterior }}%)">⚠ No verificado</span>
+                  {% endif %}
+                </div>
               {% elif f.accion == 'no_ejecutado' %}
                 <span class="badge-accion badge-no">✗ No ejecutado</span>
               {% elif f.accion == 'sin_reporte' %}

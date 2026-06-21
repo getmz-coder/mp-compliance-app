@@ -443,7 +443,7 @@
   <!-- ── Alertas de gestión ── -->
   <div class="alertas-section">
     <div class="alertas-grid">
-      {% set hay_alertas = alerta_vencidos > 0 or alerta_pendientes > 0 or alerta_no_ej > 0 or alerta_no_reportadas > 0 %}
+      {% set hay_alertas = alerta_vencidos > 0 or alerta_pendientes > 0 or alerta_no_ej > 0 or alerta_no_reportadas > 0 or alerta_no_verificadas > 0 %}
       {% if hay_alertas %}
 
         {% if alerta_vencidos > 0 %}
@@ -490,6 +490,18 @@
             <div class="alerta-count">{{ alerta_no_reportadas }}</div>
             <div class="alerta-text">equipo(s) ejecutados sin pasar por el sistema</div>
             <div class="alerta-action">Ver en Historial →</div>
+          </div>
+        </a>
+        {% endif %}
+
+        {% if alerta_no_verificadas > 0 %}
+        <a href="{{ url_for('admin_historial', accion='ejecutado') }}"
+           class="alerta-card alerta-card-rojo">
+          <div class="alerta-icon">🔍</div>
+          <div>
+            <div class="alerta-count">{{ alerta_no_verificadas }}</div>
+            <div class="alerta-text">equipo(s) reportados ejecutados sin cambio en su desviación</div>
+            <div class="alerta-action">Revisar en Historial →</div>
           </div>
         </a>
         {% endif %}

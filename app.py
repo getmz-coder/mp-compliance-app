@@ -2,7 +2,8 @@ import os
 import math
 import time
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, date, timedelta
+import calendar
 from secrets import token_hex
 from zoneinfo import ZoneInfo
 
@@ -281,11 +282,12 @@ def admin_dashboard():
     total_equipos = 0
     solicitados   = 0
     respondidos   = 0
-    alerta_vencidos      = 0
-    alerta_pendientes    = 0
-    alerta_no_ej         = 0
-    alerta_no_reportadas = 0
-    sol_equipo_ids       = frozenset()
+    alerta_vencidos       = 0
+    alerta_pendientes     = 0
+    alerta_no_ej          = 0
+    alerta_no_reportadas  = 0
+    alerta_no_verificadas = 0
+    sol_equipo_ids        = frozenset()
 
     if sync_id:
         total_equipos = conn.execute(
@@ -381,6 +383,10 @@ def admin_dashboard():
             "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado = 'pendiente'"
         ).fetchone()['c'] or 0
 
+        alerta_no_verificadas = conn.execute(
+            "SELECT COUNT(*) AS c FROM respuestas WHERE accion = 'ejecutado' AND verificacion = 'no_confirmada'"
+        ).fetchone()['c'] or 0
+
     conn.close()
 
     return render_template('admin/dashboard.html',
@@ -397,6 +403,7 @@ def admin_dashboard():
         alerta_pendientes=alerta_pendientes,
         alerta_no_ej=alerta_no_ej,
         alerta_no_reportadas=alerta_no_reportadas,
+        alerta_no_verificadas=alerta_no_verificadas,
         sol_equipo_ids=sol_equipo_ids,
     )
 
@@ -546,7 +553,10 @@ def admin_historial():
             NULL              AS ind_desviacion_anterior,
             NULL              AS ind_desviacion_nuevo,
             NULL              AS nr_estado,
-            NULL              AS justificacion
+            NULL              AS justificacion,
+            r.verificacion,
+            r.ind_desv_anterior,
+            r.ind_desv_posterior
         FROM solicitudes s
         JOIN equipos e   ON e.id = s.equipo_id
         JOIN usuarios u  ON u.id = s.solicitado_por
@@ -573,7 +583,10 @@ def admin_historial():
             n.ind_desviacion_anterior,
             n.ind_desviacion_nuevo,
             n.estado              AS nr_estado,
-            n.justificacion
+            n.justificacion,
+            NULL                  AS verificacion,
+            NULL                  AS ind_desv_anterior,
+            NULL                  AS ind_desv_posterior
         FROM ejecuciones_no_reportadas n
         {nr_where_sql}
     """ if include_nr else None
@@ -2158,6 +2171,48 @@ def _build_familias_chart_data(familias_cumplimiento):
 
 
 # ---------------------------------------------------------------------------
+# Admin — indicadores (helpers)
+# ---------------------------------------------------------------------------
+
+_MESES_ES_CORTO  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+_MESES_ES_LARGO  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
+                    'Septiembre','Octubre','Noviembre','Diciembre']
+
+
+def _fmt_fecha_es(s):
+    try:
+        y, m, d_ = int(s[:4]), int(s[5:7]), int(s[8:10])
+        return f"{d_}/{_MESES_ES_CORTO[m-1]}/{y}"
+    except Exception:
+        return s
+
+
+def _fmt_rango(d_desde, d_hasta):
+    if d_desde == d_hasta:
+        return _fmt_fecha_es(d_desde)
+    return f"{_fmt_fecha_es(d_desde)} al {_fmt_fecha_es(d_hasta)}"
+
+
+def _get_meses_disponibles(conn):
+    seen = set()
+    for r in conn.execute(
+        "SELECT DISTINCT strftime('%Y-%m', fecha_solicitud) AS ym FROM solicitudes WHERE fecha_solicitud IS NOT NULL"
+    ).fetchall():
+        if r['ym']:
+            seen.add(r['ym'])
+    for r in conn.execute(
+        "SELECT DISTINCT strftime('%Y-%m', timestamp) AS ym FROM ejecuciones_no_reportadas WHERE timestamp IS NOT NULL"
+    ).fetchall():
+        if r['ym']:
+            seen.add(r['ym'])
+    result = []
+    for ym in sorted(seen, reverse=True):
+        yr, mn = int(ym[:4]), int(ym[5:7])
+        result.append({'value': ym, 'label': f"{_MESES_ES_LARGO[mn-1]} {yr}"})
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Admin — indicadores
 # ---------------------------------------------------------------------------
 
@@ -2167,66 +2222,110 @@ def admin_indicadores():
     conn = get_db()
     sync_id = _current_sync_id(conn)
 
-    total_solicitados = ejecutados = no_ejecutados = 0
-    pct_ejecucion = 0
+    # ── Parsear rango de fechas ──────────────────────────────────────────────
+    preset  = request.args.get('preset', '').strip()
+    desde   = request.args.get('desde', '').strip()
+    hasta   = request.args.get('hasta', '').strip()
+    mes_sel = request.args.get('mes', '').strip()
 
-    if sync_id:
-        row = conn.execute(
-            """SELECT COUNT(s.id) AS total,
-                      SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejec,
-                      SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ej
-               FROM solicitudes s
-               LEFT JOIN respuestas r ON r.solicitud_id = s.id
-               WHERE s.sync_id = ?""",
-            (sync_id,)
-        ).fetchone()
-        total_solicitados = row['total']  or 0
-        ejecutados        = row['ejec']   or 0
-        no_ejecutados     = row['no_ej']  or 0
+    today = date.today()
+
+    if preset == 'hoy':
+        d_desde = d_hasta = today.isoformat()
+    elif preset == 'semana':
+        d_desde = (today - timedelta(days=6)).isoformat()
+        d_hasta = today.isoformat()
+    elif preset == 'mes':
+        d_desde = today.replace(day=1).isoformat()
+        d_hasta = today.isoformat()
+    elif mes_sel and len(mes_sel) == 7:
+        try:
+            yr, mn = int(mes_sel[:4]), int(mes_sel[5:7])
+            d_desde = f"{yr:04d}-{mn:02d}-01"
+            d_hasta = f"{yr:04d}-{mn:02d}-{calendar.monthrange(yr, mn)[1]:02d}"
+        except Exception:
+            d_desde = d_hasta = ''
+    elif desde and hasta:
+        d_desde, d_hasta = desde, hasta
+    else:
+        d_desde = d_hasta = ''   # todo el histórico
+
+    if d_desde and d_hasta:
+        sol_where  = "date(s.fecha_solicitud) >= ? AND date(s.fecha_solicitud) <= ?"
+        sol_params = (d_desde, d_hasta)
+        nr_where   = "date(timestamp) >= ? AND date(timestamp) <= ?"
+        nr_params  = (d_desde, d_hasta)
+        rango_label = _fmt_rango(d_desde, d_hasta)
+    else:
+        sol_where  = "1=1"
+        sol_params = ()
+        nr_where   = "1=1"
+        nr_params  = ()
+        rango_label = None   # None → "todo el histórico"
+
+    # ── KPIs ────────────────────────────────────────────────────────────────
+    row = conn.execute(
+        f"""SELECT COUNT(s.id) AS total,
+                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejec,
+                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ej
+           FROM solicitudes s
+           LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           WHERE {sol_where}""",
+        sol_params
+    ).fetchone()
+    total_solicitados = row['total'] or 0
+    ejecutados        = row['ejec']  or 0
+    no_ejecutados     = row['no_ej'] or 0
 
     sin_reporte_total = conn.execute(
-        "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas"
+        f"SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE {nr_where}",
+        nr_params
     ).fetchone()['c'] or 0
 
     total_con_nr = total_solicitados + sin_reporte_total
-    if total_con_nr:
-        pct_ejecucion = round((ejecutados + sin_reporte_total) / total_con_nr * 100)
+    pct_ejecucion = round((ejecutados + sin_reporte_total) / total_con_nr * 100) if total_con_nr else 0
 
+    # ── Top motivos (filtrado por rango) ────────────────────────────────────
     top_motivos = conn.execute(
-        """SELECT CASE WHEN r.motivo_id IS NOT NULL
+        f"""SELECT CASE WHEN r.motivo_id IS NOT NULL
                        THEN COALESCE(m.descripcion, 'Desconocido')
                        ELSE 'Comentario libre'
                   END AS motivo,
                   COUNT(*) AS cantidad
            FROM respuestas r
+           JOIN solicitudes s ON s.id = r.solicitud_id
            LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
-           WHERE r.accion = 'no_ejecutado'
+           WHERE r.accion = 'no_ejecutado' AND {sol_where}
            GROUP BY r.motivo_id
            ORDER BY cantidad DESC
-           LIMIT 10"""
+           LIMIT 10""",
+        sol_params
     ).fetchall()
     total_no_ej_global = sum(m['cantidad'] for m in top_motivos) or 1
 
+    # ── Cumplimiento por familia (filtrado) ──────────────────────────────────
     familias_cumplimiento_raw = conn.execute(
-        """SELECT e.familia,
+        f"""SELECT e.familia,
                   COUNT(s.id) AS solicitados,
                   SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
                   SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
            FROM solicitudes s
            JOIN equipos e ON e.id = s.equipo_id
            LEFT JOIN respuestas r ON r.solicitud_id = s.id
-           WHERE e.familia IS NOT NULL
+           WHERE e.familia IS NOT NULL AND {sol_where}
            GROUP BY e.familia
-           ORDER BY e.familia"""
+           ORDER BY e.familia""",
+        sol_params
     ).fetchall()
 
     nr_por_familia = {
         r['familia']: r['cnt']
         for r in conn.execute(
-            """SELECT familia, COUNT(*) AS cnt
+            f"""SELECT familia, COUNT(*) AS cnt
                FROM ejecuciones_no_reportadas
-               WHERE familia IS NOT NULL
-               GROUP BY familia"""
+               WHERE familia IS NOT NULL AND {nr_where}
+               GROUP BY familia""",
+            nr_params
         ).fetchall()
     }
 
@@ -2235,21 +2334,37 @@ def admin_indicadores():
         for f in familias_cumplimiento_raw
     ]
 
+    # ── Historial por ciclo (filtrado) ───────────────────────────────────────
     historial_sync = conn.execute(
-        """SELECT s.sync_id,
+        f"""SELECT s.sync_id,
                   MIN(s.fecha_solicitud)                                        AS primera_solicitud,
                   COUNT(s.id)                                                   AS total_solicitados,
                   SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END)  AS ejecutados,
                   SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END)  AS no_ejecutados
            FROM solicitudes s
            LEFT JOIN respuestas r ON r.solicitud_id = s.id
+           WHERE {sol_where}
            GROUP BY s.sync_id
-           ORDER BY s.sync_id DESC"""
+           ORDER BY s.sync_id DESC""",
+        sol_params
     ).fetchall()
 
-    donut_segments = _build_donut_segments(top_motivos, total_no_ej_global)
-    familias_chart = _build_familias_chart_data(familias_cumplimiento)
+    # ── KPIs de verificación ────────────────────────────────────────────────
+    verif_row = conn.execute(
+        f"""SELECT
+              SUM(CASE WHEN r.verificacion = 'confirmada'    THEN 1 ELSE 0 END) AS confirmadas,
+              SUM(CASE WHEN r.verificacion = 'no_confirmada' THEN 1 ELSE 0 END) AS no_confirmadas
+           FROM respuestas r
+           JOIN solicitudes s ON s.id = r.solicitud_id
+           WHERE r.accion = 'ejecutado' AND {sol_where}""",
+        sol_params
+    ).fetchone()
+    ejec_verificadas    = verif_row['confirmadas']    or 0
+    ejec_no_verificadas = verif_row['no_confirmadas'] or 0
 
+    meses_disponibles = _get_meses_disponibles(conn)
+    donut_segments    = _build_donut_segments(top_motivos, total_no_ej_global)
+    familias_chart    = _build_familias_chart_data(familias_cumplimiento)
     conn.close()
 
     return render_template('admin/indicadores.html',
@@ -2265,6 +2380,15 @@ def admin_indicadores():
         current_sync_id=sync_id,
         donut_segments=donut_segments,
         familias_chart=familias_chart,
+        ejec_verificadas=ejec_verificadas,
+        ejec_no_verificadas=ejec_no_verificadas,
+        # filtro de fechas
+        d_desde=d_desde,
+        d_hasta=d_hasta,
+        preset=preset,
+        mes_sel=mes_sel,
+        rango_label=rango_label,
+        meses_disponibles=meses_disponibles,
     )
 
 

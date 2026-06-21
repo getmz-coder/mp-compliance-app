@@ -84,6 +84,19 @@ def sync_programacion(filepath):
                 'sync_id': r['sync_id'],
             }
 
+    # Snapshot ind_desviacion de respuestas "ejecutado" sin verificar, ANTES del UPSERT
+    prev_ejecutados = {}  # equipo_id -> ind_desv anterior
+    for r in cur.execute(
+        """SELECT s.equipo_id, e.ind_desviacion AS old_ind
+           FROM respuestas r
+           JOIN solicitudes s ON s.id = r.solicitud_id
+           JOIN equipos e     ON e.id = s.equipo_id
+           WHERE r.accion = 'ejecutado' AND r.verificacion IS NULL"""
+    ).fetchall():
+        eid = r['equipo_id']
+        if eid not in prev_ejecutados:
+            prev_ejecutados[eid] = r['old_ind']
+
     for _, row in df.iterrows():
         consecutivo_raw = _get_col(row, 'consecutivo')
         if consecutivo_raw is None:
@@ -211,6 +224,40 @@ def sync_programacion(filepath):
         )
         no_reportadas += 1
 
+    # Verificación de ejecuciones reportadas por el CIO
+    # Compara ind_desviacion anterior vs nuevo para confirmar si el MP realmente se hizo.
+    # Umbral: new_ind < -20 → confirmada (contador se reinició)
+    #         new_ind >= -10 → no_confirmada (sigue en zona de riesgo, no hubo cambio)
+    verificadas     = 0
+    no_verificadas  = 0
+    for equipo_id, old_ind in prev_ejecutados.items():
+        new_row = cur.execute(
+            "SELECT ind_desviacion FROM equipos WHERE id = ?", (equipo_id,)
+        ).fetchone()
+        if not new_row or new_row['ind_desviacion'] is None:
+            continue
+
+        new_ind = int(new_row['ind_desviacion'])
+
+        if new_ind < -20:
+            verif = 'confirmada'
+            verificadas += 1
+        elif new_ind >= -10:
+            verif = 'no_confirmada'
+            no_verificadas += 1
+        else:
+            continue  # zona ambigua (-20 <= new_ind < -10), no actualizar
+
+        cur.execute(
+            """UPDATE respuestas
+               SET verificacion = ?, ind_desv_anterior = ?, ind_desv_posterior = ?
+               WHERE accion = 'ejecutado' AND verificacion IS NULL
+               AND solicitud_id IN (
+                   SELECT id FROM solicitudes WHERE equipo_id = ?
+               )""",
+            (verif, old_ind, new_ind, equipo_id)
+        )
+
     conn.commit()
     conn.close()
 
@@ -220,6 +267,8 @@ def sync_programacion(filepath):
         'total': nuevos + actualizados,
         'sync_id': sync_id,
         'no_reportadas': no_reportadas,
+        'verificadas': verificadas,
+        'no_verificadas': no_verificadas,
     }
 
 

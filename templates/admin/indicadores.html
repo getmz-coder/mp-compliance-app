@@ -11,7 +11,7 @@
   }
 
   .page-hdr {
-    margin-bottom: 28px;
+    margin-bottom: 20px;
   }
   .page-hdr h1 {
     font-size: 22px;
@@ -36,6 +36,132 @@
     border-radius: 20px;
     white-space: nowrap;
   }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    background: #fff;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+  .filter-bar-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .filter-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-presets a {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1.5px solid var(--borde);
+    color: var(--gris);
+    background: #f8f9fb;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .filter-presets a:hover {
+    border-color: var(--azul);
+    color: var(--azul);
+    background: #eff6ff;
+  }
+  .filter-presets a.active {
+    background: var(--azul);
+    border-color: var(--azul);
+    color: #fff;
+  }
+
+  .filter-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--borde);
+    flex-shrink: 0;
+  }
+
+  .filter-dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-dates label {
+    font-size: 12px;
+    color: var(--gris);
+    white-space: nowrap;
+  }
+  .filter-dates input[type=date] {
+    border: 1.5px solid var(--borde);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-dates input[type=date]:focus {
+    border-color: var(--azul);
+  }
+  .filter-dates input[type=date].active-date {
+    border-color: var(--cielo);
+    background: #eff6ff;
+  }
+
+  .filter-mes select {
+    border: 1.5px solid var(--borde);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--texto);
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-mes select:focus { border-color: var(--azul); }
+  .filter-mes select.active-mes {
+    border-color: var(--cielo);
+    background: #eff6ff;
+    color: var(--azul);
+    font-weight: 600;
+  }
+
+  /* ── Rango activo banner ── */
+  .rango-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--azul);
+  }
+  .rango-banner svg {
+    width: 15px; height: 15px;
+    stroke: var(--azul); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    flex-shrink: 0;
+  }
+  .rango-banner strong { font-weight: 700; }
 
   /* ── KPI Grid ── */
   .kpi-grid {
@@ -332,9 +458,11 @@
 
   @media (max-width: 768px) {
     .ind-page { padding: 14px 12px 40px; }
-    .page-hdr { margin-bottom: 18px; }
+    .page-hdr { margin-bottom: 14px; }
     .sections-grid { gap: 14px; }
     .motivo-bar-wrap { width: 70px; }
+    .filter-bar { gap: 8px; }
+    .filter-sep { display: none; }
   }
 </style>
 {% endblock %}
@@ -352,13 +480,63 @@
     {% endif %}
   </div>
 
+  <!-- ══ Barra de filtros ══ -->
+  <div class="filter-bar">
+    <span class="filter-bar-label">Período</span>
+
+    <!-- Botones rápidos -->
+    <div class="filter-presets">
+      <a href="?preset=hoy"    class="{{ 'active' if preset == 'hoy' else '' }}">Hoy</a>
+      <a href="?preset=semana" class="{{ 'active' if preset == 'semana' else '' }}">Última semana</a>
+      <a href="?preset=mes"    class="{{ 'active' if preset == 'mes' else '' }}">Último mes</a>
+      <a href="?"              class="{{ 'active' if not preset and not d_desde and not mes_sel else '' }}">Todo el histórico</a>
+    </div>
+
+    {% if meses_disponibles %}
+    <div class="filter-sep"></div>
+    <!-- Selector de mes -->
+    <div class="filter-mes">
+      <select id="f-mes" class="{{ 'active-mes' if mes_sel else '' }}" title="Seleccionar mes">
+        <option value="">— Mes —</option>
+        {% for m in meses_disponibles %}
+          <option value="{{ m.value }}" {{ 'selected' if mes_sel == m.value else '' }}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="filter-sep"></div>
+
+    <!-- Selector de fechas manual -->
+    <div class="filter-dates">
+      <label for="f-desde">Desde</label>
+      <input type="date" id="f-desde" value="{{ d_desde }}"
+             class="{{ 'active-date' if d_desde and not preset and not mes_sel else '' }}"
+             max="{{ d_hasta if d_hasta else '' }}">
+      <label for="f-hasta">Hasta</label>
+      <input type="date" id="f-hasta" value="{{ d_hasta }}"
+             class="{{ 'active-date' if d_hasta and not preset and not mes_sel else '' }}"
+             min="{{ d_desde if d_desde else '' }}">
+    </div>
+  </div>
+
+  <!-- ══ Banner rango activo ══ -->
+  <div class="rango-banner">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    {% if rango_label %}
+      Mostrando datos del <strong>{{ rango_label }}</strong>
+    {% else %}
+      Mostrando <strong>todo el histórico</strong>
+    {% endif %}
+  </div>
+
   <!-- KPIs -->
   {% set pct_color = 'pct-green' if pct_ejecucion >= 80 else ('pct-amber' if pct_ejecucion >= 60 else 'pct-red') %}
   <div class="kpi-grid">
     <div class="kpi-card kpi-blue">
       <div class="kpi-value">{{ total_solicitados }}</div>
       <div class="kpi-label">Total Solicitados</div>
-      <div class="kpi-sub">ciclo actual</div>
+      <div class="kpi-sub">solicitudes en el período</div>
     </div>
     <div class="kpi-card kpi-green">
       <div class="kpi-value">{{ ejecutados }}</div>
@@ -385,6 +563,16 @@
         <span style="display:block;font-size:10.5px;margin-top:1px;color:#d1d5db;">(incl. sin reporte)</span>
       </div>
     </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-value">{{ ejec_verificadas }}</div>
+      <div class="kpi-label">Ejec. Verificadas</div>
+      <div class="kpi-sub">medidor confirmó MP</div>
+    </div>
+    <div class="kpi-card kpi-red">
+      <div class="kpi-value">{{ ejec_no_verificadas }}</div>
+      <div class="kpi-label">Sin Verificar</div>
+      <div class="kpi-sub">medidor no cambió</div>
+    </div>
   </div>
 
   <!-- ══ Gráficos SVG ══ -->
@@ -407,36 +595,30 @@
                height="{{ familias_chart.svg_h }}"
                style="display:block;min-width:{{ familias_chart.svg_w }}px;">
             {% for row in familias_chart.rows %}
-              {# Fondo gris de la barra #}
               <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
                     width="{{ familias_chart.bar_w }}" height="{{ familias_chart.row_h - 12 }}"
                     rx="4" fill="#f3f4f6"/>
-              {# Barra verde: ejecutados vía sistema #}
               {% if row.ejec_px > 0 %}
               <rect x="{{ row.bar_x }}" y="{{ row.y + 4 }}"
                     width="{{ row.ejec_px }}" height="{{ familias_chart.row_h - 12 }}"
                     rx="4" fill="#80AE3F" opacity="0.9"/>
               {% endif %}
-              {# Barra naranja: sin reporte, apilada sobre verde #}
               {% if row.sin_px > 0 %}
               <rect x="{{ row.bar_x + row.ejec_px }}" y="{{ row.y + 4 }}"
                     width="{{ row.sin_px }}" height="{{ familias_chart.row_h - 12 }}"
                     {% if row.ejec_px == 0 %}rx="4"{% endif %}
                     fill="#E67E22" opacity="0.88"/>
               {% endif %}
-              {# Barra roja: no ejecutados, apilada #}
               {% if row.no_px > 0 %}
               <rect x="{{ row.bar_x + row.ejec_px + row.sin_px }}" y="{{ row.y + 4 }}"
                     width="{{ row.no_px }}" height="{{ familias_chart.row_h - 12 }}"
                     {% if row.ejec_px == 0 and row.sin_px == 0 %}rx="4"{% endif %}
                     fill="#dc2626" opacity="0.82"/>
               {% endif %}
-              {# Label familia (izquierda) #}
               <text x="{{ row.bar_x - 6 }}" y="{{ row.y_text }}"
                     class="bar-label" text-anchor="end">
                 {% if row.familia|length > 16 %}{{ row.familia[:16] }}…{% else %}{{ row.familia }}{% endif %}
               </text>
-              {# Porcentaje (derecha) #}
               <text x="{{ row.pct_x }}" y="{{ row.y_text }}"
                     class="bar-pct-label" fill="{{ row.pct_color }}">{{ row.pct }}%</text>
             {% endfor %}
@@ -455,7 +637,7 @@
         </div>
       </div>
       {% else %}
-        <div class="empty-ind">Sin datos de familias aún.</div>
+        <div class="empty-ind">Sin datos de familias para el período seleccionado.</div>
       {% endif %}
     </div>
 
@@ -478,7 +660,6 @@
               {% for seg in donut_segments %}
                 <path d="{{ seg.path }}" fill="{{ seg.color }}" opacity="0.92"/>
               {% endfor %}
-              {# Texto central #}
               <text x="100" y="97" text-anchor="middle"
                     font-size="22" font-weight="700" fill="#111827">{{ no_ejecutados }}</text>
               <text x="100" y="113" text-anchor="middle"
@@ -498,7 +679,7 @@
         </div>
       </div>
       {% else %}
-        <div class="empty-ind">Sin registros de no ejecución aún.</div>
+        <div class="empty-ind">Sin registros de no ejecución para el período seleccionado.</div>
       {% endif %}
     </div>
 
@@ -533,7 +714,7 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="empty-ind">Sin registros de no ejecución aún.</div>
+        <div class="empty-ind">Sin registros de no ejecución para el período seleccionado.</div>
       {% endif %}
     </div>
 
@@ -586,7 +767,7 @@
         </table>
       </div>
       {% else %}
-        <div class="empty-ind">Sin datos de solicitudes por familia aún.</div>
+        <div class="empty-ind">Sin datos de solicitudes por familia para el período seleccionado.</div>
       {% endif %}
     </div>
 
@@ -646,9 +827,33 @@
       </table>
     </div>
     {% else %}
-      <div class="empty-ind">No hay ciclos de sincronización con solicitudes registradas.</div>
+      <div class="empty-ind">No hay ciclos con solicitudes en el período seleccionado.</div>
     {% endif %}
   </div>
 
 </div>
+
+<script>
+(function () {
+  var fDesde = document.getElementById('f-desde');
+  var fHasta = document.getElementById('f-hasta');
+  var fMes   = document.getElementById('f-mes');
+
+  function applyDates() {
+    var d = fDesde.value, h = fHasta.value;
+    if (d && h && d <= h) {
+      window.location.href = '?desde=' + d + '&hasta=' + h;
+    }
+  }
+
+  if (fDesde) fDesde.addEventListener('change', applyDates);
+  if (fHasta) fHasta.addEventListener('change', applyDates);
+
+  if (fMes) {
+    fMes.addEventListener('change', function () {
+      window.location.href = this.value ? ('?mes=' + this.value) : '?';
+    });
+  }
+})();
+</script>
 {% endblock %}

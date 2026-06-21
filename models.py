@@ -144,6 +144,7 @@ def init_db():
     """)
 
     _migrate_equipos(conn)
+    _migrate_respuestas(conn)
 
     conn.commit()
     conn.close()
@@ -162,6 +163,20 @@ def _migrate_equipos(conn):
     for col, coltype in nuevas.items():
         if col not in existing:
             cur.execute(f"ALTER TABLE equipos ADD COLUMN {col} {coltype}")
+
+
+def _migrate_respuestas(conn):
+    """Agrega columnas de verificación a tabla respuestas en DBs ya existentes."""
+    cur = conn.cursor()
+    existing = {row[1] for row in cur.execute("PRAGMA table_info(respuestas)")}
+    nuevas = {
+        'verificacion':       'VARCHAR(20)',
+        'ind_desv_anterior':  'INTEGER',
+        'ind_desv_posterior': 'INTEGER',
+    }
+    for col, coltype in nuevas.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE respuestas ADD COLUMN {col} {coltype}")
 
 
 def seed_motivos():
