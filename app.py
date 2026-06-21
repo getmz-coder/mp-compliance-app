@@ -2482,6 +2482,31 @@ def admin_no_reportadas_justificar(nr_id):
     return jsonify({'success': True, 'estado': estado})
 
 
+@app.route('/admin/no-reportada/<int:nr_id>/eliminar', methods=['POST'])
+@admin_required
+def admin_no_reportada_eliminar(nr_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, vehiculo FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Registro no encontrado.'}), 404
+        conn.execute("DELETE FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,))
+        conn.execute(
+            """INSERT INTO log_actividad (usuario_id, accion_tipo, detalle, ip_address, timestamp)
+               VALUES (?, 'eliminar_no_reportada', ?, ?, ?)""",
+            (current_user.id,
+             f'Eliminado registro no_reportada id={nr_id} vehiculo={row["vehiculo"]}',
+             request.remote_addr,
+             datetime.now(TZ_COL).isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
+
+
 # ---------------------------------------------------------------------------
 # Dev
 # ---------------------------------------------------------------------------
