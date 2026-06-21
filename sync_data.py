@@ -13,6 +13,8 @@ COLS_PROGRAMACION_REQUERIDAS = ['consecutivo', 'vehiculo', 'rutina', 'estado_mp'
 
 COLS_FILTROS = ['EQUIPO', 'TIPO', 'NOMBRE ARTÍCULO', 'CODIGO SAP', 'TIPO FILTRO']
 
+COLS_HOMOLOGOS = ['Grupo', 'Estado', 'Codigo SAP', 'Descripcion']
+
 
 def _clean(val):
     """Convierte NaN/NaT/None/vacíos a None; hace strip al resto."""
@@ -326,3 +328,52 @@ def sync_filtros(filepath):
     conn.close()
 
     return {'total_registros': total_registros, 'equipos_unicos': equipos_unicos}
+
+
+def sync_homologos(filepath):
+    """
+    Lee Excel hoja 'Grupos_Homologos' y reemplaza tabla homologos
+    con DELETE + INSERT completo.
+    Retorna: {'total_registros': X, 'grupos': Y}
+    """
+    df = pd.read_excel(filepath, sheet_name='Grupos_Homologos', header=0, dtype=str)
+    df.columns = df.columns.str.strip()
+
+    missing = [c for c in COLS_HOMOLOGOS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Columnas faltantes en Excel de homólogos: {', '.join(missing)}")
+
+    for col in df.columns:
+        df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
+
+    df = df[df['Grupo'].map(lambda x: _clean(x) is not None)]
+    df = df[df['Codigo SAP'].map(lambda x: _clean(x) is not None)]
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM homologos")
+
+    for _, row in df.iterrows():
+        grupo_raw = _clean(row['Grupo'])
+        try:
+            grupo = int(float(grupo_raw))
+        except (ValueError, TypeError):
+            logging.warning("Grupo no numérico ignorado: %r", grupo_raw)
+            continue
+
+        cur.execute("""
+            INSERT INTO homologos (grupo, codigo_sap, descripcion, estado)
+            VALUES (?, ?, ?, ?)
+        """, (
+            grupo,
+            _clean_sap(_clean(row['Codigo SAP'])),
+            _clean(row['Descripcion']),
+            _clean(row['Estado']),
+        ))
+
+    conn.commit()
+    total_registros = conn.execute("SELECT COUNT(*) FROM homologos").fetchone()[0]
+    grupos = conn.execute("SELECT COUNT(DISTINCT grupo) FROM homologos").fetchone()[0]
+    conn.close()
+
+    return {'total_registros': int(total_registros), 'grupos': int(grupos)}
