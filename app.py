@@ -21,6 +21,7 @@ from werkzeug.utils import secure_filename
 import config
 from models import get_db, init_db
 import sync_data
+from planning import calcular_planeacion, agregar_repuestos
 
 TZ_COL = ZoneInfo('America/Bogota')
 
@@ -2962,6 +2963,188 @@ def admin_no_reportada_eliminar(nr_id):
     finally:
         conn.close()
     return jsonify({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# Admin — Planeación Predictiva de Repuestos
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/planeacion')
+@login_required
+@admin_required
+def admin_planeacion():
+    today = date.today()
+
+    fd_str = request.args.get('fd', '')
+    fh_str = request.args.get('fh', '')
+    iv = request.args.get('iv', '0') == '1'
+
+    resultados = None
+    repuestos = []
+    fecha_desde = None
+    fecha_hasta = None
+    error_calc = None
+
+    conn = get_db()
+
+    promedios = conn.execute(
+        "SELECT familia, horas_promedio_dia, km_promedio_dia, timestamp FROM promedios_familia ORDER BY familia"
+    ).fetchall()
+
+    familias_sin_prom = conn.execute(
+        """SELECT DISTINCT familia FROM equipos
+           WHERE sync_id = (SELECT MAX(sync_id) FROM equipos)
+             AND familia NOT IN (SELECT familia FROM promedios_familia
+                                  WHERE horas_promedio_dia IS NOT NULL
+                                     OR km_promedio_dia IS NOT NULL)
+           ORDER BY familia"""
+    ).fetchall()
+
+    if fd_str and fh_str:
+        try:
+            fecha_desde = datetime.strptime(fd_str, '%Y-%m-%d').date()
+            fecha_hasta = datetime.strptime(fh_str, '%Y-%m-%d').date()
+            if fecha_desde > fecha_hasta:
+                error_calc = 'La fecha desde no puede ser posterior a la fecha hasta.'
+            else:
+                resultados = calcular_planeacion(conn, fecha_desde, fecha_hasta, iv)
+                vehiculos = [e['vehiculo'] for e in resultados['en_rango']]
+                if iv:
+                    vehiculos += [e['vehiculo'] for e in resultados['vencidos_pendientes']]
+                repuestos = agregar_repuestos(conn, list(dict.fromkeys(vehiculos)))
+        except ValueError:
+            error_calc = 'Formato de fecha inválido. Use YYYY-MM-DD.'
+
+    conn.close()
+
+    return render_template(
+        'admin/planeacion.html',
+        today=today,
+        promedios=promedios,
+        familias_sin_prom=[r['familia'] for r in familias_sin_prom],
+        fd_str=fd_str,
+        fh_str=fh_str,
+        iv=iv,
+        resultados=resultados,
+        repuestos=repuestos,
+        error_calc=error_calc,
+    )
+
+
+@app.route('/admin/planeacion/promedio/<familia>', methods=['POST'])
+@login_required
+@admin_required
+def admin_planeacion_promedio(familia):
+    data = request.get_json(silent=True) or {}
+    hpd_raw = data.get('horas_promedio_dia')
+    kpd_raw = data.get('km_promedio_dia')
+
+    def to_float(v):
+        if v is None or str(v).strip() == '':
+            return None
+        try:
+            f = float(v)
+            return f if f > 0 else None
+        except (ValueError, TypeError):
+            return None
+
+    hpd = to_float(hpd_raw)
+    kpd = to_float(kpd_raw)
+    now = datetime.now(TZ_COL).isoformat()
+
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO promedios_familia (familia, horas_promedio_dia, km_promedio_dia, timestamp)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(familia) DO UPDATE SET
+               horas_promedio_dia = excluded.horas_promedio_dia,
+               km_promedio_dia    = excluded.km_promedio_dia,
+               timestamp          = excluded.timestamp""",
+        (familia, hpd, kpd, now)
+    )
+    conn.commit()
+    conn.close()
+    return {'ok': True, 'familia': familia}
+
+
+@app.route('/admin/planeacion/exportar')
+@login_required
+@admin_required
+def admin_planeacion_exportar():
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    fd_str = request.args.get('fd', '')
+    fh_str = request.args.get('fh', '')
+    iv = request.args.get('iv', '0') == '1'
+
+    try:
+        fecha_desde = datetime.strptime(fd_str, '%Y-%m-%d').date()
+        fecha_hasta = datetime.strptime(fh_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Fechas inválidas para exportar.', 'error')
+        return redirect(url_for('admin_planeacion'))
+
+    conn = get_db()
+    resultados = calcular_planeacion(conn, fecha_desde, fecha_hasta, iv)
+    vehiculos = [e['vehiculo'] for e in resultados['en_rango']]
+    if iv:
+        vehiculos += [e['vehiculo'] for e in resultados['vencidos_pendientes']]
+    repuestos = agregar_repuestos(conn, list(dict.fromkeys(vehiculos)))
+    conn.close()
+
+    wb = Workbook()
+    azul = PatternFill('solid', fgColor='002D6E')
+    wfont = Font(color='FFFFFF', bold=True, size=11)
+    ctr = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    ws1 = wb.active
+    ws1.title = 'Equipos en Rango'
+    ws1.append(['Vehículo', 'Familia', 'Rutina', 'Desviación', 'Ind. Desviación', 'Estado MP', 'Fecha Estimada', 'Tipo Medidor'])
+    for cell in ws1[1]:
+        cell.fill = azul; cell.font = wfont; cell.alignment = ctr
+    for eq in resultados['en_rango']:
+        ws1.append([
+            eq['vehiculo'], eq['familia'], eq['rutina'], eq['desviacion'],
+            eq['ind_desviacion'], eq['estado_mp'],
+            eq['fecha_estimada'].isoformat() if eq['fecha_estimada'] else '',
+            eq['tipo_medidor'] or '',
+        ])
+
+    if iv and resultados['vencidos_pendientes']:
+        ws2 = wb.create_sheet('Vencidos Pendientes')
+        ws2.append(['Vehículo', 'Familia', 'Rutina', 'Desviación', 'Ind. Desviación', 'Estado MP'])
+        for cell in ws2[1]:
+            cell.fill = azul; cell.font = wfont; cell.alignment = ctr
+        for eq in resultados['vencidos_pendientes']:
+            ws2.append([
+                eq['vehiculo'], eq['familia'], eq['rutina'],
+                eq['desviacion'], eq['ind_desviacion'], eq['estado_mp'],
+            ])
+
+    ws3 = wb.create_sheet('Repuestos')
+    ws3.append(['Código SAP', 'Artículo', 'Tipo Filtro', 'Cantidad', 'Equipos', 'Homólogos SAP'])
+    for cell in ws3[1]:
+        cell.fill = azul; cell.font = wfont; cell.alignment = ctr
+    for rep in repuestos:
+        homos = ', '.join(h['codigo_sap'] for h in rep['homologos'] if h['codigo_sap'] != rep['codigo_sap'])
+        ws3.append([
+            rep['codigo_sap'], rep['nombre_articulo'], rep['tipo_filtro'],
+            rep['cantidad'], ', '.join(rep['equipos']), homos,
+        ])
+
+    for ws in [ws1, ws3]:
+        for col in ws.columns:
+            mx = max((len(str(c.value or '')) for c in col), default=8)
+            ws.column_dimensions[col[0].column_letter].width = min(mx + 4, 55)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    nombre = f"planeacion_repuestos_{fd_str}_{fh_str}.xlsx"
+    return send_file(buf, download_name=nombre, as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 # ---------------------------------------------------------------------------

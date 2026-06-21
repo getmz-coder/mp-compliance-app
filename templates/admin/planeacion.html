@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}Planeación de Repuestos — Seguimiento MP GET{% endblock %}
+
+{% block styles %}
+<style>
+  :root {
+    --azul: #002D6E; --verde: #80AE3F; --cielo: #1E88E5;
+    --ambar: #E67E22; --fondo: #F0F2F5; --gris: #6b7280;
+    --rojo: #dc2626;
+  }
+  .plan-page { max-width: 1100px; margin: 28px auto 60px; padding: 0 20px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--cielo); text-decoration: none; font-size: 13px;
+    font-weight: 500; margin-bottom: 14px;
+  }
+  .back-link:hover { text-decoration: underline; }
+  .back-link svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+
+  .page-title { font-size:22px; font-weight:700; color:var(--azul); letter-spacing:-0.3px; }
+  .page-sub { font-size:13.5px; color:var(--gris); margin-top:5px; line-height:1.5; }
+
+  .card {
+    background:#fff; border-radius:12px;
+    box-shadow: 0 2px 16px rgba(0,45,110,0.09);
+    margin-top:20px; overflow:hidden;
+  }
+  .card-header {
+    padding:18px 24px 14px; border-bottom:1px solid #f3f4f6;
+    display:flex; align-items:center; gap:10px;
+  }
+  .card-header h2 { font-size:15px; font-weight:700; color:var(--azul); margin:0; }
+  .card-body { padding:20px 24px; }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+  .kpi-card {
+    background:#f8faff; border:1px solid #e0e7ef; border-radius:10px;
+    padding:14px 16px; text-align:center;
+  }
+  .kpi-card .kpi-val { font-size:28px; font-weight:800; color:var(--azul); line-height:1; }
+  .kpi-card .kpi-val.warn { color: var(--ambar); }
+  .kpi-card .kpi-lbl { font-size:11.5px; color:var(--gris); margin-top:4px; }
+
+  .prom-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .prom-table th { background:var(--azul); color:#fff; padding:8px 12px; text-align:left; font-weight:600; font-size:12px; }
+  .prom-table td { padding:8px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .prom-table tr:last-child td { border-bottom:none; }
+  .prom-input {
+    width:90px; padding:5px 8px; font-size:13px;
+    border:1px solid #d1d5db; border-radius:6px;
+    text-align:right; outline:none; transition:border-color 0.15s;
+  }
+  .prom-input:focus { border-color:var(--cielo); box-shadow:0 0 0 2px rgba(30,136,229,0.15); }
+  .btn-save-prom {
+    padding:5px 12px; font-size:12px; font-weight:600;
+    background:var(--azul); color:#fff; border:none;
+    border-radius:6px; cursor:pointer; transition:background 0.15s;
+  }
+  .btn-save-prom:hover { background:#003580; }
+  .save-status { font-size:11.5px; margin-left:6px; }
+  .save-ok { color:var(--verde); }
+  .save-err { color:var(--rojo); }
+  .badge-sin-prom {
+    display:inline-block; background:#fef3c7; color:#92400e;
+    font-size:10px; font-weight:700; padding:1px 7px;
+    border-radius:10px; letter-spacing:0.3px; margin-left:5px;
+  }
+
+  .calc-form { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  .calc-field { display:flex; flex-direction:column; gap:5px; }
+  .calc-field label { font-size:12px; font-weight:600; color:#374151; }
+  .calc-field input[type="date"] {
+    padding:8px 12px; font-size:13.5px;
+    border:1px solid #d1d5db; border-radius:8px;
+    outline:none; transition:border-color 0.15s;
+  }
+  .calc-field input[type="date"]:focus { border-color:var(--cielo); box-shadow:0 0 0 2px rgba(30,136,229,0.15); }
+  .calc-check { display:flex; align-items:center; gap:8px; font-size:13px; color:#374151; cursor:pointer; padding-bottom:2px; }
+  .calc-check input[type="checkbox"] { width:15px; height:15px; accent-color:var(--azul); cursor:pointer; }
+  .btn-calc {
+    padding:9px 22px; font-size:14px; font-weight:600;
+    background:var(--azul); color:#fff; border:none;
+    border-radius:8px; cursor:pointer; transition:background 0.15s, transform 0.1s;
+  }
+  .btn-calc:hover { background:#003580; }
+  .btn-calc:active { transform:scale(0.98); }
+  .badge-rango {
+    display:inline-flex; align-items:center; gap:5px;
+    background:#fffbeb; border:1px solid #fcd34d;
+    color:#92400e; font-size:12px; font-weight:600;
+    padding:4px 10px; border-radius:8px; margin-left:10px;
+  }
+  .calc-error { background:#fef2f2; border:1px solid #fca5a5; color:var(--rojo); font-size:13px; padding:10px 14px; border-radius:8px; margin-top:12px; }
+
+  .res-table-wrap { overflow-x:auto; margin-top:4px; }
+  .res-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .res-table th { background:var(--azul); color:#fff; padding:9px 12px; text-align:left; font-weight:600; font-size:12px; white-space:nowrap; }
+  .res-table td { padding:8px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .res-table tr:hover td { background:#f0f7ff; }
+  .chip-vencido { background:#fee2e2; color:var(--rojo); font-size:11px; font-weight:700; padding:2px 7px; border-radius:8px; }
+  .chip-sin-dato { background:#fef3c7; color:#92400e; font-size:11px; font-weight:700; padding:2px 7px; border-radius:8px; }
+  .chip-ok { background:#f0fdf4; color:#166534; font-size:11px; font-weight:700; padding:2px 7px; border-radius:8px; }
+
+  .rep-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .rep-table th { background:var(--azul); color:#fff; padding:9px 12px; text-align:left; font-weight:600; font-size:12px; }
+  .rep-table td { padding:8px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .rep-table tr:hover td { background:#f0f7ff; }
+  .qty-badge {
+    display:inline-block; background:var(--azul); color:#fff;
+    font-size:13px; font-weight:800; min-width:28px; text-align:center;
+    padding:2px 8px; border-radius:6px;
+  }
+  .btn-homo-small {
+    padding:3px 10px; font-size:11px; font-weight:600;
+    background:#f0f7ff; color:var(--azul); border:1px solid #bfdbfe;
+    border-radius:6px; cursor:pointer; transition:background 0.15s;
+  }
+  .btn-homo-small:hover { background:#dbeafe; }
+  .homo-inline { display:none; }
+  .homo-inner { background:#f8faff; border:1px solid #e0e7ef; border-radius:8px; padding:10px 14px; margin-top:6px; font-size:12px; }
+  .homo-inner table { width:100%; border-collapse:collapse; }
+  .homo-inner td { padding:4px 8px; border-bottom:1px solid #f0f0f0; }
+  .homo-inner tr:last-child td { border-bottom:none; }
+
+  .btn-export {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:9px 20px; font-size:13.5px; font-weight:600;
+    background:var(--verde); color:#fff; border:none;
+    border-radius:8px; cursor:pointer; text-decoration:none;
+    transition:background 0.15s;
+  }
+  .btn-export:hover { background:#6a9433; }
+  .btn-export svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .empty-state { text-align:center; padding:40px 24px; color:var(--gris); font-size:13.5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plan-page">
+
+  <a href="{{ url_for('admin_dashboard') }}" class="back-link">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver al panel
+  </a>
+
+  <h1 class="page-title">Planeación de Repuestos Predictiva</h1>
+  <p class="page-sub">Calcula fechas estimadas de próximo MP y agrega los repuestos necesarios para un rango de fechas.</p>
+
+  <!-- SECCIÓN 1: Promedios por familia -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <h2>Promedios de Consumo por Familia</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:14px;">
+        Ingrese el promedio diario de horas o km por familia. Se usa para convertir desviaciones en horas/km a fechas estimadas.
+      </p>
+
+      {% if familias_sin_prom %}
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400e;">
+        <strong>Familias sin promedio configurado:</strong>
+        {% for f in familias_sin_prom %}<span class="badge-sin-prom">{{ f }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if promedios %}
+      <table class="prom-table">
+        <thead>
+          <tr>
+            <th>Familia</th>
+            <th>Horas / día</th>
+            <th>Km / día</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in promedios %}
+          <tr id="prom-row-{{ loop.index }}">
+            <td><strong>{{ p.familia }}</strong></td>
+            <td>
+              <input class="prom-input" type="number" step="0.1" min="0"
+                     id="hpd-{{ loop.index }}"
+                     value="{{ p.horas_promedio_dia if p.horas_promedio_dia else '' }}"
+                     placeholder="—">
+            </td>
+            <td>
+              <input class="prom-input" type="number" step="1" min="0"
+                     id="kpd-{{ loop.index }}"
+                     value="{{ p.km_promedio_dia if p.km_promedio_dia else '' }}"
+                     placeholder="—">
+            </td>
+            <td>
+              <button class="btn-save-prom" onclick="saveProm('{{ p.familia | e }}', {{ loop.index }})">Guardar</button>
+              <span class="save-status" id="st-{{ loop.index }}"></span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>No hay familias registradas aún. Sincronice la programación MP para poblar las familias.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SECCIÓN 2: Calculadora -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <h2>Calculadora de Rango</h2>
+    </div>
+    <div class="card-body">
+      <form method="GET" action="{{ url_for('admin_planeacion') }}">
+        <div class="calc-form">
+          <div class="calc-field">
+            <label>Fecha desde</label>
+            <input type="date" name="fd" value="{{ fd_str }}" required>
+          </div>
+          <div class="calc-field">
+            <label>Fecha hasta</label>
+            <input type="date" name="fh" value="{{ fh_str }}" required>
+          </div>
+          <label class="calc-check">
+            <input type="checkbox" name="iv" value="1" {% if iv %}checked{% endif %}>
+            Incluir equipos vencidos pendientes
+          </label>
+          <button type="submit" class="btn-calc">Calcular</button>
+
+          {% if fd_str and fh_str %}
+          <span class="badge-rango">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ fd_str }} → {{ fh_str }}
+          </span>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if error_calc %}
+      <div class="calc-error">{{ error_calc }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if resultados %}
+  <!-- SECCIÓN 3: KPIs + Tabla resultados -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <h2>Resultados — {{ fd_str }} al {{ fh_str }}</h2>
+
+      <a href="{{ url_for('admin_planeacion_exportar', fd=fd_str, fh=fh_str, iv='1' if iv else '0') }}"
+         class="btn-export" style="margin-left:auto;">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar Excel
+      </a>
+    </div>
+    <div class="card-body">
+
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-val">{{ resultados.kpis.total_en_rango }}</div>
+          <div class="kpi-lbl">Equipos en rango</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val">{{ resultados.kpis.familias }}</div>
+          <div class="kpi-lbl">Familias</div>
+        </div>
+        {% if iv %}
+        <div class="kpi-card">
+          <div class="kpi-val warn">{{ resultados.kpis.vencidos_pendientes }}</div>
+          <div class="kpi-lbl">Vencidos pendientes</div>
+        </div>
+        {% endif %}
+        <div class="kpi-card">
+          <div class="kpi-val warn">{{ resultados.kpis.sin_dato }}</div>
+          <div class="kpi-lbl">Sin dato de promedio</div>
+        </div>
+      </div>
+
+      {% if resultados.en_rango %}
+      <div class="res-table-wrap">
+        <table class="res-table">
+          <thead>
+            <tr>
+              <th>Vehículo</th><th>Familia</th><th>Rutina</th>
+              <th>Desviación</th><th>Estado MP</th>
+              <th>Fecha Estimada</th><th>Medidor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for eq in resultados.en_rango %}
+            <tr>
+              <td><strong>{{ eq.vehiculo }}</strong></td>
+              <td>{{ eq.familia }}</td>
+              <td style="font-size:12px;max-width:260px;">{{ eq.rutina }}</td>
+              <td>{{ eq.desviacion }}</td>
+              <td>{{ eq.estado_mp }}</td>
+              <td>
+                {% if eq.fecha_estimada %}
+                  {% if eq.vencido_actual %}
+                    <span class="chip-vencido">{{ eq.fecha_estimada }}</span>
+                  {% else %}
+                    <span class="chip-ok">{{ eq.fecha_estimada }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="chip-sin-dato">Sin dato</span>
+                {% endif %}
+              </td>
+              <td>{{ eq.tipo_medidor or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No hay equipos en el rango de fechas seleccionado.</p>
+      </div>
+      {% endif %}
+
+      {% if iv and resultados.vencidos_pendientes %}
+      <h3 style="font-size:14px;font-weight:700;color:var(--rojo);margin:20px 0 10px;">
+        Vencidos Pendientes ({{ resultados.vencidos_pendientes | length }})
+      </h3>
+      <div class="res-table-wrap">
+        <table class="res-table">
+          <thead>
+            <tr>
+              <th>Vehículo</th><th>Familia</th><th>Rutina</th>
+              <th>Desviación</th><th>Estado MP</th><th>Fecha Estimada</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for eq in resultados.vencidos_pendientes %}
+            <tr>
+              <td><strong>{{ eq.vehiculo }}</strong></td>
+              <td>{{ eq.familia }}</td>
+              <td style="font-size:12px;">{{ eq.rutina }}</td>
+              <td>{{ eq.desviacion }}</td>
+              <td>{{ eq.estado_mp }}</td>
+              <td><span class="chip-vencido">{{ eq.fecha_estimada or 'Vencido' }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- SECCIÓN 4: Repuestos agregados -->
+  {% if repuestos %}
+  <div class="card">
+    <div class="card-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      </svg>
+      <h2>Repuestos Requeridos — Agregado por SAP</h2>
+    </div>
+    <div class="card-body">
+      <table class="rep-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Código SAP</th><th>Artículo</th>
+            <th>Tipo</th><th>Cant.</th><th>Equipos</th><th>Homólogos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rep in repuestos %}
+          <tr>
+            <td style="color:var(--gris);font-size:12px;">{{ loop.index }}</td>
+            <td style="font-family:monospace;font-size:13px;">{{ rep.codigo_sap }}</td>
+            <td>{{ rep.nombre_articulo }}</td>
+            <td>{{ rep.tipo_filtro }}</td>
+            <td><span class="qty-badge">{{ rep.cantidad }}</span></td>
+            <td style="font-size:12px;color:var(--gris);">{{ rep.equipos | join(', ') }}</td>
+            <td>
+              {% if rep.homologos | length > 1 %}
+              <button class="btn-homo-small" id="hbtn-{{ loop.index }}"
+                      onclick="toggleHomRep({{ loop.index }}, {{ rep.homologos | length - 1 }})">
+                Ver ({{ rep.homologos | length - 1 }})
+              </button>
+              <div class="homo-inline" id="homo-rep-{{ loop.index }}">
+                <div class="homo-inner">
+                  <table>
+                    {% for h in rep.homologos %}
+                    {% if h.codigo_sap != rep.codigo_sap %}
+                    <tr>
+                      <td style="font-family:monospace;font-size:12px;">{{ h.codigo_sap }}</td>
+                      <td style="font-size:12px;">{{ h.descripcion or '—' }}</td>
+                      <td style="font-size:11px;color:var(--gris);">{{ h.estado or '' }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                  </table>
+                </div>
+              </div>
+              {% else %}
+              <span style="font-size:12px;color:var(--gris);">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}{# /if resultados #}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function getCsrfToken() {
+  var m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.getAttribute('content') : '';
+}
+
+function saveProm(familia, idx) {
+  var hpd = document.getElementById('hpd-' + idx).value;
+  var kpd = document.getElementById('kpd-' + idx).value;
+  var st  = document.getElementById('st-' + idx);
+  st.textContent = 'Guardando...';
+  st.className = 'save-status';
+
+  fetch('/admin/planeacion/promedio/' + encodeURIComponent(familia), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
+    },
+    body: JSON.stringify({ horas_promedio_dia: hpd || null, km_promedio_dia: kpd || null })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      st.textContent = 'Guardado';
+      st.className = 'save-status save-ok';
+    } else {
+      st.textContent = 'Error';
+      st.className = 'save-status save-err';
+    }
+    setTimeout(function() { st.textContent = ''; }, 2500);
+  })
+  .catch(function() {
+    st.textContent = 'Error de red';
+    st.className = 'save-status save-err';
+  });
+}
+
+function toggleHomRep(idx, count) {
+  var div = document.getElementById('homo-rep-' + idx);
+  var btn = document.getElementById('hbtn-' + idx);
+  if (!div) return;
+  var open = div.style.display === 'block';
+  div.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? ('Ver (' + count + ')') : ('Ocultar (' + count + ')');
+}
+</script>
+{% endblock %}
+
+{% block help_tips %}
+<li>Configure los promedios de horas o km por día por familia para calcular fechas</li>
+<li>Seleccione un rango de fechas y presione Calcular para ver los equipos</li>
+<li>Active "Incluir vencidos" para agregar equipos ya vencidos sin respuesta</li>
+<li>Use Exportar Excel para descargar la tabla de repuestos consolidada</li>
+{% endblock %}

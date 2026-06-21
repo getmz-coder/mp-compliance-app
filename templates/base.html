@@ -464,6 +464,8 @@
            {% if request.endpoint == 'admin_sync' %}class="active"{% endif %}>Sincronizar</a>
         <a href="{{ url_for('admin_historial') }}"
            {% if request.endpoint == 'admin_historial' %}class="active"{% endif %}>Historial</a>
+        <a href="{{ url_for('admin_planeacion') }}"
+           {% if request.endpoint in ('admin_planeacion', 'admin_planeacion_exportar') %}class="active"{% endif %}>Planeación</a>
         <a href="{{ url_for('admin_usuarios') }}"
            {% if request.endpoint == 'admin_usuarios' %}class="active"{% endif %}>Usuarios</a>
         <a href="{{ url_for('admin_auditoria') }}"
