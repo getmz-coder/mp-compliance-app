@@ -1294,6 +1294,70 @@ def admin_motivo_editar(motivo_id):
     return jsonify({'success': True})
 
 
+@app.route('/admin/sistema')
+@superadmin_required
+def admin_sistema():
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    total_usuarios_activos = conn.execute(
+        "SELECT COUNT(*) AS c FROM usuarios WHERE activo = 1"
+    ).fetchone()['c']
+
+    total_equipos = 0
+    if sync_id:
+        total_equipos = conn.execute(
+            "SELECT COUNT(*) AS c FROM equipos WHERE sync_id = ?", (sync_id,)
+        ).fetchone()['c']
+
+    total_filtros = conn.execute(
+        "SELECT COUNT(*) AS c FROM filtros_equipo"
+    ).fetchone()['c']
+
+    ultimo_sync_row = conn.execute(
+        """SELECT l.timestamp, u.nombre_completo
+           FROM log_actividad l
+           LEFT JOIN usuarios u ON u.id = l.usuario_id
+           WHERE l.accion_tipo = 'sync'
+           ORDER BY l.timestamp DESC LIMIT 1"""
+    ).fetchone()
+
+    total_solicitudes = conn.execute(
+        "SELECT COUNT(*) AS c FROM solicitudes"
+    ).fetchone()['c']
+
+    total_respuestas = conn.execute(
+        "SELECT COUNT(*) AS c FROM respuestas"
+    ).fetchone()['c']
+
+    usuarios = conn.execute(
+        "SELECT * FROM usuarios ORDER BY created_at DESC"
+    ).fetchall()
+
+    conn.close()
+
+    try:
+        peso_mb = round(os.path.getsize(config.DATABASE_PATH) / (1024 * 1024), 2)
+    except OSError:
+        peso_mb = 0.0
+
+    ultimo_sync_ts = _format_fecha_actualizacion(ultimo_sync_row['timestamp']) if ultimo_sync_row else None
+    ultimo_sync_usuario = ultimo_sync_row['nombre_completo'] if ultimo_sync_row else None
+
+    return render_template('admin/sistema.html',
+        total_usuarios_activos=total_usuarios_activos,
+        total_equipos=total_equipos,
+        total_filtros=total_filtros,
+        peso_mb=peso_mb,
+        ultimo_sync_ts=ultimo_sync_ts,
+        ultimo_sync_usuario=ultimo_sync_usuario,
+        total_solicitudes=total_solicitudes,
+        total_respuestas=total_respuestas,
+        usuarios=usuarios,
+        current_sync_id=sync_id,
+    )
+
+
 @app.route('/admin/motivos/<int:motivo_id>/toggle', methods=['POST'])
 @superadmin_required
 def admin_motivo_toggle(motivo_id):

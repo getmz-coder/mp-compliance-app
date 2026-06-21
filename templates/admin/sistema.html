@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Panel del Sistema — Superadmin{% endblock %}
+
+{% block styles %}
+<style>
+  .sistema-page { max-width: 1100px; margin: 0 auto; padding: 28px 28px 60px; }
+  .page-hdr { margin-bottom: 28px; }
+  .page-hdr h1 { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-hdr p  { font-size: 13px; color: var(--gris); margin-top: 3px; }
+
+  /* KPI grids */
+  .kpi-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  @media (max-width: 900px) { .kpi-grid-4 { grid-template-columns: repeat(2, 1fr); } .kpi-grid-3 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px)  { .kpi-grid-4, .kpi-grid-3 { grid-template-columns: 1fr; } }
+
+  .kpi-card { background: #fff; border-radius: 12px; padding: 20px 22px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); border-left: 4px solid transparent; }
+  .kpi-card.blue  { border-color: var(--azul); }
+  .kpi-card.green { border-color: var(--verde); }
+  .kpi-card.sky   { border-color: var(--cielo); }
+  .kpi-card.amber { border-color: var(--ambar); }
+  .kpi-card.gray  { border-color: #9ca3af; }
+
+  .kpi-value { font-size: 32px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; margin-bottom: 5px; }
+  .kpi-card.blue  .kpi-value { color: var(--azul); }
+  .kpi-card.green .kpi-value { color: var(--verde); }
+  .kpi-card.sky   .kpi-value { color: var(--cielo); }
+  .kpi-card.amber .kpi-value { color: var(--ambar); }
+  .kpi-card.gray  .kpi-value { color: #6b7280; }
+
+  .kpi-label { font-size: 11.5px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-sub   { font-size: 12px; color: #9ca3af; margin-top: 3px; }
+
+  /* Tabla usuarios */
+  .content-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); overflow: hidden; }
+  .card-hdr { padding: 16px 22px; border-bottom: 1px solid var(--borde); display: flex; align-items: center; gap: 8px; }
+  .card-hdr h2 { font-size: 14px; font-weight: 700; color: var(--azul); display: flex; align-items: center; gap: 7px; }
+  .card-hdr h2 svg { width: 15px; height: 15px; stroke: var(--cielo); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .count-badge { margin-left: auto; font-size: 12px; color: var(--gris); background: #f3f4f6; border: 1px solid var(--borde); padding: 2px 9px; border-radius: 12px; }
+
+  table.sis-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.sis-table thead tr { background: #f8f9fb; border-bottom: 2px solid var(--borde); }
+  table.sis-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+  table.sis-table td { padding: 11px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  table.sis-table tbody tr:last-child td { border-bottom: none; }
+  table.sis-table tbody tr:hover { background: #f8fafc; }
+
+  .badge-rol { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+  .badge-superadmin { background: #fdf4ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+  .badge-admin      { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
+  .badge-cio        { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-tecnico    { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+  .badge-activo-s { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 600; }
+  .badge-si { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-no { background: #fff7f7; color: #991b1b; border: 1px solid #fca5a5; }
+  .td-ts { color: var(--gris); font-size: 12px; white-space: nowrap; }
+  .td-username { font-family: 'Courier New', monospace; font-weight: 600; font-size: 13px; }
+
+  @media (max-width: 768px) { .sistema-page { padding: 14px 12px 40px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sistema-page">
+
+  <div class="page-hdr">
+    <h1>Panel del Sistema</h1>
+    <p>Estadísticas globales y estado de la base de datos</p>
+  </div>
+
+  <!-- KPIs principales -->
+  <div class="kpi-grid-4">
+    <div class="kpi-card blue">
+      <div class="kpi-value">{{ total_usuarios_activos }}</div>
+      <div class="kpi-label">Usuarios activos</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-value">{{ total_equipos }}</div>
+      <div class="kpi-label">Equipos cargados</div>
+      {% if current_sync_id %}<div class="kpi-sub">Ciclo #{{ current_sync_id }}</div>{% endif %}
+    </div>
+    <div class="kpi-card sky">
+      <div class="kpi-value">{{ total_filtros }}</div>
+      <div class="kpi-label">Filtros en maestro</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-value">{{ peso_mb }}</div>
+      <div class="kpi-label">Peso BD (MB)</div>
+      <div class="kpi-sub">app.db</div>
+    </div>
+  </div>
+
+  <!-- KPIs secundarios -->
+  <div class="kpi-grid-3">
+    <div class="kpi-card gray">
+      <div class="kpi-label" style="margin-bottom:8px;">Último sync</div>
+      {% if ultimo_sync_ts %}
+        <div style="font-size:14px;font-weight:700;color:var(--texto);">{{ ultimo_sync_ts }}</div>
+        {% if ultimo_sync_usuario %}<div class="kpi-sub">por {{ ultimo_sync_usuario }}</div>{% endif %}
+      {% else %}
+        <div style="font-size:13px;color:var(--gris);">Sin sincronizaciones registradas</div>
+      {% endif %}
+    </div>
+    <div class="kpi-card gray">
+      <div class="kpi-value">{{ total_solicitudes }}</div>
+      <div class="kpi-label">Solicitudes históricas</div>
+      <div class="kpi-sub">Todos los ciclos</div>
+    </div>
+    <div class="kpi-card gray">
+      <div class="kpi-value">{{ total_respuestas }}</div>
+      <div class="kpi-label">Respuestas históricas</div>
+      <div class="kpi-sub">Todos los ciclos</div>
+    </div>
+  </div>
+
+  <!-- Tabla de usuarios -->
+  <div class="content-card">
+    <div class="card-hdr">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Todos los usuarios
+      </h2>
+      <span class="count-badge">{{ usuarios|length }}</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="sis-table">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Nombre Completo</th>
+            <th>Rol</th>
+            <th>Activo</th>
+            <th>Creado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios %}
+          <tr>
+            <td class="td-username">{{ u.username }}</td>
+            <td>{{ u.nombre_completo }}</td>
+            <td>
+              {% if u.rol == 'superadmin' %}
+                <span class="badge-rol badge-superadmin">SuperAdmin</span>
+              {% elif u.rol == 'admin' %}
+                <span class="badge-rol badge-admin">Admin</span>
+              {% elif u.rol == 'tecnico' %}
+                <span class="badge-rol badge-tecnico">Técnico</span>
+              {% else %}
+                <span class="badge-rol badge-cio">CIO</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge-activo-s {{ 'badge-si' if u.activo else 'badge-no' }}">
+                {{ 'Sí' if u.activo else 'No' }}
+              </span>
+            </td>
+            <td class="td-ts">{{ u.created_at[:10] if u.created_at else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="padding:30px;text-align:center;color:var(--gris);">Sin usuarios.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
