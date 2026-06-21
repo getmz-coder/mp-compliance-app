@@ -2988,7 +2988,17 @@ def admin_planeacion():
     conn = get_db()
 
     promedios = conn.execute(
-        "SELECT familia, horas_promedio_dia, km_promedio_dia, timestamp FROM promedios_familia ORDER BY familia"
+        """SELECT f.familia,
+                  p.horas_promedio_dia,
+                  p.km_promedio_dia,
+                  p.timestamp
+           FROM (
+               SELECT DISTINCT familia FROM equipos
+               WHERE sync_id = (SELECT MAX(sync_id) FROM equipos)
+                 AND familia IS NOT NULL
+           ) f
+           LEFT JOIN promedios_familia p ON p.familia = f.familia
+           ORDER BY f.familia"""
     ).fetchall()
 
     familias_sin_prom = conn.execute(
