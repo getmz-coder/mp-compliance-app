@@ -426,12 +426,14 @@ def admin_sync():
     file_prog = request.files.get('file_programacion')
     file_filt = request.files.get('file_filtros')
     file_homo = request.files.get('file_homologos')
+    file_frec = request.files.get('file_frecuencias')
 
     has_prog = file_prog and file_prog.filename
     has_filt = file_filt and file_filt.filename
     has_homo = file_homo and file_homo.filename
+    has_frec = file_frec and file_frec.filename
 
-    if not has_prog and not has_filt and not has_homo:
+    if not has_prog and not has_filt and not has_homo and not has_frec:
         flash('Debes subir al menos un archivo.', 'error')
         return render_template('admin/sync.html')
 
@@ -500,6 +502,23 @@ def admin_sync():
                     os.remove(save_path)
                 except Exception as exc:
                     app.logger.error('No se pudo eliminar maestro_homologos.xlsx: %s', exc)
+
+    if has_frec:
+        if not _allowed_excel(file_frec.filename):
+            flash('Frecuencias: formato no válido. Solo se aceptan .xlsx o .xls', 'error')
+        else:
+            save_path = os.path.join(config.UPLOAD_FOLDER, 'frecuencias_rutinas.xlsx')
+            file_frec.save(save_path)
+            try:
+                res = sync_data.sync_frecuencias(save_path)
+                flash(f'Frecuencias sincronizadas: {res["total_registros"]} rutinas.', 'success')
+            except Exception as exc:
+                flash(f'Error en frecuencias: {exc}', 'error')
+            else:
+                try:
+                    os.remove(save_path)
+                except Exception as exc:
+                    app.logger.error('No se pudo eliminar frecuencias_rutinas.xlsx: %s', exc)
 
     return redirect(url_for('admin_sync'))
 

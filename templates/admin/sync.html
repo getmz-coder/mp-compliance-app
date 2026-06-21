@@ -74,6 +74,8 @@
   .section-icon.green svg { stroke: var(--verde); }
   .section-icon.amber { background: #fffbeb; }
   .section-icon.amber svg { stroke: var(--ambar); }
+  .section-icon.purple { background: #f5f3ff; }
+  .section-icon.purple svg { stroke: #7c3aed; }
 
   .section-info h3 {
     font-size: 14.5px;
@@ -312,6 +314,44 @@
         </p>
       </div>
 
+      <!-- Frecuencias de Rutinas -->
+      <div class="upload-section">
+        <div class="section-header">
+          <div class="section-icon purple">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="section-info">
+            <h3>Frecuencias de Rutinas <span class="badge-optional">Opcional</span></h3>
+            <p>Tabla de frecuencias por rutina MP (horas o km por ciclo, días entre mantenimientos). Usada por el módulo de Planeación Predictiva.</p>
+          </div>
+        </div>
+
+        <div class="file-zone" id="zone-frec">
+          <input type="file" name="file_frecuencias" accept=".xlsx,.xls"
+                 onchange="setFile(this,'zone-frec','name-frec')">
+          <div class="file-zone-inner">
+            <div class="fz-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div>
+              <div class="fz-text">Haz clic para seleccionar o arrastra el archivo aquí</div>
+              <div class="fz-name" id="name-frec"></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="cols-hint">
+          Hoja requerida: <code>DB_FRECUENCIAS</code> · Columnas: <code>rutina</code> · <code>frecuencia_medidor</code> · <code>frecuencia_dias</code>
+        </p>
+      </div>
+
       <div class="form-footer">
         <button type="submit" class="btn-sync">
           <svg viewBox="0 0 24 24">
@@ -321,7 +361,7 @@
           </svg>
           Sincronizar Datos
         </button>
-        <span class="form-note">Se debe subir al menos uno de los tres archivos.</span>
+        <span class="form-note">Se debe subir al menos uno de los cuatro archivos.</span>
       </div>
 
     </div>

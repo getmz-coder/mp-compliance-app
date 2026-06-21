@@ -15,6 +15,8 @@ COLS_FILTROS = ['EQUIPO', 'TIPO', 'NOMBRE ARTÍCULO', 'CODIGO SAP', 'TIPO FILTRO
 
 COLS_HOMOLOGOS = ['Grupo', 'Estado', 'Codigo SAP', 'Descripcion']
 
+COLS_FRECUENCIAS = ['rutina', 'frecuencia_medidor', 'frecuencia_dias']
+
 
 def _clean(val):
     """Convierte NaN/NaT/None/vacíos a None; hace strip al resto."""
@@ -377,3 +379,53 @@ def sync_homologos(filepath):
     conn.close()
 
     return {'total_registros': int(total_registros), 'grupos': int(grupos)}
+
+
+def sync_frecuencias(filepath):
+    """
+    Lee Excel hoja 'DB_FRECUENCIAS' y reemplaza tabla frecuencias_rutinas
+    con DELETE + INSERT completo.
+    Retorna: {'total_registros': X}
+    """
+    df = pd.read_excel(filepath, sheet_name='DB_FRECUENCIAS', header=0, dtype=str)
+    df.columns = df.columns.str.strip().str.lower()
+
+    missing = [c for c in COLS_FRECUENCIAS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Columnas faltantes en DB_FRECUENCIAS: {', '.join(missing)}")
+
+    for col in df.columns:
+        df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
+
+    df = df[df['rutina'].map(lambda x: _clean(x) is not None)]
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM frecuencias_rutinas")
+
+    for _, row in df.iterrows():
+        rutina = _clean(row['rutina'])
+        freq_med = None
+        freq_dias = None
+        try:
+            v = _clean(row.get('frecuencia_medidor'))
+            if v:
+                freq_med = float(v)
+        except (ValueError, TypeError):
+            pass
+        try:
+            v = _clean(row.get('frecuencia_dias'))
+            if v:
+                freq_dias = int(float(v))
+        except (ValueError, TypeError):
+            pass
+
+        cur.execute(
+            "INSERT INTO frecuencias_rutinas (rutina, frecuencia_medidor, frecuencia_dias) VALUES (?, ?, ?)",
+            (rutina, freq_med, freq_dias)
+        )
+
+    conn.commit()
+    total = conn.execute("SELECT COUNT(*) FROM frecuencias_rutinas").fetchone()[0]
+    conn.close()
+    return {'total_registros': int(total)}
