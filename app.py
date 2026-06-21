@@ -380,7 +380,7 @@ def admin_dashboard():
         )
 
         alerta_no_reportadas = conn.execute(
-            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado = 'pendiente'"
+            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado IN ('pendiente', 'sin_justificar')"
         ).fetchone()['c'] or 0
 
         alerta_no_verificadas = conn.execute(
@@ -2277,13 +2277,20 @@ def admin_indicadores():
     ejecutados        = row['ejec']  or 0
     no_ejecutados     = row['no_ej'] or 0
 
-    sin_reporte_total = conn.execute(
-        f"SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE {nr_where}",
+    nr_kpi = conn.execute(
+        f"""SELECT
+              SUM(CASE WHEN estado = 'justificado' THEN 1 ELSE 0 END) AS justificados,
+              COUNT(*) AS total
+            FROM ejecuciones_no_reportadas WHERE {nr_where}""",
         nr_params
-    ).fetchone()['c'] or 0
+    ).fetchone()
+    sin_reporte_justificados = nr_kpi['justificados'] or 0
+    sin_reporte_total        = nr_kpi['total']        or 0
+    sin_reporte_pendientes   = sin_reporte_total - sin_reporte_justificados
 
-    total_con_nr = total_solicitados + sin_reporte_total
-    pct_ejecucion = round((ejecutados + sin_reporte_total) / total_con_nr * 100) if total_con_nr else 0
+    total_con_nr  = total_solicitados + sin_reporte_total
+    ejecutados_ef = ejecutados + sin_reporte_justificados
+    pct_ejecucion = round(ejecutados_ef / total_con_nr * 100) if total_con_nr else 0
 
     # ── Top motivos (filtrado por rango) ────────────────────────────────────
     top_motivos = conn.execute(
@@ -2372,6 +2379,8 @@ def admin_indicadores():
         ejecutados=ejecutados,
         no_ejecutados=no_ejecutados,
         sin_reporte_total=sin_reporte_total,
+        sin_reporte_justificados=sin_reporte_justificados,
+        sin_reporte_pendientes=sin_reporte_pendientes,
         pct_ejecucion=pct_ejecucion,
         top_motivos=top_motivos,
         total_no_ej_global=total_no_ej_global,
