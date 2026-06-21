@@ -317,6 +317,125 @@
       .topbar-logout { font-size: 12px; padding: 4px 9px; }
       .flash-container { padding: 0 14px; margin-top: 12px; }
     }
+
+    /* ══ Guía contextual ══ */
+    .help-float-btn {
+      position: fixed;
+      top: 70px;
+      right: 16px;
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--azul);
+      color: #fff;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: Georgia, serif;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,45,110,0.28);
+      transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+      line-height: 1;
+    }
+    .help-float-btn:hover { background: #1a4a8a; transform: scale(1.1); }
+    .help-float-btn:active { transform: scale(0.97); }
+
+    .help-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.2);
+      z-index: 9000;
+      cursor: pointer;
+    }
+    .help-overlay.open { display: block; }
+
+    .help-modal {
+      display: none;
+      position: fixed;
+      top: 70px;
+      right: 56px;
+      width: 300px;
+      max-width: calc(100vw - 20px);
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,45,110,0.18);
+      border-left: 4px solid var(--verde);
+      z-index: 9001;
+      overflow: hidden;
+    }
+    .help-modal.open { display: block; animation: helpPanelIn 0.15s ease; }
+    @keyframes helpPanelIn {
+      from { opacity: 0; transform: translateY(-7px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .help-modal-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .help-modal-icon {
+      width: 20px; height: 20px;
+      background: var(--azul);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+      font-size: 11px; font-weight: 700;
+      font-family: Georgia, serif;
+      line-height: 1;
+    }
+    .help-modal-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--azul);
+      flex: 1;
+    }
+    .help-close-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      color: var(--gris);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: background 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+    .help-close-btn:hover { background: #f3f4f6; color: var(--texto); }
+    .help-list {
+      list-style: none;
+      padding: 10px 0 12px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+    }
+    .help-list li {
+      padding: 6px 14px 6px 26px;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.5;
+      position: relative;
+    }
+    .help-list li::before {
+      content: '›';
+      position: absolute;
+      left: 12px;
+      top: 4px;
+      color: var(--verde);
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1;
+    }
+    @media (max-width: 768px) {
+      .help-float-btn { top: 64px; right: 6px; width: 28px; height: 28px; font-size: 13px; }
+      .help-modal { right: 6px; top: 66px; width: calc(100vw - 12px); max-width: none; }
+    }
   </style>
   {% block styles %}{% endblock %}
 </head>
@@ -432,6 +551,20 @@
     <strong>Gerencia GET</strong> · Talma Servicios Aeroportuarios · 2026
   </footer>
 
+  <!-- ── Guía contextual ── -->
+  <button class="help-float-btn" id="help-float-btn" title="Guía de esta pantalla" aria-label="Guía de esta pantalla">?</button>
+  <div class="help-overlay" id="help-overlay"></div>
+  <div class="help-modal" id="help-modal" role="dialog" aria-modal="true">
+    <div class="help-modal-hdr">
+      <span class="help-modal-icon">?</span>
+      <span class="help-modal-title">Guía de esta pantalla</span>
+      <button class="help-close-btn" id="help-close-btn" aria-label="Cerrar">&#x2715;</button>
+    </div>
+    <ul class="help-list" id="help-list">
+      {% block help_tips %}{% endblock %}
+    </ul>
+  </div>
+
   <script>
   /* Helper global para CSRF en fetch() */
   function getCsrfToken() {
@@ -526,6 +659,31 @@
 
     document.addEventListener('click', function(e) {
       if (!srchInput.contains(e.target) && !srchDd.contains(e.target)) cerrarDd();
+    });
+  })();
+
+  /* ── Guía contextual ── */
+  (function(){
+    var floatBtn = document.getElementById('help-float-btn');
+    var overlay  = document.getElementById('help-overlay');
+    var modal    = document.getElementById('help-modal');
+    var closeBtn = document.getElementById('help-close-btn');
+    var list     = document.getElementById('help-list');
+    if (!floatBtn || !modal || !list) return;
+    if (!list.children.length) { floatBtn.style.display = 'none'; return; }
+    function openHelp() {
+      overlay.classList.add('open');
+      modal.classList.add('open');
+    }
+    function closeHelp() {
+      overlay.classList.remove('open');
+      modal.classList.remove('open');
+    }
+    floatBtn.addEventListener('click', openHelp);
+    overlay.addEventListener('click', closeHelp);
+    closeBtn.addEventListener('click', closeHelp);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.classList.contains('open')) closeHelp();
     });
   })();
   </script>

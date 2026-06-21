@@ -178,6 +178,58 @@
       }
       footer { margin-top: 20px; }
     }
+
+    /* ── Guía login ── */
+    .login-help-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #002D6E;
+      color: #fff;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: Georgia, serif;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,45,110,0.25);
+      transition: background 0.15s, transform 0.12s;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .login-help-btn:hover { background: #1a4a8a; transform: scale(1.1); }
+    .login-help-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 16px;
+    }
+    .help-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.2); z-index: 9000; cursor: pointer;
+    }
+    .help-overlay.open { display: block; }
+    .help-modal {
+      display: none; position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px; max-width: calc(100vw - 24px);
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,45,110,0.18);
+      border-left: 4px solid #80AE3F;
+      z-index: 9001; overflow: hidden;
+    }
+    .help-modal.open { display: block; animation: helpIn 0.15s ease; }
+    @keyframes helpIn { from { opacity:0; transform:translate(-50%,-53%); } to { opacity:1; transform:translate(-50%,-50%); } }
+    .help-modal-hdr { display:flex; align-items:center; gap:8px; padding:12px 14px 10px; border-bottom:1px solid #f3f4f6; }
+    .help-modal-icon { width:20px;height:20px;background:#002D6E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:11px;font-weight:700;font-family:Georgia,serif;line-height:1; }
+    .help-modal-title { font-size:12.5px;font-weight:700;color:#002D6E;flex:1; }
+    .help-close-btn { background:none;border:none;font-size:16px;color:#6b7280;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;transition:background 0.1s; }
+    .help-close-btn:hover { background:#f3f4f6; }
+    .help-list { list-style:none; padding:10px 0 12px; }
+    .help-list li { padding:6px 14px 6px 26px; font-size:13px; color:#374151; line-height:1.5; position:relative; }
+    .help-list li::before { content:'›'; position:absolute; left:12px; top:4px; color:#80AE3F; font-weight:700; font-size:16px; line-height:1; }
   </style>
 </head>
 <body>
@@ -196,6 +248,10 @@
       </div>
       <div class="brand-title">Seguimiento MP</div>
       <div class="brand-sub">Mantenimiento Preventivo GSE · BOG</div>
+    </div>
+
+    <div class="login-help-row">
+      <button class="login-help-btn" id="login-help-btn" title="Guía de acceso" aria-label="Guía de acceso">?</button>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -251,6 +307,34 @@
     Uso interno — acceso restringido a personal autorizado
   </footer>
 
+  <!-- ── Guía de acceso ── -->
+  <div class="help-overlay" id="help-overlay"></div>
+  <div class="help-modal" id="help-modal" role="dialog" aria-modal="true">
+    <div class="help-modal-hdr">
+      <span class="help-modal-icon">?</span>
+      <span class="help-modal-title">Guía de acceso</span>
+      <button class="help-close-btn" id="help-close-btn" aria-label="Cerrar">&#x2715;</button>
+    </div>
+    <ul class="help-list">
+      <li>Ingrese su usuario y contraseña asignados para acceder al sistema</li>
+    </ul>
+  </div>
+  <script>
+  (function(){
+    var btn    = document.getElementById('login-help-btn');
+    var ov     = document.getElementById('help-overlay');
+    var modal  = document.getElementById('help-modal');
+    var closeB = document.getElementById('help-close-btn');
+    function open()  { ov.classList.add('open'); modal.classList.add('open'); }
+    function close() { ov.classList.remove('open'); modal.classList.remove('open'); }
+    btn.addEventListener('click', open);
+    ov.addEventListener('click', close);
+    closeB.addEventListener('click', close);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.classList.contains('open')) close();
+    });
+  })();
+  </script>
 
 </body>
 </html>
