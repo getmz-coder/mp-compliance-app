@@ -193,9 +193,9 @@
   .badge-sol-respondido { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
 
   /* estados no_reportada */
-  .badge-nr-pendiente    { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-nr-pendiente    { background:#fff7ed; color:#9a3412; border:1px solid #fdba74; }
   .badge-nr-justificado  { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
-  .badge-nr-sin-just     { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-nr-sin-just     { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
 
   .badge-accion {
     display: inline-flex;
@@ -491,11 +491,11 @@
             <td>
               {% if f.tipo == 'no_reportada' %}
                 {% if f.nr_estado == 'pendiente' %}
-                  <span class="badge-sol-estado badge-nr-pendiente">Pendiente</span>
+                  <span class="badge-sol-estado badge-nr-pendiente">Sin reporte - pendiente</span>
                 {% elif f.nr_estado == 'justificado' %}
                   <span class="badge-sol-estado badge-nr-justificado">Justificado</span>
                 {% elif f.nr_estado == 'sin_justificar' %}
-                  <span class="badge-sol-estado badge-nr-sin-just">Sin justificar</span>
+                  <span class="badge-sol-estado badge-nr-sin-just">No reportado sin justificar</span>
                 {% else %}
                   <span class="badge-sol-estado badge-default">{{ f.nr_estado or '—' }}</span>
                 {% endif %}
@@ -527,7 +527,11 @@
               {% elif f.accion == 'no_ejecutado' %}
                 <span class="badge-accion badge-no">✗ No ejecutado</span>
               {% elif f.accion == 'sin_reporte' %}
-                <span class="badge-accion badge-sin-rep">⚠ Sin reporte</span>
+                {% if f.nr_estado == 'justificado' %}
+                  <span class="badge-accion badge-ent">✓ Justificado</span>
+                {% else %}
+                  <span class="badge-accion badge-sin-rep">⚠ Sin reporte</span>
+                {% endif %}
               {% else %}
                 <span style="color:#9ca3af;font-size:12px;">—</span>
               {% endif %}
