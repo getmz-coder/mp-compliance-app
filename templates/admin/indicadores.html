@@ -546,7 +546,10 @@
     <div class="kpi-card kpi-amber">
       <div class="kpi-value">{{ sin_reporte_total }}</div>
       <div class="kpi-label">Sin Reporte</div>
-      <div class="kpi-sub">ejecutados sin registrar</div>
+      <div class="kpi-sub">
+        <span style="color:#166534;">{{ sin_reporte_justificados }} justificados</span>
+        / <span style="color:#991b1b;">{{ sin_reporte_pendientes }} pendientes</span>
+      </div>
     </div>
     <div class="kpi-card kpi-red">
       <div class="kpi-value">{{ no_ejecutados }}</div>
@@ -743,9 +746,10 @@
             {% for f in familias_cumplimiento %}
               {% set ejec_f   = f.ejecutados or 0 %}
               {% set sol_f    = f.solicitados or 0 %}
-              {% set sin_rep_f = f.sin_reporte if f.sin_reporte is defined else 0 %}
+              {% set sin_rep_f      = f.sin_reporte if f.sin_reporte is defined else 0 %}
+              {% set sin_rep_just_f = f.sin_reporte_just if f.sin_reporte_just is defined else 0 %}
               {% set total_f  = sol_f + sin_rep_f %}
-              {% set pct_f    = (((ejec_f + sin_rep_f) / total_f) * 100)|round|int if total_f else 0 %}
+              {% set pct_f    = (((ejec_f + sin_rep_just_f) / total_f) * 100)|round|int if total_f else 0 %}
               {% set fc       = 'green' if pct_f >= 80 else ('amber' if pct_f >= 60 else 'red') %}
             <tr>
               <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.familia }}">{{ f.familia }}</td>
