@@ -1070,6 +1070,155 @@ def admin_reset_password(user_id):
     return redirect(url_for('admin_usuarios'))
 
 
+@app.route('/admin/limpiar', methods=['GET', 'POST'])
+@superadmin_required
+def admin_limpiar():
+    conn = get_db()
+    sync_ids = [r['sync_id'] for r in conn.execute(
+        "SELECT DISTINCT sync_id FROM solicitudes WHERE sync_id IS NOT NULL ORDER BY sync_id DESC"
+    ).fetchall()]
+    conn.close()
+
+    if request.method == 'GET':
+        return render_template('admin/limpiar.html', sync_ids=sync_ids)
+
+    modo = request.form.get('modo', '')
+    confirmacion = request.form.get('confirmacion', '').strip()
+
+    if confirmacion != 'CONFIRMAR':
+        flash('Debes escribir CONFIRMAR exactamente para proceder.', 'error')
+        return render_template('admin/limpiar.html', sync_ids=sync_ids)
+
+    conn = get_db()
+    try:
+        borrados = {'solicitudes': 0, 'respuestas': 0, 'no_reportadas': 0, 'sugerencias': 0}
+
+        if modo == 'fechas':
+            fecha_desde = request.form.get('fecha_desde', '')
+            fecha_hasta = request.form.get('fecha_hasta', '')
+            if not fecha_desde or not fecha_hasta:
+                flash('Debes indicar fecha desde y hasta.', 'error')
+                conn.close()
+                return render_template('admin/limpiar.html', sync_ids=sync_ids)
+            sol_ids = [r['id'] for r in conn.execute(
+                "SELECT id FROM solicitudes WHERE DATE(fecha_solicitud) BETWEEN ? AND ?",
+                (fecha_desde, fecha_hasta)
+            ).fetchall()]
+            if sol_ids:
+                placeholders = ','.join('?' * len(sol_ids))
+                cur = conn.execute(
+                    f"DELETE FROM respuestas WHERE solicitud_id IN ({placeholders})", sol_ids
+                )
+                borrados['respuestas'] = cur.rowcount
+                cur = conn.execute(
+                    f"DELETE FROM solicitudes WHERE id IN ({placeholders})", sol_ids
+                )
+                borrados['solicitudes'] = cur.rowcount
+            detalle = f'Limpieza por fechas {fecha_desde} a {fecha_hasta}'
+
+        elif modo == 'ciclo':
+            sync_id_limpiar = request.form.get('sync_id_limpiar', type=int)
+            if not sync_id_limpiar:
+                flash('Debes seleccionar un ciclo.', 'error')
+                conn.close()
+                return render_template('admin/limpiar.html', sync_ids=sync_ids)
+            sol_ids = [r['id'] for r in conn.execute(
+                "SELECT id FROM solicitudes WHERE sync_id = ?", (sync_id_limpiar,)
+            ).fetchall()]
+            if sol_ids:
+                placeholders = ','.join('?' * len(sol_ids))
+                cur = conn.execute(
+                    f"DELETE FROM respuestas WHERE solicitud_id IN ({placeholders})", sol_ids
+                )
+                borrados['respuestas'] = cur.rowcount
+                cur = conn.execute(
+                    f"DELETE FROM solicitudes WHERE id IN ({placeholders})", sol_ids
+                )
+                borrados['solicitudes'] = cur.rowcount
+            detalle = f'Limpieza ciclo sync_id={sync_id_limpiar}'
+
+        elif modo == 'todo':
+            cur = conn.execute("DELETE FROM respuestas")
+            borrados['respuestas'] = cur.rowcount
+            cur = conn.execute("DELETE FROM solicitudes")
+            borrados['solicitudes'] = cur.rowcount
+            cur = conn.execute("DELETE FROM ejecuciones_no_reportadas")
+            borrados['no_reportadas'] = cur.rowcount
+            cur = conn.execute("DELETE FROM sugerencias_filtros")
+            borrados['sugerencias'] = cur.rowcount
+            detalle = 'Limpieza total de data operacional'
+
+        else:
+            flash('Modo de limpieza inválido.', 'error')
+            conn.close()
+            return render_template('admin/limpiar.html', sync_ids=sync_ids)
+
+        total = sum(borrados.values())
+        _log_actividad(conn, current_user.id, 'limpiar_data',
+                       f'{detalle} — {total} registros borrados: {borrados}')
+        conn.commit()
+        flash(
+            f'Limpieza completada: {borrados["solicitudes"]} solicitudes, '
+            f'{borrados["respuestas"]} respuestas, '
+            f'{borrados["no_reportadas"]} no-reportadas, '
+            f'{borrados["sugerencias"]} sugerencias eliminadas.',
+            'success'
+        )
+    finally:
+        conn.close()
+    return redirect(url_for('admin_limpiar'))
+
+
+@app.route('/admin/limpiar/preview', methods=['POST'])
+@superadmin_required
+def admin_limpiar_preview():
+    data = request.get_json(force=True) or {}
+    modo = data.get('modo', '')
+    conn = get_db()
+    try:
+        counts = {'solicitudes': 0, 'respuestas': 0, 'no_reportadas': 0, 'sugerencias': 0}
+
+        if modo == 'fechas':
+            fecha_desde = data.get('fecha_desde', '')
+            fecha_hasta = data.get('fecha_hasta', '')
+            sol_ids = [r['id'] for r in conn.execute(
+                "SELECT id FROM solicitudes WHERE DATE(fecha_solicitud) BETWEEN ? AND ?",
+                (fecha_desde, fecha_hasta)
+            ).fetchall()]
+            counts['solicitudes'] = len(sol_ids)
+            if sol_ids:
+                placeholders = ','.join('?' * len(sol_ids))
+                counts['respuestas'] = conn.execute(
+                    f"SELECT COUNT(*) AS c FROM respuestas WHERE solicitud_id IN ({placeholders})",
+                    sol_ids
+                ).fetchone()['c']
+
+        elif modo == 'ciclo':
+            sync_id_p = data.get('sync_id')
+            sol_ids = [r['id'] for r in conn.execute(
+                "SELECT id FROM solicitudes WHERE sync_id = ?", (sync_id_p,)
+            ).fetchall()]
+            counts['solicitudes'] = len(sol_ids)
+            if sol_ids:
+                placeholders = ','.join('?' * len(sol_ids))
+                counts['respuestas'] = conn.execute(
+                    f"SELECT COUNT(*) AS c FROM respuestas WHERE solicitud_id IN ({placeholders})",
+                    sol_ids
+                ).fetchone()['c']
+
+        elif modo == 'todo':
+            counts['solicitudes']   = conn.execute("SELECT COUNT(*) AS c FROM solicitudes").fetchone()['c']
+            counts['respuestas']    = conn.execute("SELECT COUNT(*) AS c FROM respuestas").fetchone()['c']
+            counts['no_reportadas'] = conn.execute("SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas").fetchone()['c']
+            counts['sugerencias']   = conn.execute("SELECT COUNT(*) AS c FROM sugerencias_filtros").fetchone()['c']
+
+    finally:
+        conn.close()
+
+    counts['total'] = sum(counts.values())
+    return jsonify(counts)
+
+
 # ---------------------------------------------------------------------------
 # CIO
 # ---------------------------------------------------------------------------
