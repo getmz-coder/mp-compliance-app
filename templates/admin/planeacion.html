@@ -443,7 +443,7 @@ function saveProm(familia, idx) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': getCsrfToken()
+      'X-CSRF-Token': getCsrfToken()
     },
     body: JSON.stringify({ horas_promedio_dia: hpd || null, km_promedio_dia: kpd || null })
   })
