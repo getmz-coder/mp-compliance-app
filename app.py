@@ -3064,13 +3064,14 @@ def admin_planeacion_promedio(familia):
 
     conn = get_db()
     conn.execute(
-        """INSERT INTO promedios_familia (familia, horas_promedio_dia, km_promedio_dia, timestamp)
-           VALUES (?, ?, ?, ?)
+        """INSERT INTO promedios_familia (familia, horas_promedio_dia, km_promedio_dia, timestamp, actualizado_por)
+           VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(familia) DO UPDATE SET
                horas_promedio_dia = excluded.horas_promedio_dia,
                km_promedio_dia    = excluded.km_promedio_dia,
-               timestamp          = excluded.timestamp""",
-        (familia, hpd, kpd, now)
+               timestamp          = excluded.timestamp,
+               actualizado_por    = excluded.actualizado_por""",
+        (familia, hpd, kpd, now, current_user.id)
     )
     conn.commit()
     conn.close()
