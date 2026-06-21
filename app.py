@@ -425,11 +425,13 @@ def admin_sync():
 
     file_prog = request.files.get('file_programacion')
     file_filt = request.files.get('file_filtros')
+    file_homo = request.files.get('file_homologos')
 
     has_prog = file_prog and file_prog.filename
     has_filt = file_filt and file_filt.filename
+    has_homo = file_homo and file_homo.filename
 
-    if not has_prog and not has_filt:
+    if not has_prog and not has_filt and not has_homo:
         flash('Debes subir al menos un archivo.', 'error')
         return render_template('admin/sync.html')
 
@@ -479,6 +481,25 @@ def admin_sync():
                     os.remove(save_path)
                 except Exception as exc:
                     app.logger.error('No se pudo eliminar maestro_filtracion.xlsx: %s', exc)
+
+    if has_homo:
+        if not _allowed_excel(file_homo.filename):
+            flash('Homólogos: formato no válido. Solo se aceptan .xlsx o .xls', 'error')
+        else:
+            save_path = os.path.join(config.UPLOAD_FOLDER, 'maestro_homologos.xlsx')
+            file_homo.save(save_path)
+            try:
+                res = sync_data.sync_homologos(save_path)
+                msg = (f'Homólogos sincronizados: {res["total_registros"]} registros, '
+                       f'{res["grupos"]} grupos')
+                flash(msg, 'success')
+            except Exception as exc:
+                flash(f'Error en homólogos: {exc}', 'error')
+            else:
+                try:
+                    os.remove(save_path)
+                except Exception as exc:
+                    app.logger.error('No se pudo eliminar maestro_homologos.xlsx: %s', exc)
 
     return redirect(url_for('admin_sync'))
 
