@@ -71,6 +71,14 @@ def init_db():
             tipo_filtro     VARCHAR(50)
         );
 
+        CREATE TABLE IF NOT EXISTS homologos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            grupo       INTEGER,
+            codigo_sap  VARCHAR(30),
+            descripcion VARCHAR(200),
+            estado      VARCHAR(50)
+        );
+
         CREATE TABLE IF NOT EXISTS solicitudes (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             equipo_id       INTEGER REFERENCES equipos(id),
