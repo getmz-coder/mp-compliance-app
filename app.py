@@ -2136,12 +2136,15 @@ def _build_familias_chart_data(familias_cumplimiento):
         sol     = f['solicitados']  or 0
         ejec    = f['ejecutados']   or 0
         no_ejec = f['no_ejecutados'] or 0
-        sin_rep = f.get('sin_reporte', 0) or 0
-        total_base = sol + sin_rep
-        pct = round((ejec + sin_rep) / total_base * 100) if total_base else 0
-        ejec_px  = round((ejec    / total_base) * BAR_W) if total_base else 0
-        sin_px   = round((sin_rep / total_base) * BAR_W) if total_base else 0
-        no_px    = round((no_ejec / total_base) * BAR_W) if total_base else 0
+        sin_rep_just = f.get('sin_reporte_just', 0) or 0
+        sin_rep_pend = f.get('sin_reporte_pend', 0) or 0
+        sin_rep      = sin_rep_just + sin_rep_pend
+        total_base   = sol + sin_rep
+        ejec_ef      = ejec + sin_rep_just
+        pct      = round(ejec_ef / total_base * 100) if total_base else 0
+        ejec_px  = round(ejec_ef / total_base * BAR_W) if total_base else 0
+        sin_px   = round(sin_rep_pend / total_base * BAR_W) if total_base else 0
+        no_px    = round(no_ejec / total_base * BAR_W) if total_base else 0
         y = i * ROW_H + 6
         fc = '#80AE3F' if pct >= 80 else ('#E67E22' if pct >= 60 else '#dc2626')
         rows.append({
@@ -2325,19 +2328,23 @@ def admin_indicadores():
         sol_params
     ).fetchall()
 
-    nr_por_familia = {
-        r['familia']: r['cnt']
-        for r in conn.execute(
-            f"""SELECT familia, COUNT(*) AS cnt
-               FROM ejecuciones_no_reportadas
-               WHERE familia IS NOT NULL AND {nr_where}
-               GROUP BY familia""",
-            nr_params
-        ).fetchall()
-    }
+    nr_familia_rows = conn.execute(
+        f"""SELECT familia,
+              SUM(CASE WHEN estado = 'justificado' THEN 1 ELSE 0 END) AS just,
+              COUNT(*) AS total
+            FROM ejecuciones_no_reportadas
+            WHERE familia IS NOT NULL AND {nr_where}
+            GROUP BY familia""",
+        nr_params
+    ).fetchall()
+    nr_just_familia = {r['familia']: r['just']  for r in nr_familia_rows}
+    nr_tot_familia  = {r['familia']: r['total'] for r in nr_familia_rows}
 
     familias_cumplimiento = [
-        dict(f, sin_reporte=nr_por_familia.get(f['familia'], 0))
+        dict(f,
+             sin_reporte=nr_tot_familia.get(f['familia'], 0),
+             sin_reporte_just=nr_just_familia.get(f['familia'], 0),
+             sin_reporte_pend=nr_tot_familia.get(f['familia'], 0) - nr_just_familia.get(f['familia'], 0))
         for f in familias_cumplimiento_raw
     ]
 
