@@ -79,6 +79,22 @@ def init_db():
             estado      VARCHAR(50)
         );
 
+        CREATE TABLE IF NOT EXISTS promedios_familia (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            familia            VARCHAR(100) UNIQUE,
+            horas_promedio_dia FLOAT,
+            km_promedio_dia    FLOAT,
+            actualizado_por    INTEGER REFERENCES usuarios(id),
+            timestamp          DATETIME
+        );
+
+        CREATE TABLE IF NOT EXISTS frecuencias_rutinas (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            rutina             VARCHAR(200),
+            frecuencia_medidor INTEGER,
+            frecuencia_dias    INTEGER
+        );
+
         CREATE TABLE IF NOT EXISTS solicitudes (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             equipo_id       INTEGER REFERENCES equipos(id),
@@ -153,6 +169,7 @@ def init_db():
 
     _migrate_equipos(conn)
     _migrate_respuestas(conn)
+    _migrate_planeacion(conn)
 
     conn.commit()
     conn.close()
@@ -171,6 +188,29 @@ def _migrate_equipos(conn):
     for col, coltype in nuevas.items():
         if col not in existing:
             cur.execute(f"ALTER TABLE equipos ADD COLUMN {col} {coltype}")
+
+
+def _migrate_planeacion(conn):
+    """Crea tablas de planeación en DBs existentes si no existen."""
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promedios_familia (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            familia            VARCHAR(100) UNIQUE,
+            horas_promedio_dia FLOAT,
+            km_promedio_dia    FLOAT,
+            actualizado_por    INTEGER REFERENCES usuarios(id),
+            timestamp          DATETIME
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS frecuencias_rutinas (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            rutina             VARCHAR(200),
+            frecuencia_medidor INTEGER,
+            frecuencia_dias    INTEGER
+        )
+    """)
 
 
 def _migrate_respuestas(conn):
