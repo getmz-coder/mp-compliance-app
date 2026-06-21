@@ -1098,7 +1098,6 @@ def admin_limpiar():
             fecha_hasta = request.form.get('fecha_hasta', '')
             if not fecha_desde or not fecha_hasta:
                 flash('Debes indicar fecha desde y hasta.', 'error')
-                conn.close()
                 return render_template('admin/limpiar.html', sync_ids=sync_ids)
             sol_ids = [r['id'] for r in conn.execute(
                 "SELECT id FROM solicitudes WHERE DATE(fecha_solicitud) BETWEEN ? AND ?",
@@ -1120,7 +1119,6 @@ def admin_limpiar():
             sync_id_limpiar = request.form.get('sync_id_limpiar', type=int)
             if not sync_id_limpiar:
                 flash('Debes seleccionar un ciclo.', 'error')
-                conn.close()
                 return render_template('admin/limpiar.html', sync_ids=sync_ids)
             sol_ids = [r['id'] for r in conn.execute(
                 "SELECT id FROM solicitudes WHERE sync_id = ?", (sync_id_limpiar,)
@@ -1150,7 +1148,6 @@ def admin_limpiar():
 
         else:
             flash('Modo de limpieza inválido.', 'error')
-            conn.close()
             return render_template('admin/limpiar.html', sync_ids=sync_ids)
 
         total = sum(borrados.values())
@@ -1847,14 +1844,16 @@ def equipo_sugerencia(vehiculo):
         return redirect(url_for('equipo_detalle', vehiculo=vehiculo))
 
     conn = get_db()
-    conn.execute(
-        """INSERT INTO sugerencias_filtros
-               (vehiculo, filtro_id, usuario_id, descripcion, estado, timestamp)
-           VALUES (?, ?, ?, ?, 'pendiente', ?)""",
-        (vehiculo, filtro_id, current_user.id, descripcion, datetime.now(TZ_COL).isoformat())
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(
+            """INSERT INTO sugerencias_filtros
+                   (vehiculo, filtro_id, usuario_id, descripcion, estado, timestamp)
+               VALUES (?, ?, ?, ?, 'pendiente', ?)""",
+            (vehiculo, filtro_id, current_user.id, descripcion, datetime.now(TZ_COL).isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
     flash('Sugerencia enviada correctamente.', 'success')
     return redirect(url_for('equipo_detalle', vehiculo=vehiculo))
 
