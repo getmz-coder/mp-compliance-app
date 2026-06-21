@@ -1769,6 +1769,22 @@ def equipo_detalle(vehiculo):
         (vehiculo,)
     ).fetchall()
 
+    homologos_raw = conn.execute("""
+        SELECT h.grupo, h.codigo_sap, h.descripcion, h.estado,
+               f.id AS filtro_id
+        FROM filtros_equipo f
+        JOIN homologos h ON h.grupo = (
+            SELECT grupo FROM homologos
+            WHERE codigo_sap = f.codigo_sap LIMIT 1
+        )
+        WHERE UPPER(f.equipo) = ?
+        ORDER BY h.grupo, h.estado DESC, h.codigo_sap
+    """, (vehiculo,)).fetchall()
+
+    homologos_map = {}
+    for _hrow in homologos_raw:
+        homologos_map.setdefault(_hrow['filtro_id'], []).append(_hrow)
+
     sugerencias = conn.execute(
         """SELECT sf.id, sf.vehiculo, sf.descripcion, sf.estado, sf.timestamp, sf.respuesta_admin,
                   fe.nombre_articulo, fe.tipo_filtro,
@@ -1836,6 +1852,7 @@ def equipo_detalle(vehiculo):
         equipo=equipo_base,
         rutinas=rutinas,
         filtros=filtros,
+        homologos_map=homologos_map,
         historial=historial,
         sugerencias=sugerencias,
         cambios_filtros=cambios_filtros,
