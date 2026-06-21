@@ -1018,6 +1018,24 @@ def admin_usuarios():
     )
 
 
+@app.route('/admin/backup')
+@superadmin_required
+def admin_backup():
+    nombre = f"backup_mp_{datetime.now(TZ_COL).strftime('%Y%m%d_%H%M')}.db"
+    conn = get_db()
+    try:
+        _log_actividad(conn, current_user.id, 'backup', f'Descarga backup BD: {nombre}')
+        conn.commit()
+    finally:
+        conn.close()
+    return send_file(
+        config.DATABASE_PATH,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype='application/octet-stream',
+    )
+
+
 @app.route('/admin/usuario/<int:user_id>/reset-password', methods=['POST'])
 @superadmin_required
 def admin_reset_password(user_id):
