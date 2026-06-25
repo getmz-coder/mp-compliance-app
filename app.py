@@ -533,9 +533,14 @@ def admin_sync():
             file_prog.save(save_path)
             try:
                 res = sync_data.sync_programacion(save_path)
-                msg = (f'Programación MP sincronizada: {res["nuevos"]} nuevos, '
-                       f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
-                       f'(ciclo {res["sync_id"]})')
+                if res.get('ciclo_reusado'):
+                    msg = (f'Programación MP actualizada en ciclo existente: '
+                           f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
+                           f'(datos idénticos al último sync)')
+                else:
+                    msg = (f'Programación MP sincronizada: {res["nuevos"]} nuevos, '
+                           f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
+                           f'(ciclo {res["sync_id"]})')
                 flash(msg, 'success')
                 if res.get('no_reportadas', 0) > 0:
                     flash(

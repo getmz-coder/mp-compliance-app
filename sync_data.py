@@ -61,11 +61,48 @@ def sync_programacion(filepath):
 
     df = df[df['consecutivo'].map(lambda x: _clean(x) is not None)]
 
-    sync_id = int(datetime.now(TZ_COL).timestamp())
-    sync_timestamp = datetime.now(TZ_COL).isoformat()
+    # H-NEW-06: Detectar si el Excel es idéntico al último sync
+    # Fingerprint = hash de consecutivos + desviaciones + estados
+    import hashlib
+    fingerprint_parts = []
+    for _, row in df.iterrows():
+        c = _clean(row.get('consecutivo', ''))
+        d = _clean(row.get('desviacion', ''))
+        e = _clean(row.get('estado_mp', ''))
+        i = _clean(row.get('indice_desviacion', ''))
+        fingerprint_parts.append(f"{c}|{d}|{e}|{i}")
+    fingerprint_parts.sort()
+    fingerprint = hashlib.sha256('|'.join(fingerprint_parts).encode()).hexdigest()[:16]
 
     conn = get_db()
     cur = conn.cursor()
+
+    # Verificar fingerprint del último sync
+    ciclo_reusado = False
+    last_sync = cur.execute(
+        "SELECT sync_id FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
+    ).fetchone()
+    last_fingerprint = None
+    if last_sync:
+        last_fp_row = cur.execute(
+            "SELECT detalle FROM sync_log WHERE tipo_sync = 'programacion' ORDER BY timestamp DESC LIMIT 1"
+        ).fetchone()
+        if last_fp_row and last_fp_row['detalle']:
+            import json as _json
+            try:
+                last_detail = _json.loads(last_fp_row['detalle'])
+                last_fingerprint = last_detail.get('fingerprint')
+            except (ValueError, TypeError):
+                pass
+
+    if last_fingerprint and last_fingerprint == fingerprint and last_sync:
+        # Mismo archivo — reusar ciclo existente
+        sync_id = last_sync['sync_id']
+        ciclo_reusado = True
+    else:
+        sync_id = int(datetime.now(TZ_COL).timestamp())
+
+    sync_timestamp = datetime.now(TZ_COL).isoformat()
     nuevos = 0
     actualizados = 0
 
@@ -232,8 +269,23 @@ def sync_programacion(filepath):
     # Compara ind_desviacion anterior vs nuevo para confirmar si el MP realmente se hizo.
     # Umbral: new_ind < -20 → confirmada (contador se reinició)
     #         new_ind >= -10 → no_confirmada (sigue en zona de riesgo, no hubo cambio)
+    # H-NEW-08: Ventana de gracia de 5 días — equipos con Tipo C (Paymover, Dorthy)
+    # pueden tardar 2-3 días. No marcar como 'no_confirmada' hasta pasar la ventana.
+    DIAS_GRACIA = 5
     verificadas     = 0
     no_verificadas  = 0
+    en_gracia       = 0
+
+    # Obtener timestamps de respuestas para calcular días desde ejecutado
+    resp_ejecutados = {}
+    for r in cur.execute(
+        """SELECT s.equipo_id, r.timestamp AS resp_ts
+           FROM respuestas r
+           JOIN solicitudes s ON s.id = r.solicitud_id
+           WHERE r.accion = 'ejecutado' AND r.verificacion IS NULL"""
+    ).fetchall():
+        resp_ejecutados[r['equipo_id']] = r['resp_ts']
+
     for equipo_id, old_ind in prev_ejecutados.items():
         new_row = cur.execute(
             "SELECT ind_desviacion FROM equipos WHERE id = ?", (equipo_id,)
@@ -247,6 +299,17 @@ def sync_programacion(filepath):
             verif = 'confirmada'
             verificadas += 1
         elif new_ind >= -10:
+            # Verificar ventana de gracia
+            resp_ts = resp_ejecutados.get(equipo_id)
+            if resp_ts:
+                try:
+                    resp_dt = datetime.fromisoformat(resp_ts)
+                    dias_desde = (datetime.now(TZ_COL) - resp_dt).days
+                    if dias_desde < DIAS_GRACIA:
+                        en_gracia += 1
+                        continue  # Dentro de gracia, no marcar aún
+                except (ValueError, TypeError):
+                    pass
             verif = 'no_confirmada'
             no_verificadas += 1
         else:
@@ -273,6 +336,9 @@ def sync_programacion(filepath):
         'no_reportadas': no_reportadas,
         'verificadas': verificadas,
         'no_verificadas': no_verificadas,
+        'en_gracia': en_gracia,
+        'fingerprint': fingerprint,
+        'ciclo_reusado': ciclo_reusado,
     }
 
 

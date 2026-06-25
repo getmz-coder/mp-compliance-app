@@ -571,10 +571,10 @@
       <div class="kpi-label">Ejec. Verificadas</div>
       <div class="kpi-sub">medidor confirmó MP<br><span style="font-size:10px;color:#d1d5db;">desviación bajó a &lt; -20</span></div>
     </div>
-    <div class="kpi-card kpi-red" title="Sin Verificar = equipo reportado como ejecutado cuyo índice de desviación NO bajó en el siguiente sync. Puede indicar: MP no se hizo, MP reciente sin reflejo en medidor, o dato pendiente de actualización.">
+    <div class="kpi-card kpi-red" title="Sin Verificar = equipo reportado como ejecutado cuyo índice de desviación NO bajó tras 5+ días de gracia. Puede indicar que el MP no se realizó o que el medidor no refleja el cambio.">
       <div class="kpi-value">{{ ejec_no_verificadas }}</div>
       <div class="kpi-label">Sin Verificar</div>
-      <div class="kpi-sub">medidor no cambió<br><span style="font-size:10px;color:#d1d5db;">desviación se mantuvo ≥ -10</span></div>
+      <div class="kpi-sub">tras ventana de 5 días<br><span style="font-size:10px;color:#d1d5db;">desviación se mantuvo ≥ -10</span></div>
     </div>
   </div>
 
