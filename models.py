@@ -135,6 +135,18 @@ def init_db():
             timestamp       DATETIME
         );
 
+        CREATE TABLE IF NOT EXISTS sync_log (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id        INTEGER REFERENCES usuarios(id),
+            tipo_sync         VARCHAR(30),
+            nombre_archivo    VARCHAR(200),
+            filas_procesadas  INTEGER,
+            ciclo_generado    INTEGER,
+            detalle           TEXT,
+            ip_address        VARCHAR(45),
+            timestamp         DATETIME
+        );
+
         CREATE TABLE IF NOT EXISTS ejecuciones_no_reportadas (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             vehiculo                VARCHAR(30),

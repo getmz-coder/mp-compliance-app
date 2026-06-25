@@ -476,7 +476,7 @@
       <p>Seguimiento de cumplimiento y análisis de causas de no ejecución</p>
     </div>
     {% if current_sync_id %}
-      <span class="sync-badge">Ciclo actual #{{ current_sync_id }}</span>
+      <span class="sync-badge">Ciclo actual: {{ current_sync_id|format_sync_id }}</span>
     {% endif %}
   </div>
 
@@ -556,25 +556,25 @@
       <div class="kpi-label">No Ejecutados</div>
       <div class="kpi-sub">Operaciones no entregó</div>
     </div>
-    <div class="kpi-card kpi-{{ pct_color }}">
+    <div class="kpi-card kpi-{{ pct_color }}" title="Fórmula: Ejecutados ÷ Solicitados × 100">
       <div class="kpi-value">{{ pct_ejecucion }}%</div>
-      <div class="kpi-label">% Ejecución</div>
+      <div class="kpi-label">% Cumplimiento</div>
       <div class="kpi-sub">
         {% if pct_ejecucion >= 80 %}Cumplimiento alto
         {% elif pct_ejecucion >= 60 %}Cumplimiento medio
         {% else %}Cumplimiento bajo{% endif %}
-        <span style="display:block;font-size:10.5px;margin-top:1px;color:#d1d5db;">(incl. sin reporte)</span>
+        <span style="display:block;font-size:10.5px;margin-top:1px;color:#9ca3af;">Ejec. / Sol. — sin incluir No Reportados</span>
       </div>
     </div>
-    <div class="kpi-card kpi-green">
+    <div class="kpi-card kpi-green" title="Ejecutado Verificado = equipo reportado como ejecutado cuyo índice de desviación bajó significativamente (< -20) en el siguiente sync, confirmando que el MP se realizó.">
       <div class="kpi-value">{{ ejec_verificadas }}</div>
       <div class="kpi-label">Ejec. Verificadas</div>
-      <div class="kpi-sub">medidor confirmó MP</div>
+      <div class="kpi-sub">medidor confirmó MP<br><span style="font-size:10px;color:#d1d5db;">desviación bajó a &lt; -20</span></div>
     </div>
-    <div class="kpi-card kpi-red">
+    <div class="kpi-card kpi-red" title="Sin Verificar = equipo reportado como ejecutado cuyo índice de desviación NO bajó en el siguiente sync. Puede indicar: MP no se hizo, MP reciente sin reflejo en medidor, o dato pendiente de actualización.">
       <div class="kpi-value">{{ ejec_no_verificadas }}</div>
       <div class="kpi-label">Sin Verificar</div>
-      <div class="kpi-sub">medidor no cambió</div>
+      <div class="kpi-sub">medidor no cambió<br><span style="font-size:10px;color:#d1d5db;">desviación se mantuvo ≥ -10</span></div>
     </div>
   </div>
 
@@ -739,7 +739,7 @@
               <th class="th-num">Ejec.</th>
               <th class="th-num">Sin rep.</th>
               <th class="th-num">No Ejec.</th>
-              <th>% Ejec.</th>
+              <th title="Fórmula: Ejecutados ÷ Solicitados × 100">% Cumpl.</th>
             </tr>
           </thead>
           <tbody>
@@ -748,8 +748,7 @@
               {% set sol_f    = f.solicitados or 0 %}
               {% set sin_rep_f      = f.sin_reporte if f.sin_reporte is defined else 0 %}
               {% set sin_rep_just_f = f.sin_reporte_just if f.sin_reporte_just is defined else 0 %}
-              {% set total_f  = sol_f + sin_rep_f %}
-              {% set pct_f    = (((ejec_f + sin_rep_just_f) / total_f) * 100)|round|int if total_f else 0 %}
+              {% set pct_f    = ((ejec_f / sol_f) * 100)|round|int if sol_f else 0 %}
               {% set fc       = 'green' if pct_f >= 80 else ('amber' if pct_f >= 60 else 'red') %}
             <tr>
               <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.familia }}">{{ f.familia }}</td>
@@ -797,7 +796,7 @@
             <th class="th-num">Ejecutados</th>
             <th class="th-num">No Ejecutados</th>
             <th class="th-num">Pendientes</th>
-            <th>% Ejecución</th>
+            <th>% Cumplimiento</th>
           </tr>
         </thead>
         <tbody>
@@ -809,7 +808,7 @@
             {% set pct_h  = ((ejec_h / sol_h) * 100)|round|int if sol_h else 0 %}
             {% set hc     = 'green' if pct_h >= 80 else ('amber' if pct_h >= 60 else 'red') %}
           <tr>
-            <td><span class="badge-sync">#{{ h.sync_id }}</span></td>
+            <td><span class="badge-sync">{{ h.sync_id|format_sync_id }}</span></td>
             <td class="ts-cell" style="color:var(--gris);font-size:12px;">
               {{ h.primera_solicitud[:16]|replace('T',' ') if h.primera_solicitud else '—' }}
             </td>

@@ -53,6 +53,11 @@
   .badge-activo-s { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 600; }
   .badge-si { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
   .badge-no { background: #fff7f7; color: #991b1b; border: 1px solid #fca5a5; }
+  .badge-sync-tipo { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
+  .badge-sync-programacion { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
+  .badge-sync-filtros      { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-sync-homologos    { background: #fdf4ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+  .badge-sync-frecuencias  { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
   .td-ts { color: var(--gris); font-size: 12px; white-space: nowrap; }
   .td-username { font-family: 'Courier New', monospace; font-weight: 600; font-size: 13px; }
 
@@ -77,7 +82,7 @@
     <div class="kpi-card green">
       <div class="kpi-value">{{ total_equipos }}</div>
       <div class="kpi-label">Equipos cargados</div>
-      {% if current_sync_id %}<div class="kpi-sub">Ciclo #{{ current_sync_id }}</div>{% endif %}
+      {% if current_sync_id %}<div class="kpi-sub">Ciclo: {{ current_sync_id|format_sync_id }}</div>{% endif %}
     </div>
     <div class="kpi-card sky">
       <div class="kpi-value">{{ total_filtros }}</div>
@@ -110,6 +115,51 @@
       <div class="kpi-value">{{ total_respuestas }}</div>
       <div class="kpi-label">Respuestas históricas</div>
       <div class="kpi-sub">Todos los ciclos</div>
+    </div>
+  </div>
+
+  <!-- Bitácora de sincronizaciones -->
+  <div class="content-card" style="margin-bottom:20px;">
+    <div class="card-hdr">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        Bitácora de Sincronizaciones
+      </h2>
+      <span class="count-badge">{{ syncs_recientes|length }} últimas</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="sis-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Archivo</th>
+            <th>Filas</th>
+            <th>Ciclo</th>
+            <th>Usuario</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in syncs_recientes %}
+          <tr>
+            <td class="td-ts">{{ s.timestamp[:19]|replace('T',' ') if s.timestamp else '—' }}</td>
+            <td>
+              <span class="badge-sync-tipo badge-sync-{{ s.tipo_sync }}">
+                {{ s.tipo_sync|capitalize }}
+              </span>
+            </td>
+            <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ s.nombre_archivo }}">{{ s.nombre_archivo or '—' }}</td>
+            <td style="font-weight:700;">{{ s.filas_procesadas or '—' }}</td>
+            <td>{% if s.ciclo_generado %}<code style="background:#eef2ff;color:var(--azul);padding:1px 6px;border-radius:4px;font-size:12px;">{{ s.ciclo_generado|format_sync_id }}</code>{% else %}—{% endif %}</td>
+            <td>{{ s.nombre_completo or '—' }}</td>
+            <td class="td-ts">{{ s.ip_address or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="padding:30px;text-align:center;color:var(--gris);">Sin sincronizaciones registradas aún.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 

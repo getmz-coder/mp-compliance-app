@@ -236,7 +236,7 @@
       <p>Vehículos confirmados como ejecutados en el ciclo actual. Solo lectura.</p>
     </div>
     {% if current_sync_id %}
-      <span class="sync-badge">Ciclo #{{ current_sync_id }}</span>
+      <span class="sync-badge">Ciclo: {{ current_sync_id|format_sync_id }}</span>
     {% endif %}
   </div>
 

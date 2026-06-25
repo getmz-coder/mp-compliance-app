@@ -31,7 +31,7 @@
   }
   .filter-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 12px;
     align-items: end;
   }
@@ -138,6 +138,28 @@
   .td-ts  { color: var(--gris); font-size: 12px; white-space: nowrap; }
   .td-ip  { color: var(--gris); font-size: 12px; white-space: nowrap; font-family: monospace; }
   .td-det { max-width: 440px; font-size: 12.5px; color: #374151; }
+
+  .badge-accion { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+  .badge-login    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-logout   { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+  .badge-eliminar { background: #fff2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .badge-crear    { background: #eff6ff; color: var(--azul); border: 1px solid #bfdbfe; }
+  .badge-editar   { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+  .badge-export   { background: #fdf4ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+  .badge-otro     { background: #f0f9ff; color: #0c4a6e; border: 1px solid #bae6fd; }
+
+  .filter-group select {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-group select:focus { border-color: var(--cielo); background: #fff; }
 
   /* ── Botón eliminar ── */
   .btn-del {
@@ -280,8 +302,8 @@
 
   <div class="page-hdr">
     <div>
-      <h1>Auditoría — Eliminaciones</h1>
-      <p>Registro de solicitudes eliminadas por administradores</p>
+      <h1>Auditoría del Sistema</h1>
+      <p>Registro completo de acciones realizadas en la aplicación</p>
     </div>
   </div>
 
@@ -296,6 +318,15 @@
         <div class="filter-group">
           <label>Fecha hasta</label>
           <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
+        </div>
+        <div class="filter-group">
+          <label>Tipo de acción</label>
+          <select name="accion">
+            <option value="">— Todas —</option>
+            {% for tipo in tipos_accion %}
+            <option value="{{ tipo }}" {{ 'selected' if tipo == accion_filtro }}>{{ tipo|replace('_', ' ')|capitalize }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div class="filter-actions">
           <button type="submit" class="btn-filtrar">Filtrar</button>
@@ -319,7 +350,8 @@
         <thead>
           <tr>
             <th>Fecha</th>
-            <th>Eliminado por</th>
+            <th>Acción</th>
+            <th>Usuario</th>
             <th>Detalle</th>
             <th>IP</th>
             {% if current_user.rol == 'superadmin' %}<th></th>{% endif %}
@@ -330,6 +362,24 @@
           <tr id="log-row-{{ log.id }}">
             <td class="td-ts">
               {{ log.timestamp[:16].replace('T', ' ') if log.timestamp else '—' }}
+            </td>
+            <td>
+              {% set at = log.accion_tipo or '' %}
+              {% if 'login' in at %}
+                <span class="badge-accion badge-login">{{ at|replace('_',' ')|capitalize }}</span>
+              {% elif 'logout' in at %}
+                <span class="badge-accion badge-logout">{{ at|replace('_',' ')|capitalize }}</span>
+              {% elif 'eliminar' in at %}
+                <span class="badge-accion badge-eliminar">{{ at|replace('_',' ')|capitalize }}</span>
+              {% elif 'crear' in at or 'agregar' in at %}
+                <span class="badge-accion badge-crear">{{ at|replace('_',' ')|capitalize }}</span>
+              {% elif 'editar' in at or 'toggle' in at or 'reset' in at %}
+                <span class="badge-accion badge-editar">{{ at|replace('_',' ')|capitalize }}</span>
+              {% elif 'export' in at or 'backup' in at %}
+                <span class="badge-accion badge-export">{{ at|replace('_',' ')|capitalize }}</span>
+              {% else %}
+                <span class="badge-accion badge-otro">{{ at|replace('_',' ')|capitalize }}</span>
+              {% endif %}
             </td>
             <td style="white-space:nowrap;">
               <span style="font-weight:600;">{{ log.nombre_usuario }}</span>
@@ -360,7 +410,7 @@
         Mostrando {{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total]|min }} de {{ total }}
       </span>
       <div class="pag-links">
-        {% set base_url = url_for('admin_auditoria', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta) %}
+        {% set base_url = url_for('admin_auditoria', fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, accion=accion_filtro) %}
         <a href="{{ base_url }}&page={{ page - 1 }}"
            class="pag-link {% if page <= 1 %}disabled{% endif %}">← Ant.</a>
 
@@ -389,7 +439,7 @@
     <div class="empty-state">
       <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       <h3>Sin registros</h3>
-      <p>No hay eliminaciones registradas en el período seleccionado.</p>
+      <p>No hay acciones registradas en el período o filtro seleccionado.</p>
     </div>
     {% endif %}
   </div>

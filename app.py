@@ -1,6 +1,7 @@
 import os
 import math
 import time
+import json
 from functools import wraps
 from datetime import datetime, date, timedelta
 import calendar
@@ -34,6 +35,49 @@ if os.environ.get('FLASK_ENV') == 'production':
     app.config['SESSION_COOKIE_SECURE'] = True
 
 init_db()
+
+_MESES_ES_LABEL = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+@app.template_filter('format_sync_id')
+def _filter_format_sync_id(sync_id):
+    """Convierte sync_id (timestamp Unix) a etiqueta legible: '24/Jun/2026 08:31'."""
+    if not sync_id:
+        return '—'
+    try:
+        dt = datetime.fromtimestamp(int(sync_id), tz=TZ_COL)
+        return f"{dt.day}/{_MESES_ES_LABEL[dt.month - 1]}/{dt.year} {dt.strftime('%H:%M')}"
+    except (ValueError, TypeError, OSError):
+        return f"#{sync_id}"
+
+
+_ROL_DISPLAY = {
+    'superadmin': 'SuperAdmin',
+    'admin':      'Admin',
+    'cio':        'CIO',
+    'tecnico':    'Técnico',
+}
+
+_ACCION_DISPLAY = {
+    'ejecutado':     'Ejecutado',
+    'no_ejecutado':  'No ejecutado',
+    'pendiente':     'Pendiente',
+    'justificado':   'Justificado',
+    'sin_justificar':'Sin justificar',
+    'rechazada':     'Rechazada',
+    'revisada':      'Revisada',
+    'aplicada':      'Aplicada',
+}
+
+@app.template_filter('display_rol')
+def _filter_display_rol(rol):
+    """Normaliza rol a display: 'tecnico' → 'Técnico'."""
+    return _ROL_DISPLAY.get(str(rol).lower().strip(), str(rol).capitalize())
+
+@app.template_filter('display_accion')
+def _filter_display_accion(accion):
+    """Normaliza acción/estado a display: 'no_ejecutado' → 'No ejecutado'."""
+    return _ACCION_DISPLAY.get(str(accion).lower().strip(), str(accion).replace('_', ' ').capitalize())
+
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -100,6 +144,17 @@ def set_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # H-08: Cabeceras de seguridad adicionales
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "frame-ancestors 'none';"
+    )
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     return response
 
 
@@ -187,6 +242,20 @@ def _log_actividad(conn, usuario_id, accion_tipo, detalle):
     )
 
 
+def _log_sync(conn, usuario_id, tipo_sync, nombre_archivo, filas_procesadas, ciclo_generado, detalle_dict):
+    """Registra un sync exitoso en la tabla sync_log con trazabilidad completa."""
+    conn.execute(
+        """INSERT INTO sync_log
+               (usuario_id, tipo_sync, nombre_archivo, filas_procesadas,
+                ciclo_generado, detalle, ip_address, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (usuario_id, tipo_sync, nombre_archivo, filas_procesadas,
+         ciclo_generado, json.dumps(detalle_dict, ensure_ascii=False),
+         request.remote_addr, datetime.now(TZ_COL).isoformat())
+    )
+    conn.commit()
+
+
 def _current_sync_id(conn):
     row = conn.execute("SELECT MAX(sync_id) AS sync_id FROM equipos").fetchone()
     return row['sync_id'] if row and row['sync_id'] else None
@@ -250,6 +319,8 @@ def login():
             user = User(row)
             login_user(user, remember=remember)
             _clear_login_failures(ip)
+            _log_actividad(conn, row['id'], 'login', f'Inicio de sesión exitoso — usuario: {username}')
+            conn.commit()
             conn.close()
             return redirect(url_for('dashboard_redirect'))
 
@@ -263,6 +334,12 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    conn = get_db()
+    try:
+        _log_actividad(conn, current_user.id, 'logout', f'Cierre de sesión — usuario: {current_user.username}')
+        conn.commit()
+    finally:
+        conn.close()
     logout_user()
     return redirect(url_for('login'))
 
@@ -329,13 +406,18 @@ def admin_dashboard():
     equipos_todos = []
     categorias_admin = []
     familias_admin = []
+    adm_page = max(1, request.args.get('page', 1, type=int))
+    adm_per_page = 100
+    adm_total_pages = 1
     if sync_id:
         equipos_todos = conn.execute(
             """SELECT * FROM equipos
                WHERE sync_id = ?
-               ORDER BY CAST(ind_desviacion AS INTEGER) DESC""",
-            (sync_id,)
+               ORDER BY CAST(ind_desviacion AS INTEGER) DESC
+               LIMIT ? OFFSET ?""",
+            (sync_id, adm_per_page, (adm_page - 1) * adm_per_page)
         ).fetchall()
+        adm_total_pages = max(1, (total_equipos + adm_per_page - 1) // adm_per_page)
         categorias_admin = [r['categoria'] for r in conn.execute(
             """SELECT DISTINCT categoria FROM equipos
                WHERE sync_id = ? AND categoria IS NOT NULL
@@ -415,6 +497,9 @@ def admin_dashboard():
         alerta_no_reportadas=alerta_no_reportadas,
         alerta_no_verificadas=alerta_no_verificadas,
         sol_equipo_ids=sol_equipo_ids,
+        adm_page=adm_page,
+        adm_per_page=adm_per_page,
+        adm_total_pages=adm_total_pages,
     )
 
 
@@ -458,6 +543,14 @@ def admin_sync():
                         f'sin pasar por el sistema. Revísalos en Historial → filtro "Sin Reporte".',
                         'warning'
                     )
+                # Registrar en bitácora de sync
+                conn = get_db()
+                try:
+                    _log_sync(conn, current_user.id, 'programacion',
+                              secure_filename(file_prog.filename), res['total'],
+                              res['sync_id'], res)
+                finally:
+                    conn.close()
             except Exception as exc:
                 flash(f'Error en programación MP: {exc}', 'error')
             else:
@@ -477,6 +570,14 @@ def admin_sync():
                 msg = (f'Maestro Filtración sincronizado: {res["total_registros"]} registros, '
                        f'{res["equipos_unicos"]} equipos únicos')
                 flash(msg, 'success')
+                # Registrar en bitácora de sync
+                conn = get_db()
+                try:
+                    _log_sync(conn, current_user.id, 'filtros',
+                              secure_filename(file_filt.filename),
+                              res['total_registros'], None, res)
+                finally:
+                    conn.close()
             except Exception as exc:
                 flash(f'Error en maestro filtración: {exc}', 'error')
             else:
@@ -496,6 +597,14 @@ def admin_sync():
                 msg = (f'Homólogos sincronizados: {res["total_registros"]} registros, '
                        f'{res["grupos"]} grupos')
                 flash(msg, 'success')
+                # Registrar en bitácora de sync
+                conn = get_db()
+                try:
+                    _log_sync(conn, current_user.id, 'homologos',
+                              secure_filename(file_homo.filename),
+                              res['total_registros'], None, res)
+                finally:
+                    conn.close()
             except Exception as exc:
                 flash(f'Error en homólogos: {exc}', 'error')
             else:
@@ -513,6 +622,14 @@ def admin_sync():
             try:
                 res = sync_data.sync_frecuencias(save_path)
                 flash(f'Frecuencias sincronizadas: {res["total_registros"]} rutinas.', 'success')
+                # Registrar en bitácora de sync
+                conn = get_db()
+                try:
+                    _log_sync(conn, current_user.id, 'frecuencias',
+                              secure_filename(file_frec.filename),
+                              res['total_registros'], None, res)
+                finally:
+                    conn.close()
             except Exception as exc:
                 flash(f'Error en frecuencias: {exc}', 'error')
             else:
@@ -697,7 +814,8 @@ def admin_export():
                   e.desviacion, e.ind_desviacion, e.estado_mp,
                   u.nombre_completo AS solicitado_por,
                   r.timestamp AS fecha_respuesta, r.accion,
-                  m.descripcion AS motivo, r.comentario_libre
+                  m.descripcion AS motivo, r.comentario_libre,
+                  r.verificacion, r.ind_desv_anterior, r.ind_desv_posterior
            FROM solicitudes s
            JOIN equipos e  ON e.id = s.equipo_id
            JOIN usuarios u ON u.id = s.solicitado_por
@@ -893,6 +1011,7 @@ def admin_export():
         'Fecha Solicitud', 'Vehículo', 'Familia', 'Categoría', 'Rutina',
         'Desviación', 'Ind. Desviación', 'Estado MP',
         'Solicitado por', 'Fecha Respuesta', 'Acción', 'Motivo', 'Comentario',
+        'Verificado por Medidor', 'Ind. Desv. al Solicitar', 'Ind. Desv. al Cerrar',
     ]
     ws2.row_dimensions[1].height = 28
     for ci, h in enumerate(det_headers, 1):
@@ -902,12 +1021,18 @@ def admin_export():
 
     body_align = Alignment(vertical='center')
     for ri, fila in enumerate(filas, 2):
+        # H-NEW-02: Capitalizar acción + incluir verificación por medidor
+        accion_raw = fila['accion'] or 'pendiente'
+        accion_label = accion_raw.replace('_', ' ').capitalize()
+        verif = fila['verificacion']
+        verif_label = 'Sí' if verif == 'confirmada' else ('No' if verif == 'no_confirmada' else '—')
         values = [
             fila['fecha_solicitud'], fila['vehiculo'], fila['familia'],
             fila['categoria'], fila['rutina'], fila['desviacion'],
             fila['ind_desviacion'], fila['estado_mp'], fila['solicitado_por'],
-            fila['fecha_respuesta'], fila['accion'] or 'pendiente',
+            fila['fecha_respuesta'], accion_label,
             fila['motivo'], fila['comentario_libre'],
+            verif_label, fila['ind_desv_anterior'], fila['ind_desv_posterior'],
         ]
         for ci, val in enumerate(values, 1):
             cell = ws2.cell(row=ri, column=ci, value=val)
@@ -929,6 +1054,13 @@ def admin_export():
     buf.seek(0)
 
     filename = f"reporte_mp_{datetime.now(TZ_COL).strftime('%Y%m%d_%H%M')}.xlsx"
+    conn_log = get_db()
+    try:
+        _log_actividad(conn_log, current_user.id, 'export_historial',
+                       f'Export historial Excel: {filename}')
+        conn_log.commit()
+    finally:
+        conn_log.close()
     return send_file(
         buf,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -972,6 +1104,9 @@ def admin_usuarios():
                             return redirect(url_for('admin_usuarios'))
                         conn.execute("DELETE FROM usuarios WHERE id = ?", (uid,))
                         conn.commit()
+                        _log_actividad(conn, current_user.id, 'usuario_eliminar',
+                                       f'Usuario eliminado: {row["username"]} (rol: {row["rol"]}, id={uid})')
+                        conn.commit()
                         flash(f'Usuario "{row["username"]}" eliminado permanentemente.', 'success')
                 finally:
                     conn.close()
@@ -1014,6 +1149,9 @@ def admin_usuarios():
                          datetime.now(TZ_COL).isoformat())
                     )
                     conn.commit()
+                    _log_actividad(conn, current_user.id, 'usuario_crear',
+                                   f'Usuario creado: {username} (rol: {rol}, nombre: {nombre})')
+                    conn.commit()
                     flash(f'Usuario "{username}" creado exitosamente.', 'success')
 
             elif action == 'toggle':
@@ -1033,6 +1171,9 @@ def admin_usuarios():
                                 "UPDATE usuarios SET activo = ? WHERE id = ?", (nuevo, uid)
                             )
                             verb = 'activado' if nuevo else 'desactivado'
+                            conn.commit()
+                            _log_actividad(conn, current_user.id, 'usuario_toggle',
+                                           f'Usuario {verb}: {row["username"]} (id={uid})')
                             conn.commit()
                             flash(f'Usuario "{row["username"]}" {verb}.', 'success')
         finally:
@@ -1059,7 +1200,7 @@ def admin_usuarios():
     )
 
 
-@app.route('/admin/backup')
+@app.route('/admin/backup', methods=['POST'])
 @superadmin_required
 def admin_backup():
     nombre = f"backup_mp_{datetime.now(TZ_COL).strftime('%Y%m%d_%H%M')}.db"
@@ -1353,12 +1494,21 @@ def admin_sistema():
     ).fetchone()['c']
 
     ultimo_sync_row = conn.execute(
-        """SELECT l.timestamp, u.nombre_completo
-           FROM log_actividad l
-           LEFT JOIN usuarios u ON u.id = l.usuario_id
-           WHERE l.accion_tipo = 'sync'
-           ORDER BY l.timestamp DESC LIMIT 1"""
+        """SELECT sl.timestamp, u.nombre_completo, sl.tipo_sync,
+                  sl.nombre_archivo, sl.filas_procesadas, sl.ciclo_generado
+           FROM sync_log sl
+           LEFT JOIN usuarios u ON u.id = sl.usuario_id
+           ORDER BY sl.timestamp DESC LIMIT 1"""
     ).fetchone()
+
+    syncs_recientes = conn.execute(
+        """SELECT sl.id, sl.tipo_sync, sl.nombre_archivo, sl.filas_procesadas,
+                  sl.ciclo_generado, sl.ip_address, sl.timestamp,
+                  u.nombre_completo
+           FROM sync_log sl
+           LEFT JOIN usuarios u ON u.id = sl.usuario_id
+           ORDER BY sl.timestamp DESC LIMIT 10"""
+    ).fetchall()
 
     total_solicitudes = conn.execute(
         "SELECT COUNT(*) AS c FROM solicitudes"
@@ -1393,6 +1543,7 @@ def admin_sistema():
         total_respuestas=total_respuestas,
         usuarios=usuarios,
         current_sync_id=sync_id,
+        syncs_recientes=syncs_recientes,
     )
 
 
@@ -1431,7 +1582,7 @@ def cio_dashboard():
 
     equipos_grouped = []
     familias, estados, categorias, estados_vehiculo = [], [], [], []
-    total = vencidos = proximos = ya_solicitados = ejecutados_count = 0
+    total = vencidos = proximos = ya_solicitados = ejecutados_count = pendientes_respuesta = 0
     ultima_actualizacion = None
 
     if sync_id:
@@ -1580,6 +1731,7 @@ def cio_dashboard():
                              if vd['estado_mp'] and
                              ('próximo' in vd['estado_mp'].lower() or 'proximo' in vd['estado_mp'].lower()))
         ya_solicitados = sum(1 for vd in equipos_grouped if vd['sol_state'] is not None)
+        pendientes_respuesta = sum(1 for vd in equipos_grouped if vd['sol_state'] == 'pendiente')
 
         veh_sol_acciones = {}
         for row in rows_sol:
@@ -1613,6 +1765,7 @@ def cio_dashboard():
         proximos=proximos,
         ya_solicitados=ya_solicitados,
         ejecutados_count=ejecutados_count,
+        pendientes_respuesta=pendientes_respuesta,
         current_sync_id=sync_id,
         ultima_actualizacion=ultima_actualizacion,
     )
@@ -1729,6 +1882,11 @@ def cio_responder():
         )
         conn.execute("UPDATE solicitudes SET estado = 'respondido' WHERE id = ?", (sol['id'],))
 
+    conn.commit()
+    _log_actividad(conn, current_user.id, 'respuesta_cio',
+                   f'Respuesta CIO: {vehiculo} → {accion}'
+                   f'{" — motivo: " + motivo_desc if motivo_desc else ""}'
+                   f' ({len(solicitudes)} equipo(s))')
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'accion': accion, 'motivo_desc': motivo_desc})
@@ -1909,6 +2067,8 @@ def equipo_sugerencia(vehiculo):
                VALUES (?, ?, ?, ?, 'pendiente', ?)""",
             (vehiculo, filtro_id, current_user.id, descripcion, datetime.now(TZ_COL).isoformat())
         )
+        _log_actividad(conn, current_user.id, 'sugerencia_crear',
+                       f'Sugerencia creada para {vehiculo}: {descripcion[:80]}')
         conn.commit()
     finally:
         conn.close()
@@ -1986,6 +2146,8 @@ def admin_sugerencia_estado(sug_id):
             "UPDATE sugerencias_filtros SET estado = ?, respuesta_admin = ? WHERE id = ?",
             (nuevo_estado, respuesta, sug_id)
         )
+        _log_actividad(conn, current_user.id, 'sugerencia_estado',
+                       f'Sugerencia id={sug_id} → estado: {nuevo_estado}')
         conn.commit()
     finally:
         conn.close()
@@ -2003,6 +2165,8 @@ def admin_sugerencia_eliminar(sug_id):
         if not row:
             return jsonify({'success': False, 'error': 'Sugerencia no encontrada.'}), 404
         conn.execute("DELETE FROM sugerencias_filtros WHERE id = ?", (sug_id,))
+        _log_actividad(conn, current_user.id, 'sugerencia_eliminar',
+                       f'Sugerencia id={sug_id} eliminada')
         conn.commit()
     finally:
         conn.close()
@@ -2184,6 +2348,12 @@ def exportar_filtros_maestro():
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    conn_log = get_db()
+    try:
+        _log_actividad(conn_log, current_user.id, 'export_filtros', 'Export maestro filtración Excel')
+        conn_log.commit()
+    finally:
+        conn_log.close()
     return send_file(buf, as_attachment=True, download_name='maestro_filtracion.xlsx',
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -2301,6 +2471,13 @@ def exportar_ficha_equipo(vehiculo):
     wb.save(buf)
     buf.seek(0)
     fname = 'ficha_' + vehiculo.replace(' ', '_') + '.xlsx'
+    conn_log = get_db()
+    try:
+        _log_actividad(conn_log, current_user.id, 'export_ficha',
+                       f'Export ficha equipo: {vehiculo}')
+        conn_log.commit()
+    finally:
+        conn_log.close()
     return send_file(buf, as_attachment=True, download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -2337,6 +2514,8 @@ def filtro_agregar(vehiculo):
             (vehiculo, tipo_filtro, nombre, codigo_sap,
              current_user.id, datetime.now(TZ_COL).isoformat())
         )
+        _log_actividad(conn, current_user.id, 'filtro_agregar',
+                       f'Filtro agregado en {vehiculo}: {nombre} (SAP: {codigo_sap or "N/A"})')
         conn.commit()
     finally:
         conn.close()
@@ -2382,6 +2561,8 @@ def filtro_editar(vehiculo, filtro_id):
              tipo_filtro, nombre, codigo_sap,
              current_user.id, datetime.now(TZ_COL).isoformat())
         )
+        _log_actividad(conn, current_user.id, 'filtro_editar',
+                       f'Filtro editado en {vehiculo}: id={filtro_id} → {nombre} (SAP: {codigo_sap or "N/A"})')
         conn.commit()
     finally:
         conn.close()
@@ -2412,6 +2593,8 @@ def filtro_eliminar(vehiculo, filtro_id):
              ant['tipo_filtro'], ant['nombre_articulo'], ant['codigo_sap'],
              current_user.id, datetime.now(TZ_COL).isoformat())
         )
+        _log_actividad(conn, current_user.id, 'filtro_eliminar',
+                       f'Filtro eliminado de {vehiculo}: {ant["nombre_articulo"]} (SAP: {ant["codigo_sap"] or "N/A"})')
         conn.commit()
     finally:
         conn.close()
@@ -2477,9 +2660,13 @@ def admin_auditoria():
     per_page    = 50
     fecha_desde = request.args.get('fecha_desde', '').strip()
     fecha_hasta = request.args.get('fecha_hasta', '').strip()
+    accion_filtro = request.args.get('accion', '').strip()
 
-    where_parts = ["l.accion_tipo = 'eliminar_solicitud'"]
+    where_parts = ["1=1"]
     params = []
+    if accion_filtro:
+        where_parts.append("l.accion_tipo = ?")
+        params.append(accion_filtro)
     if fecha_desde:
         where_parts.append("l.timestamp >= ?")
         params.append(fecha_desde)
@@ -2497,7 +2684,7 @@ def admin_auditoria():
 
         offset = (page - 1) * per_page
         logs = conn.execute(
-            f"""SELECT l.id, l.timestamp, l.detalle, l.ip_address,
+            f"""SELECT l.id, l.accion_tipo, l.timestamp, l.detalle, l.ip_address,
                        COALESCE(u.nombre_completo, 'Sistema') AS nombre_usuario,
                        u.username
                 FROM log_actividad l
@@ -2506,6 +2693,11 @@ def admin_auditoria():
                 ORDER BY l.timestamp DESC
                 LIMIT ? OFFSET ?""",
             params + [per_page, offset]
+        ).fetchall()
+
+        # Tipos de acción disponibles para el filtro
+        tipos_accion = conn.execute(
+            "SELECT DISTINCT accion_tipo FROM log_actividad ORDER BY accion_tipo"
         ).fetchall()
     finally:
         conn.close()
@@ -2520,6 +2712,8 @@ def admin_auditoria():
         total_pages=total_pages,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
+        accion_filtro=accion_filtro,
+        tipos_accion=[t['accion_tipo'] for t in tipos_accion],
     )
 
 
@@ -2597,12 +2791,11 @@ def _build_familias_chart_data(familias_cumplimiento):
         sin_rep_just = f.get('sin_reporte_just', 0) or 0
         sin_rep_pend = f.get('sin_reporte_pend', 0) or 0
         sin_rep      = sin_rep_just + sin_rep_pend
-        total_base   = sol + sin_rep
-        ejec_ef      = ejec + sin_rep_just
-        pct      = round(ejec_ef / total_base * 100) if total_base else 0
-        ejec_px  = round(ejec_ef / total_base * BAR_W) if total_base else 0
-        sin_px   = round(sin_rep_pend / total_base * BAR_W) if total_base else 0
-        no_px    = round(no_ejec / total_base * BAR_W) if total_base else 0
+        # Fórmula corregida H-01: % = EJEC / SOL (lo entregado vs lo solicitado)
+        pct      = round(ejec / sol * 100) if sol else 0
+        ejec_px  = round(ejec / sol * BAR_W) if sol else 0
+        no_px    = round(no_ejec / sol * BAR_W) if sol else 0
+        rest_px  = max(0, BAR_W - ejec_px - no_px) if sol else 0
         y = i * ROW_H + 6
         fc = '#80AE3F' if pct >= 80 else ('#E67E22' if pct >= 60 else '#dc2626')
         rows.append({
@@ -2613,7 +2806,7 @@ def _build_familias_chart_data(familias_cumplimiento):
             'sin_reporte': sin_rep,
             'pct': pct,
             'ejec_px': ejec_px,
-            'sin_px': sin_px,
+            'sin_px': rest_px,
             'no_px': no_px,
             'bar_x': LABEL_W,
             'y': y,
@@ -2751,7 +2944,8 @@ def admin_indicadores():
 
     total_con_nr  = total_solicitados + sin_reporte_total
     ejecutados_ef = ejecutados + sin_reporte_justificados
-    pct_ejecucion = round(ejecutados_ef / total_con_nr * 100) if total_con_nr else 0
+    # H-01/H-04: Fórmula corregida — % = EJEC / SOL (cumplimiento de lo solicitado)
+    pct_ejecucion = round(ejecutados / total_solicitados * 100) if total_solicitados else 0
 
     # ── Top motivos (filtrado por rango) ────────────────────────────────────
     top_motivos = conn.execute(
@@ -2805,6 +2999,21 @@ def admin_indicadores():
              sin_reporte_pend=nr_tot_familia.get(f['familia'], 0) - nr_just_familia.get(f['familia'], 0))
         for f in familias_cumplimiento_raw
     ]
+
+    # H-02: Incluir familias que solo tienen SIN REPORTE (SOL=0) para que SUM cuadre con KPI
+    familias_en_tabla = {f['familia'] for f in familias_cumplimiento_raw}
+    for fam, total_nr in nr_tot_familia.items():
+        if fam not in familias_en_tabla and total_nr > 0:
+            familias_cumplimiento.append({
+                'familia': fam,
+                'solicitados': 0,
+                'ejecutados': 0,
+                'no_ejecutados': 0,
+                'sin_reporte': total_nr,
+                'sin_reporte_just': nr_just_familia.get(fam, 0),
+                'sin_reporte_pend': total_nr - nr_just_familia.get(fam, 0),
+            })
+    familias_cumplimiento.sort(key=lambda x: x['familia'])
 
     # ── Historial por ciclo (filtrado) ───────────────────────────────────────
     historial_sync = conn.execute(
@@ -2934,6 +3143,8 @@ def admin_no_reportadas_justificar(nr_id):
                WHERE id = ?""",
             (estado, justificacion, current_user.id, nr_id)
         )
+        _log_actividad(conn, current_user.id, 'justificar_no_reportada',
+                       f'No reportada id={nr_id} → estado: {estado}')
         conn.commit()
     finally:
         conn.close()
@@ -3154,6 +3365,13 @@ def admin_planeacion_exportar():
     wb.save(buf)
     buf.seek(0)
     nombre = f"planeacion_repuestos_{fd_str}_{fh_str}.xlsx"
+    conn_log = get_db()
+    try:
+        _log_actividad(conn_log, current_user.id, 'export_planeacion',
+                       f'Export planeación repuestos: {nombre}')
+        conn_log.commit()
+    finally:
+        conn_log.close()
     return send_file(buf, download_name=nombre, as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 

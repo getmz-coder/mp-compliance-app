@@ -55,7 +55,7 @@
   /* ── KPI grid ── */
   .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -624,7 +624,7 @@
       {% endif %}
     </div>
     {% if current_sync_id %}
-      <span class="sync-badge">Ciclo #{{ current_sync_id }}</span>
+      <span class="sync-badge">Ciclo: {{ current_sync_id|format_sync_id }}</span>
     {% endif %}
   </div>
 
@@ -632,8 +632,8 @@
   <div class="kpi-grid">
     <div class="kpi-card kpi-blue">
       <div class="kpi-value">{{ total }}</div>
-      <div class="kpi-label">Vehículos pendientes</div>
-      <div class="kpi-sub">en este ciclo</div>
+      <div class="kpi-label">Equipos en ciclo</div>
+      <div class="kpi-sub">requieren MP</div>
     </div>
     <div class="kpi-card kpi-red">
       <div class="kpi-value">{{ vencidos }}</div>
@@ -650,7 +650,12 @@
       <div class="kpi-label">Solicitados</div>
       <div class="kpi-sub">a Operaciones</div>
     </div>
-    <div class="kpi-card kpi-sky">
+    <div class="kpi-card kpi-sky" title="Vehículos solicitados que aún no tienen respuesta (ejecutado/no ejecutado)">
+      <div class="kpi-value">{{ pendientes_respuesta }}</div>
+      <div class="kpi-label">Pend. mi respuesta</div>
+      <div class="kpi-sub">sin ejecutado/no ej.</div>
+    </div>
+    <div class="kpi-card kpi-green">
       <div class="kpi-value">{{ ejecutados_count }}</div>
       <div class="kpi-label">Ejecutados</div>
       <div class="kpi-sub">MP completado</div>
@@ -886,6 +891,26 @@
   </div>
 </div>
 
+<!-- ══ Modal: Confirmar Ejecutado ══ -->
+<div id="modal-ejecutado" class="modal-overlay" style="display:none;" onclick="if(event.target===this)document.getElementById('modal-ejecutado').style.display='none';">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-hdr" style="background:#f0fdf4;">
+      <h3 style="color:#166534;">✓ Confirmar Ejecutado</h3>
+      <button type="button" class="modal-close" onclick="document.getElementById('modal-ejecutado').style.display='none';" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>¿Confirmar que Operaciones entregó el vehículo <strong id="modal-ejec-veh"></strong> al taller para ejecución del MP?</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-modal-cancel" onclick="document.getElementById('modal-ejecutado').style.display='none';">Cancelar</button>
+      <button type="button" id="btn-confirmar-ejec"
+              style="padding:9px 22px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;">
+        Confirmar Ejecutado
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ Modal: Confirmar solicitud ══ -->
 <div id="modal-confirmar-sol" class="modal-overlay" style="display:none;" onclick="overlayClickConfirm(event)">
   <div class="modal-box" style="max-width:520px;">
@@ -938,10 +963,20 @@
   var noRes     = document.getElementById('no-results');
   var toolCount = document.getElementById('toolbar-count');
 
+  var btnSolicitar = document.getElementById('btn-abrir-confirm');
+
   function updateCounter() {
     var n = document.querySelectorAll('.row-check:checked').length;
     if (countEl) countEl.textContent = n;
     if (bar) bar.classList.toggle('visible', n > 0);
+    // H-NEW-11: Actualizar texto del botón con contador
+    if (btnSolicitar) {
+      btnSolicitar.querySelector('span') && btnSolicitar.querySelector('span').remove();
+      var label = n > 0 ? 'Solicitar ' + n + ' vehículo' + (n > 1 ? 's' : '') : 'Solicitar Vehículos';
+      btnSolicitar.childNodes[btnSolicitar.childNodes.length - 1].textContent = '\n        ' + label + '\n      ';
+      btnSolicitar.disabled = n === 0;
+      btnSolicitar.style.opacity = n === 0 ? '0.5' : '1';
+    }
   }
 
   function applyFilters() {
@@ -1226,10 +1261,18 @@
     });
   }
 
+  var _pendingEjecVeh = null;
   window.responderEntregado = function (vehiculo) {
-    if (!confirm('¿Confirmar que Operaciones entregó el vehículo ' + vehiculo + ' al taller?')) return;
-    enviarRespuesta(vehiculo, 'ejecutado', null, null, null);
+    _pendingEjecVeh = vehiculo;
+    document.getElementById('modal-ejec-veh').textContent = vehiculo;
+    document.getElementById('modal-ejecutado').style.display = 'flex';
   };
+  document.getElementById('btn-confirmar-ejec').addEventListener('click', function () {
+    if (!_pendingEjecVeh) return;
+    document.getElementById('modal-ejecutado').style.display = 'none';
+    enviarRespuesta(_pendingEjecVeh, 'ejecutado', null, null, null);
+    _pendingEjecVeh = null;
+  });
 
   window.confirmarNoEjecutado = function () {
     var sel      = document.getElementById('modal-motivo');

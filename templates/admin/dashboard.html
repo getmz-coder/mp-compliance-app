@@ -436,7 +436,7 @@
       <p>Bienvenido, {{ current_user.nombre_completo }} — monitoreo y gestión del ciclo MP</p>
     </div>
     {% if current_sync_id %}
-      <span class="sync-badge">Ciclo activo #{{ current_sync_id }}</span>
+      <span class="sync-badge">Ciclo activo: {{ current_sync_id|format_sync_id }}</span>
     {% endif %}
   </div>
 
@@ -626,7 +626,7 @@
         </a>
 
         {% if current_user.rol == 'superadmin' %}
-        <a href="{{ url_for('admin_backup') }}" class="action-item">
+        <a href="#" class="action-item" onclick="event.preventDefault();document.getElementById('modalBackup').classList.add('visible');">
           <div class="action-icon blue">
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
@@ -635,6 +635,9 @@
             <div class="action-sub">Copia completa de la BD</div>
           </div>
         </a>
+        <form id="formBackup" method="POST" action="{{ url_for('admin_backup') }}" style="display:none;">
+          <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token','') }}">
+        </form>
         {% endif %}
 
         <a href="{{ url_for('admin_historial') }}" class="action-item">
@@ -699,7 +702,7 @@
       <input type="text" id="adm-fil-bus" placeholder="Buscar vehículo...">
     </div>
 
-    <span class="toolbar-count" id="adm-count">{{ equipos_todos|length }} equipo(s)</span>
+    <span class="toolbar-count" id="adm-count">{{ equipos_todos|length }} de {{ total_equipos }} equipo(s) — pág. {{ adm_page }}/{{ adm_total_pages }}</span>
   </div>
 
   <div class="table-card">
@@ -758,11 +761,62 @@
       </table>
     </div>
     <div id="adm-no-results" style="display:none;">Sin equipos que coincidan con los filtros.</div>
+
+    {% if adm_total_pages > 1 %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid var(--borde);background:#fff;border-radius:0 0 12px 12px;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:12.5px;color:var(--gris);">
+        Mostrando {{ (adm_page - 1) * adm_per_page + 1 }}–{{ [adm_page * adm_per_page, total_equipos]|min }} de {{ total_equipos }}
+      </span>
+      <div style="display:flex;gap:4px;">
+        {% if adm_page > 1 %}
+          <a href="{{ url_for('admin_dashboard', page=adm_page - 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">← Ant.</a>
+        {% endif %}
+        {% set start_p = [1, adm_page - 2]|max %}
+        {% set end_p = [adm_total_pages, adm_page + 2]|min %}
+        {% if start_p > 1 %}
+          <a href="{{ url_for('admin_dashboard', page=1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">1</a>
+          {% if start_p > 2 %}<span style="display:inline-flex;align-items:center;min-width:34px;height:34px;justify-content:center;color:#d1d5db;">…</span>{% endif %}
+        {% endif %}
+        {% for p in range(start_p, end_p + 1) %}
+          <a href="{{ url_for('admin_dashboard', page=p) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid {% if p == adm_page %}var(--azul){% else %}var(--borde){% endif %};border-radius:6px;font-size:13px;text-decoration:none;{% if p == adm_page %}color:#fff;background:var(--azul);font-weight:700;{% else %}color:var(--texto);background:#fff;{% endif %}">{{ p }}</a>
+        {% endfor %}
+        {% if end_p < adm_total_pages %}
+          {% if end_p < adm_total_pages - 1 %}<span style="display:inline-flex;align-items:center;min-width:34px;height:34px;justify-content:center;color:#d1d5db;">…</span>{% endif %}
+          <a href="{{ url_for('admin_dashboard', page=adm_total_pages) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">{{ adm_total_pages }}</a>
+        {% endif %}
+        {% if adm_page < adm_total_pages %}
+          <a href="{{ url_for('admin_dashboard', page=adm_page + 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">Sig. →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   {% endif %}
 
 </div>
+
+{% if current_user.rol == 'superadmin' %}
+<!-- Modal confirmación backup -->
+<div class="modal-overlay" id="modalBackup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.22);padding:28px 32px;max-width:420px;width:90%;animation:modalIn 0.15s ease;">
+    <div style="width:44px;height:44px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+      <svg style="width:22px;height:22px;stroke:#002D6E;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </div>
+    <h3 style="font-size:17px;font-weight:700;color:#111827;margin-bottom:8px;">¿Descargar Backup?</h3>
+    <p style="font-size:13.5px;color:#6b7280;line-height:1.5;margin-bottom:24px;">Se descargará una copia completa de la base de datos. Esta acción quedará registrada en auditoría.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="document.getElementById('modalBackup').style.display='none';" style="padding:9px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button onclick="document.getElementById('formBackup').submit();" style="padding:9px 20px;background:#002D6E;color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;">Descargar</button>
+    </div>
+  </div>
+</div>
+<style>
+  #modalBackup.visible { display:flex !important; }
+  @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(-8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+</style>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
