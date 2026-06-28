@@ -147,6 +147,14 @@ def init_db():
             timestamp         DATETIME
         );
 
+        CREATE TABLE IF NOT EXISTS ubicaciones_filtros (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo_sap  VARCHAR(20),
+            nombre      VARCHAR(200),
+            ubicacion   VARCHAR(200),
+            sync_timestamp DATETIME
+        );
+
         CREATE TABLE IF NOT EXISTS ejecuciones_no_reportadas (
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             vehiculo                VARCHAR(30),
@@ -299,8 +307,11 @@ if __name__ == '__main__':
     uid = create_user('cio_bog', 'cio123', 'CIO BOG', 'cio')
     print(f"  Usuario cio_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 
-    uid = create_user('tecnico_bog', 'tec123', 'Técnico-Almacén BOG', 'tecnico')
+    uid = create_user('tecnico_bog', 'tec123', 'Técnico BOG', 'tecnico')
     print(f"  Usuario tecnico_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
+
+    uid = create_user('almacen_bog', 'alm123', 'Almacén BOG', 'almacen')
+    print(f"  Usuario almacen_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 
     uid = create_user('mz13', 'Mzaba*13', 'Super Admin GET', 'superadmin')
     print(f"  Usuario mz13 {'creado (id={})'.format(uid) if uid else 'ya existía'}.")

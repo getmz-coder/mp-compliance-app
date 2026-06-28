@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Almacén — Equipos en Taller{% endblock %}
+
+{% block styles %}
+<style>
+  .taller-page {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+
+  .page-hdr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-hdr-left h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-hdr-left p {
+    font-size: 13px;
+    color: var(--gris);
+    margin-top: 3px;
+  }
+  .sync-badge {
+    font-size: 11.5px;
+    color: var(--gris);
+    background: #fff;
+    border: 1px solid var(--borde);
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  /* KPI */
+  .kpi-strip {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .kpi-pill {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    box-shadow: 0 1px 6px rgba(0,45,110,0.08);
+    border-left: 4px solid var(--verde);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 140px;
+  }
+  .kpi-pill .val {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--verde);
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .kpi-pill .lbl {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .toolbar label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .toolbar select,
+  .toolbar input[type="text"] {
+    padding: 7px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+    min-width: 160px;
+  }
+  .toolbar select:focus,
+  .toolbar input[type="text"]:focus {
+    border-color: var(--cielo);
+    background: #fff;
+  }
+  .toolbar-search { position: relative; margin-left: auto; }
+  .toolbar-search svg {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    stroke: #9ca3af; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .toolbar-search input { padding-left: 32px !important; min-width: 200px; }
+  .toolbar-count {
+    font-size: 12px;
+    color: var(--gris);
+    white-space: nowrap;
+  }
+
+  /* Table */
+  .table-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.data-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.data-table th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.data-table tbody tr:hover { background: #f0fdf4; }
+
+  .vehiculo-link {
+    font-weight: 700;
+    color: var(--azul);
+    text-decoration: none;
+    letter-spacing: 0.2px;
+  }
+  .vehiculo-link:hover { color: var(--cielo); text-decoration: underline; }
+
+  .badge-ejec {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #86efac;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .rutina-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ts-cell {
+    color: var(--gris);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--gris);
+  }
+  .empty-state svg {
+    width: 48px; height: 48px;
+    stroke: #d1d5db; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin-bottom: 16px;
+  }
+  .empty-state h3 { font-size: 16px; color: #374151; margin-bottom: 6px; }
+  .empty-state p  { font-size: 13.5px; }
+
+  @media (max-width: 768px) {
+    .taller-page { padding: 14px 12px 40px; }
+    .page-hdr { flex-direction: column; align-items: flex-start; }
+    .kpi-strip { gap: 10px; }
+    .toolbar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .toolbar select,
+    .toolbar input[type="text"] { min-width: 0; width: 100%; }
+    .toolbar-search { margin-left: 0; width: 100%; }
+    .toolbar-search input { min-width: 0; width: 100%; padding-left: 32px !important; }
+    .toolbar-count { text-align: right; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="taller-page">
+
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Almacén — Equipos en Taller</h1>
+      <p>Vehículos ejecutados en el ciclo actual. Click en un vehículo para ver filtros con ubicación.</p>
+    </div>
+    {% if current_sync_id %}
+      <span class="sync-badge">Ciclo: {{ current_sync_id|format_sync_id }}</span>
+    {% endif %}
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-strip">
+    <div class="kpi-pill">
+      <div class="val">{{ equipos|length }}</div>
+      <div class="lbl">Vehículos en taller</div>
+    </div>
+    <div class="kpi-pill" style="border-left-color:var(--azul);">
+      <div class="val" style="color:var(--azul);">{{ total_ubicaciones }}</div>
+      <div class="lbl">Ubicaciones cargadas</div>
+    </div>
+    {% if ultima_sync_ubic %}
+    <div class="kpi-pill" style="border-left-color:#9ca3af;">
+      <div class="val" style="font-size:14px;color:var(--texto);">{{ ultima_sync_ubic[:16]|replace('T',' ') }}</div>
+      <div class="lbl">Última sync ubicaciones</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if equipos %}
+
+  <!-- Filtros -->
+  <div class="toolbar">
+    <label for="fil-familia">Familia</label>
+    <select id="fil-familia">
+      <option value="">Todas las familias</option>
+      {% for f in familias %}
+        <option value="{{ f }}">{{ f }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="fil-categoria">Categoría</label>
+    <select id="fil-categoria">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias %}
+        <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="toolbar-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="fil-buscar" placeholder="Buscar vehículo..." autocomplete="off">
+    </div>
+
+    <span class="toolbar-count" id="toolbar-count">{{ equipos|length }} vehículo(s) mostrados</span>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Vehículo</th>
+            <th>Familia</th>
+            <th>Categoría</th>
+            <th>Rutinas</th>
+            <th>Fecha Ejecución</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="taller-body">
+          {% for equipo in equipos %}
+          <tr
+            data-familia="{{ equipo.familia or '' }}"
+            data-categoria="{{ equipo.categoria or '' }}"
+            data-vehiculo="{{ equipo.vehiculo or '' }}"
+          >
+            <td>
+              <a href="{{ url_for('almacen_equipo_detalle', vehiculo=equipo.vehiculo) }}"
+                 class="vehiculo-link">{{ equipo.vehiculo }}</a>
+            </td>
+            <td>{{ equipo.familia or '—' }}</td>
+            <td>{{ equipo.categoria or '—' }}</td>
+            <td class="rutina-cell" title="{{ equipo.rutinas or '' }}">
+              {{ equipo.rutinas or '—' }}
+            </td>
+            <td class="ts-cell">
+              {% if equipo.fecha_ejecucion %}
+                {{ equipo.fecha_ejecucion[:16]|replace('T', ' ') }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <span class="badge-ejec">✓ Ejecutado</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="no-results" style="display:none;">
+      <div class="empty-state" style="padding:40px 24px;">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <h3>Sin resultados</h3>
+        <p>Ningún vehículo coincide con los filtros aplicados.</p>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="table-card">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <h3>Sin equipos en taller</h3>
+      <p>Aún no se han registrado vehículos como ejecutados en el ciclo actual.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var filFam    = document.getElementById('fil-familia');
+  var filCat    = document.getElementById('fil-categoria');
+  var filBus    = document.getElementById('fil-buscar');
+  var rows      = document.querySelectorAll('#taller-body tr');
+  var noRes     = document.getElementById('no-results');
+  var toolCount = document.getElementById('toolbar-count');
+
+  function applyFilters() {
+    var fam = filFam ? filFam.value.toLowerCase() : '';
+    var cat = filCat ? filCat.value.toLowerCase() : '';
+    var bus = filBus ? filBus.value.trim().toLowerCase() : '';
+    var visible = 0;
+
+    rows.forEach(function (tr) {
+      var rowFam = (tr.dataset.familia   || '').toLowerCase();
+      var rowCat = (tr.dataset.categoria || '').toLowerCase();
+      var rowVeh = (tr.dataset.vehiculo  || '').toLowerCase();
+      var ok = true;
+      if (fam && rowFam !== fam) ok = false;
+      if (cat && rowCat !== cat) ok = false;
+      if (bus && !rowVeh.includes(bus)) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) visible++;
+    });
+
+    if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
+    if (toolCount) toolCount.textContent = visible + ' vehículo(s) mostrados';
+  }
+
+  if (filFam) filFam.addEventListener('change', applyFilters);
+  if (filCat) filCat.addEventListener('change', applyFilters);
+  if (filBus) filBus.addEventListener('input',  applyFilters);
+})();
+</script>
+{% endblock %}
+
+{% block help_tips %}
+<li>Equipos que fueron marcados como ejecutados y están en taller para MP</li>
+<li>Click en un vehículo para ver los filtros con <strong>ubicación en almacén</strong></li>
+<li>Usa "Sync Ubicaciones" en el menú para cargar/actualizar el archivo de ubicaciones</li>
+{% endblock %}

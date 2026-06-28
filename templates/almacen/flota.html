@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Consulta de Filtros — Flota Completa{% endblock %}
+
+{% block styles %}
+<style>
+  .flota-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+
+  .page-hdr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-hdr-left h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: -0.3px;
+  }
+  .page-hdr-left p {
+    font-size: 13px;
+    color: var(--gris);
+    margin-top: 3px;
+  }
+  .total-badge {
+    font-size: 11.5px;
+    color: var(--gris);
+    background: #fff;
+    border: 1px solid var(--borde);
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .btn-dl-maestro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-dl-maestro:hover { background: #001e50; }
+  .btn-dl-maestro svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Buscador */
+  .search-bar {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 11px; top: 50%;
+    transform: translateY(-50%);
+    width: 15px; height: 15px;
+    stroke: #9ca3af; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 9px 12px 9px 34px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--texto);
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus {
+    border-color: var(--cielo);
+    background: #fff;
+  }
+  .search-count {
+    font-size: 12.5px;
+    color: var(--gris);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Tabla */
+  .table-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.data-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.data-table th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.data-table tbody tr:last-child td { border-bottom: none; }
+  table.data-table tbody tr:hover { background: #eff6ff; cursor: pointer; }
+
+  .veh-name {
+    font-weight: 700;
+    color: var(--azul);
+    letter-spacing: 0.2px;
+  }
+  .tipo-cell {
+    color: var(--gris);
+    font-size: 13px;
+  }
+  .filtros-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 10px;
+  }
+  .btn-ver {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--cielo);
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #93c5fd;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-ver:hover { background: var(--cielo); color: #fff; }
+  .btn-ver svg {
+    width: 12px; height: 12px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--gris);
+  }
+  .empty-state svg {
+    width: 48px; height: 48px;
+    stroke: #d1d5db; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin-bottom: 16px;
+    display: block;
+    margin-left: auto; margin-right: auto;
+  }
+  .empty-state h3 { font-size: 16px; color: #374151; margin-bottom: 6px; }
+  .empty-state p  { font-size: 13.5px; }
+
+  @media (max-width: 768px) {
+    .flota-page { padding: 14px 12px 40px; }
+    .page-hdr { flex-direction: column; align-items: flex-start; }
+    .search-bar { padding: 10px 12px; }
+    .search-wrap { min-width: 0; width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flota-page">
+
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Consulta de Filtros — Flota Completa</h1>
+      <p>Todos los vehículos registrados en el maestro de filtración. Haz clic para ver los filtros de un equipo.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="total-badge">{{ vehiculos|length }} equipo(s)</span>
+      <a href="{{ url_for('exportar_filtros_maestro') }}" class="btn-dl-maestro">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar Maestro Completo
+      </a>
+    </div>
+  </div>
+
+  {% if vehiculos %}
+
+  <div class="search-bar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="buscador" placeholder="Buscar vehículo por nombre..." autocomplete="off" autofocus>
+    </div>
+    <span class="search-count" id="search-count">{{ vehiculos|length }} mostrados</span>
+  </div>
+
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Vehículo</th>
+            <th>Tipo</th>
+            <th>Filtros</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="flota-body">
+          {% for v in vehiculos %}
+          <tr
+            data-vehiculo="{{ v.equipo|lower }}"
+            onclick="window.location='{{ url_for('almacen_equipo_detalle', vehiculo=v.equipo, origen='flota') }}'"
+          >
+            <td><span class="veh-name">{{ v.equipo }}</span></td>
+            <td class="tipo-cell">{{ v.tipo or '—' }}</td>
+            <td>
+              <span class="filtros-count">{{ v.num_filtros }} filtro(s)</span>
+            </td>
+            <td>
+              <a href="{{ url_for('almacen_equipo_detalle', vehiculo=v.equipo, origen='flota') }}"
+                 class="btn-ver"
+                 onclick="event.stopPropagation()">
+                Ver ficha
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="no-results" style="display:none;">
+      <div class="empty-state" style="padding:40px 24px;">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <h3>Equipo no encontrado en el maestro de filtración</h3>
+        <p>Ningún vehículo coincide con la búsqueda.</p>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="table-card">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <h3>Sin datos de filtración</h3>
+      <p>El administrador aún no ha sincronizado el maestro de filtración.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var input  = document.getElementById('buscador');
+  var rows   = document.querySelectorAll('#flota-body tr');
+  var noRes  = document.getElementById('no-results');
+  var cnt    = document.getElementById('search-count');
+
+  if (!input) return;
+
+  input.addEventListener('input', function () {
+    var q = this.value.trim().toLowerCase();
+    var visible = 0;
+    rows.forEach(function (tr) {
+      var match = !q || (tr.dataset.vehiculo || '').includes(q);
+      tr.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    if (noRes) noRes.style.display = visible === 0 ? '' : 'none';
+    if (cnt)   cnt.textContent = visible + ' mostrados';
+  });
+})();
+</script>
+{% endblock %}
+
+{% block help_tips %}
+<li>Consulte los filtros de cualquier equipo de la flota</li>
+<li>Use el buscador para encontrar un equipo rápidamente</li>
+<li>Click en un equipo para ver su ficha completa con filtros</li>
+<li>Puede descargar el maestro completo de filtros en Excel</li>
+{% endblock %}

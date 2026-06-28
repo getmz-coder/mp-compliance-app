@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Sync Ubicaciones — Almacén{% endblock %}
+
+{% block styles %}
+<style>
+  .sync-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+  .page-hdr h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+    margin-bottom: 4px;
+  }
+  .page-hdr p {
+    font-size: 13px;
+    color: var(--gris);
+    margin-bottom: 24px;
+  }
+
+  .sync-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .sync-card h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--azul);
+    margin-bottom: 8px;
+  }
+  .sync-card p {
+    font-size: 13.5px;
+    color: #6b7280;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .info-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .info-item {
+    background: #f8fafc;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 12px 16px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .info-item .label { font-size: 11px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.3px; }
+  .info-item .value { font-size: 15px; font-weight: 700; color: var(--texto); margin-top: 2px; }
+
+  .upload-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 10px;
+    padding: 32px 24px;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 16px;
+  }
+  .upload-zone:hover,
+  .upload-zone.drag-over {
+    border-color: var(--azul);
+    background: #eff6ff;
+  }
+  .upload-zone svg {
+    width: 40px; height: 40px;
+    stroke: #9ca3af; fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin-bottom: 12px;
+  }
+  .upload-zone p { font-size: 13.5px; color: #6b7280; margin-bottom: 8px; }
+  .upload-zone .filename { font-size: 13px; font-weight: 700; color: var(--azul); display: none; margin-top: 8px; }
+
+  .file-input-hidden { display: none; }
+
+  .btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    background: var(--azul);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-upload:hover { background: #001d4a; }
+  .btn-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    background: #f3f4f6;
+    color: var(--texto);
+    border: 1px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-select:hover { background: #e5e7eb; }
+
+  .format-hint {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #1e40af;
+    line-height: 1.6;
+  }
+  .format-hint strong { color: #1e3a8a; }
+  .format-hint code {
+    background: #dbeafe;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .sync-page { padding: 14px 12px 40px; }
+    .sync-card { padding: 20px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sync-page">
+
+  <div class="page-hdr">
+    <h1>Sincronizar Ubicaciones de Filtros</h1>
+    <p>Sube el archivo Excel con las ubicaciones de almacén para cruzar con el maestro de filtros.</p>
+  </div>
+
+  <!-- Estado actual -->
+  <div class="sync-card">
+    <h2>Estado actual</h2>
+    <div class="info-row">
+      <div class="info-item">
+        <div class="label">Registros cargados</div>
+        <div class="value">{{ total_ubicaciones }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Última sincronización</div>
+        <div class="value">{{ ultima_sync[:16]|replace('T',' ') if ultima_sync else 'Nunca' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="sync-card">
+    <h2>Subir archivo de ubicaciones</h2>
+    <p>El archivo reemplaza las ubicaciones anteriores. Formato requerido: Excel (.xlsx) con 3 columnas.</p>
+
+    <div class="format-hint" style="margin-bottom:20px;">
+      <strong>Columnas requeridas:</strong><br>
+      <code>CODIGO SAP</code> — código SAP del filtro (se cruza con maestro de filtración)<br>
+      <code>NOMBRE</code> — nombre o descripción del artículo<br>
+      <code>UBICACION</code> — ubicación física en almacén (ej: A-12-3, Estante B4)
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="form-sync">
+      <input type="hidden" name="_csrf_token" value="{{ session.get('_csrf_token','') }}">
+
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click();">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Click aquí o arrastra un archivo .xlsx</p>
+        <button type="button" class="btn-select">Seleccionar archivo</button>
+        <div class="filename" id="filename-display"></div>
+      </div>
+
+      <input type="file" name="file_ubicaciones" id="file-input" accept=".xlsx,.xls" class="file-input-hidden">
+
+      <div style="text-align:right;">
+        <button type="submit" class="btn-upload" id="btn-submit" disabled>
+          <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;" viewBox="0 0 24 24"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+          Sincronizar Ubicaciones
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var fileInput = document.getElementById('file-input');
+  var zone      = document.getElementById('upload-zone');
+  var nameDisp  = document.getElementById('filename-display');
+  var btn       = document.getElementById('btn-submit');
+
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files.length > 0) {
+      nameDisp.textContent = '📎 ' + fileInput.files[0].name;
+      nameDisp.style.display = 'block';
+      btn.disabled = false;
+    }
+  });
+
+  zone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', function () {
+    zone.classList.remove('drag-over');
+  });
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      nameDisp.textContent = '📎 ' + e.dataTransfer.files[0].name;
+      nameDisp.style.display = 'block';
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
+
+{% block help_tips %}
+<li>Sube un archivo Excel (.xlsx) con las columnas: CODIGO SAP, NOMBRE, UBICACION</li>
+<li>Las ubicaciones se cruzan automáticamente con los filtros del maestro de filtración por código SAP</li>
+<li>Cada sync reemplaza todas las ubicaciones anteriores — sube siempre el archivo completo</li>
+{% endblock %}

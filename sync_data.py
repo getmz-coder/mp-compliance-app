@@ -495,3 +495,49 @@ def sync_frecuencias(filepath):
     total = conn.execute("SELECT COUNT(*) FROM frecuencias_rutinas").fetchone()[0]
     conn.close()
     return {'total_registros': int(total)}
+
+
+COLS_UBICACIONES = ['CODIGO SAP', 'NOMBRE', 'UBICACION']
+
+
+def sync_ubicaciones(filepath):
+    """
+    Lee Excel de ubicaciones de filtros (3 columnas: CODIGO SAP, NOMBRE, UBICACION).
+    Hace DELETE + INSERT completo en tabla ubicaciones_filtros.
+    Retorna: {'total_registros': X, 'codigos_unicos': Y}
+    """
+    df = pd.read_excel(filepath, header=0, dtype=str)
+    df.columns = df.columns.str.strip().str.upper()
+
+    missing = [c for c in COLS_UBICACIONES if c not in df.columns]
+    if missing:
+        raise ValueError(f"Columnas faltantes en Excel de ubicaciones: {', '.join(missing)}")
+
+    df = df[COLS_UBICACIONES].copy()
+
+    for col in df.columns:
+        df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
+
+    df = df[df['CODIGO SAP'].map(lambda x: _clean(x) is not None)]
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM ubicaciones_filtros")
+
+    ahora = datetime.now(TZ_COL).isoformat()
+    for _, row in df.iterrows():
+        cur.execute(
+            """INSERT INTO ubicaciones_filtros (codigo_sap, nombre, ubicacion, sync_timestamp)
+               VALUES (?, ?, ?, ?)""",
+            (_clean_sap(_clean(row['CODIGO SAP'])),
+             _clean(row['NOMBRE']),
+             _clean(row['UBICACION']),
+             ahora)
+        )
+
+    conn.commit()
+    total_registros = len(df)
+    codigos_unicos = df['CODIGO SAP'].nunique()
+    conn.close()
+
+    return {'total_registros': total_registros, 'codigos_unicos': codigos_unicos}

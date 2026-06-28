@@ -494,6 +494,13 @@
            {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>
         <a href="{{ url_for('taller_flota') }}"
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
+      {% elif current_user.rol == 'almacen' %}
+        <a href="{{ url_for('almacen_dashboard') }}"
+           {% if request.endpoint == 'almacen_dashboard' %}class="active"{% endif %}>Equipos en Taller</a>
+        <a href="{{ url_for('almacen_flota') }}"
+           {% if request.endpoint == 'almacen_flota' %}class="active"{% endif %}>Filtros Flota</a>
+        <a href="{{ url_for('almacen_sync') }}"
+           {% if request.endpoint == 'almacen_sync' %}class="active"{% endif %}>Sync Ubicaciones</a>
       {% endif %}
     </div>
 

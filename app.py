@@ -55,6 +55,7 @@ _ROL_DISPLAY = {
     'admin':      'Admin',
     'cio':        'CIO',
     'tecnico':    'Técnico',
+    'almacen':    'Almacén',
 }
 
 _ACCION_DISPLAY = {
@@ -216,8 +217,19 @@ def tecnico_required(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if current_user.rol not in ('tecnico', 'admin', 'superadmin'):
+        if current_user.rol not in ('tecnico', 'almacen', 'admin', 'superadmin'):
             flash('Acceso restringido.', 'error')
+            return redirect(url_for('dashboard_redirect'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def almacen_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if current_user.rol not in ('almacen', 'admin', 'superadmin'):
+            flash('Acceso restringido a Almacén.', 'error')
             return redirect(url_for('dashboard_redirect'))
         return f(*args, **kwargs)
     return decorated
@@ -352,6 +364,7 @@ def dashboard_redirect():
         'superadmin': 'admin_dashboard',
         'cio':        'cio_dashboard',
         'tecnico':    'taller',
+        'almacen':    'almacen_dashboard',
     }
     return redirect(url_for(destinos.get(current_user.rol, 'login')))
 
@@ -2308,6 +2321,143 @@ def taller_flota():
     ).fetchall()
     conn.close()
     return render_template('tecnico/flota.html', vehiculos=[dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Almacén
+# ---------------------------------------------------------------------------
+
+@app.route('/almacen')
+@almacen_required
+def almacen_dashboard():
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+
+    rows = conn.execute(
+        """SELECT e.vehiculo, MAX(e.familia) AS familia, MAX(e.categoria) AS categoria,
+                  GROUP_CONCAT(DISTINCT e.rutina) AS rutinas,
+                  MAX(r.timestamp) AS fecha_ejecucion
+           FROM equipos e
+           JOIN solicitudes s ON s.equipo_id = e.id
+           JOIN respuestas r  ON r.solicitud_id = s.id
+                             AND r.accion = 'ejecutado'
+                             AND (r.verificacion IS NULL OR r.verificacion = 'no_confirmada')
+           GROUP BY e.vehiculo
+           ORDER BY e.vehiculo"""
+    ).fetchall()
+
+    equipos_taller = [dict(row) for row in rows]
+    familias   = sorted({r['familia']   for r in equipos_taller if r['familia']})
+    categorias = sorted({r['categoria'] for r in equipos_taller if r['categoria']})
+
+    # Última sync de ubicaciones
+    last_ubic = conn.execute(
+        "SELECT sync_timestamp FROM ubicaciones_filtros ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    ultima_sync_ubic = last_ubic['sync_timestamp'] if last_ubic else None
+
+    total_ubicaciones = conn.execute("SELECT COUNT(*) AS c FROM ubicaciones_filtros").fetchone()['c']
+    conn.close()
+
+    return render_template('almacen/dashboard.html',
+        equipos=equipos_taller,
+        familias=familias,
+        categorias=categorias,
+        current_sync_id=sync_id,
+        ultima_sync_ubic=ultima_sync_ubic,
+        total_ubicaciones=total_ubicaciones,
+    )
+
+
+@app.route('/almacen/flota')
+@almacen_required
+def almacen_flota():
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT equipo, MIN(tipo) AS tipo, COUNT(*) AS num_filtros
+           FROM filtros_equipo
+           GROUP BY equipo
+           ORDER BY equipo"""
+    ).fetchall()
+    conn.close()
+    return render_template('almacen/flota.html', vehiculos=[dict(r) for r in rows])
+
+
+@app.route('/almacen/equipo/<vehiculo>')
+@almacen_required
+def almacen_equipo_detalle(vehiculo):
+    """Vista de filtros de un equipo CON ubicación (solo almacén)."""
+    vehiculo = vehiculo.upper().strip()
+    conn = get_db()
+
+    filtros = conn.execute(
+        """SELECT f.id, f.equipo, f.tipo, f.nombre_articulo, f.codigo_sap, f.tipo_filtro,
+                  u.ubicacion, u.nombre AS nombre_ubicacion
+           FROM filtros_equipo f
+           LEFT JOIN ubicaciones_filtros u ON u.codigo_sap = f.codigo_sap
+           WHERE UPPER(f.equipo) = ?
+           ORDER BY f.tipo_filtro, f.nombre_articulo""",
+        (vehiculo,)
+    ).fetchall()
+
+    conn.close()
+    return render_template('almacen/equipo_filtros.html',
+        vehiculo=vehiculo,
+        filtros=[dict(f) for f in filtros],
+    )
+
+
+@app.route('/almacen/sync', methods=['GET', 'POST'])
+@almacen_required
+def almacen_sync():
+    if request.method == 'GET':
+        conn = get_db()
+        last_ubic = conn.execute(
+            "SELECT sync_timestamp FROM ubicaciones_filtros ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        total = conn.execute("SELECT COUNT(*) AS c FROM ubicaciones_filtros").fetchone()['c']
+        conn.close()
+        return render_template('almacen/sync.html',
+            ultima_sync=last_ubic['sync_timestamp'] if last_ubic else None,
+            total_ubicaciones=total,
+        )
+
+    # POST — procesar archivo
+    file_ubic = request.files.get('file_ubicaciones')
+    if not file_ubic or not file_ubic.filename:
+        flash('Debes seleccionar un archivo Excel.', 'error')
+        return redirect(url_for('almacen_sync'))
+
+    ext = file_ubic.filename.rsplit('.', 1)[-1].lower() if '.' in file_ubic.filename else ''
+    if ext not in ('xlsx', 'xls'):
+        flash('Solo se aceptan archivos .xlsx o .xls', 'error')
+        return redirect(url_for('almacen_sync'))
+
+    save_path = os.path.join(config.UPLOAD_FOLDER, secure_filename(file_ubic.filename))
+    file_ubic.save(save_path)
+
+    try:
+        res = sync_data.sync_ubicaciones(save_path)
+        flash(f'Ubicaciones sincronizadas: {res["total_registros"]} registros, '
+              f'{res["codigos_unicos"]} códigos SAP únicos.', 'success')
+        # Registrar en bitácora
+        conn = get_db()
+        try:
+            _log_sync(conn, current_user.id, 'ubicaciones',
+                      secure_filename(file_ubic.filename),
+                      res['total_registros'], None, res)
+            _log_actividad(conn, current_user.id, 'sync_ubicaciones',
+                           f'Sync ubicaciones: {res["total_registros"]} registros')
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        flash(f'Error al procesar ubicaciones: {e}', 'error')
+    finally:
+        if os.path.exists(save_path):
+            os.remove(save_path)
+
+    return redirect(url_for('almacen_sync'))
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Filtros — {{ vehiculo }} | Almacén{% endblock %}
+
+{% block styles %}
+<style>
+  .alm-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 28px 60px;
+  }
+  .page-hdr {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-hdr h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--azul);
+  }
+  .page-hdr p {
+    font-size: 13px;
+    color: var(--gris);
+    margin-top: 3px;
+  }
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f3f4f6;
+    color: var(--texto);
+    border: 1px solid var(--borde);
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn-back:hover { background: #e5e7eb; }
+
+  .table-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.data-table thead tr {
+    background: #f8f9fb;
+    border-bottom: 2px solid var(--borde);
+  }
+  table.data-table th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  table.data-table tbody tr:hover { background: #f0f9ff; }
+
+  .badge-ubic {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: #eff6ff;
+    color: var(--azul);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-sin-ubic {
+    display: inline-flex;
+    padding: 3px 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .kpi-strip {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .kpi-pill {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    box-shadow: 0 1px 6px rgba(0,45,110,0.08);
+    border-left: 4px solid var(--verde);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 140px;
+  }
+  .kpi-pill .val { font-size: 28px; font-weight: 700; color: var(--verde); line-height: 1; }
+  .kpi-pill .lbl { font-size: 11.5px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .empty-state {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--gris);
+  }
+  .empty-state h3 { font-size: 16px; color: #374151; margin-bottom: 6px; }
+  .empty-state p  { font-size: 13.5px; }
+
+  @media (max-width: 768px) {
+    .alm-page { padding: 14px 12px 40px; }
+    .page-hdr { flex-direction: column; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alm-page">
+
+  <div class="page-hdr">
+    <div>
+      <h1>{{ vehiculo }} — Filtros con Ubicación</h1>
+      <p>Filtros asignados a este equipo con ubicación en almacén</p>
+    </div>
+    <a href="{{ url_for('almacen_dashboard') }}" class="btn-back">← Volver al taller</a>
+  </div>
+
+  {% set con_ubic = filtros|selectattr('ubicacion')|list|length %}
+  {% set sin_ubic = filtros|length - con_ubic %}
+  <div class="kpi-strip">
+    <div class="kpi-pill">
+      <div class="val">{{ filtros|length }}</div>
+      <div class="lbl">Filtros totales</div>
+    </div>
+    <div class="kpi-pill" style="border-left-color:var(--azul);">
+      <div class="val" style="color:var(--azul);">{{ con_ubic }}</div>
+      <div class="lbl">Con ubicación</div>
+    </div>
+    {% if sin_ubic > 0 %}
+    <div class="kpi-pill" style="border-left-color:#f59e0b;">
+      <div class="val" style="color:#f59e0b;">{{ sin_ubic }}</div>
+      <div class="lbl">Sin ubicación</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if filtros %}
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo Filtro</th>
+            <th>Nombre Artículo</th>
+            <th>Código SAP</th>
+            <th>Ubicación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in filtros %}
+          <tr>
+            <td>{{ f.tipo_filtro or '—' }}</td>
+            <td style="font-weight:600;">{{ f.nombre_articulo or '—' }}</td>
+            <td><code style="background:#eef2ff;color:var(--azul);padding:2px 6px;border-radius:4px;font-size:12px;">{{ f.codigo_sap or '—' }}</code></td>
+            <td>
+              {% if f.ubicacion %}
+                <span class="badge-ubic">📍 {{ f.ubicacion }}</span>
+              {% else %}
+                <span class="badge-sin-ubic">Sin ubicación</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="table-card">
+    <div class="empty-state">
+      <h3>Sin filtros registrados</h3>
+      <p>Este equipo no tiene filtros asignados en el maestro de filtración.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block help_tips %}
+<li>Se muestran los filtros del equipo cruzados con las ubicaciones del almacén</li>
+<li>Los filtros "Sin ubicación" no tienen código SAP registrado en el archivo de ubicaciones</li>
+<li>Para actualizar ubicaciones, ve a "Sync Ubicaciones" en el menú</li>
+{% endblock %}
