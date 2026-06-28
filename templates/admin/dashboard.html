@@ -382,6 +382,7 @@
   }
   .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
   .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-tolerancia { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
   .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
   .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
@@ -738,8 +739,8 @@
             <td>{{ eq.desviacion or '—' }}</td>
             <td>
               {% if eq.ind_desviacion is not none %}
-                <span class="{% if (eq.ind_desviacion|int) > 0 %}ind-pos{% elif (eq.ind_desviacion|int) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
-                  {{ eq.ind_desviacion }}%
+                <span class="{% if (eq.ind_desviacion|float) > 0 %}ind-pos{% elif (eq.ind_desviacion|float) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                  {{ eq.ind_desviacion|pct_desviacion }}
                 </span>
               {% else %}—{% endif %}
             </td>
@@ -747,12 +748,17 @@
               {% set em = (eq.estado_mp or '')|lower %}
               {% if 'vencido' in em %}
                 <span class="badge-estado badge-vencido">{{ eq.estado_mp }}</span>
+              {% elif 'tolerancia' in em %}
+                <span class="badge-estado badge-tolerancia">{{ eq.estado_mp }}</span>
               {% elif 'próximo' in em or 'proximo' in em %}
                 <span class="badge-estado badge-proximo">{{ eq.estado_mp }}</span>
               {% elif 'hoy' in em %}
                 <span class="badge-estado badge-hoy">{{ eq.estado_mp }}</span>
               {% else %}
                 <span class="badge-estado badge-default">{{ eq.estado_mp or '—' }}</span>
+              {% endif %}
+              {% if eq.tipo_ot %}
+                <span style="display:inline-block;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0c4a6e;border:1px solid #bae6fd;margin-left:4px;">{{ eq.tipo_ot }}</span>
               {% endif %}
             </td>
           </tr>

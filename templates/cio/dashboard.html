@@ -230,6 +230,8 @@
   }
   .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
   .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-tolerancia { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+  .badge-ot { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:10px; font-size:10.5px; font-weight:700; background:#f0f9ff; color:#0c4a6e; border:1px solid #bae6fd; white-space:nowrap; }
   .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
   .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
@@ -794,9 +796,9 @@
               <td>{{ equipo.desviacion or '—' }}</td>
               <td>
                 {% if equipo.ind_desviacion is not none %}
-                  {% set ind_val = equipo.ind_desviacion|string|replace('%','')|trim %}
-                  <span class="{% if ind_val|int > 0 %}ind-pos{% elif ind_val|int < 0 %}ind-neg{% else %}ind-zero{% endif %}">
-                    {{ equipo.ind_desviacion }}%
+                  {% set ind_val = equipo.ind_desviacion|float %}
+                  <span class="{% if ind_val > 0 %}ind-pos{% elif ind_val < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                    {{ equipo.ind_desviacion|pct_desviacion }}
                   </span>
                 {% else %}—{% endif %}
               </td>
@@ -804,12 +806,17 @@
                 {% set em = (equipo.estado_mp or '')|lower %}
                 {% if 'vencido' in em %}
                   <span class="badge-estado badge-vencido">{{ equipo.estado_mp }}</span>
+                {% elif 'tolerancia' in em %}
+                  <span class="badge-estado badge-tolerancia">{{ equipo.estado_mp }}</span>
                 {% elif 'próximo' in em or 'proximo' in em %}
                   <span class="badge-estado badge-proximo">{{ equipo.estado_mp }}</span>
                 {% elif 'hoy' in em %}
                   <span class="badge-estado badge-hoy">{{ equipo.estado_mp }}</span>
                 {% else %}
                   <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
+                {% endif %}
+                {% if equipo.tipo_ot %}
+                  <span class="badge-ot">🔧 {{ equipo.tipo_ot }}</span>
                 {% endif %}
               </td>
               <td style="min-width:220px;">

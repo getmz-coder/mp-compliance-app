@@ -796,8 +796,8 @@
               <td>{{ r.desviacion or '—' }}</td>
               <td>
                 {% if r.ind_desviacion is not none %}
-                  <span class="{% if (r.ind_desviacion|int) > 0 %}ind-pos{% elif (r.ind_desviacion|int) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
-                    {{ r.ind_desviacion }}%
+                  <span class="{% if (r.ind_desviacion|float) > 0 %}ind-pos{% elif (r.ind_desviacion|float) < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                    {{ r.ind_desviacion|pct_desviacion }}
                   </span>
                 {% else %}—{% endif %}
               </td>

@@ -79,6 +79,22 @@ def _filter_display_accion(accion):
     """Normaliza acción/estado a display: 'no_ejecutado' → 'No ejecutado'."""
     return _ACCION_DISPLAY.get(str(accion).lower().strip(), str(accion).replace('_', ' ').capitalize())
 
+@app.template_filter('pct_desviacion')
+def _filter_pct_desviacion(val):
+    """Convierte ind_desviacion a display: decimal (0.1→'10%') o entero legacy (1590→'1590')."""
+    if val is None:
+        return '—'
+    try:
+        v = float(val)
+        if -50 < v < 50:
+            # Nuevo formato decimal: 0.1 = 10%
+            return f"{v * 100:.0f}%"
+        else:
+            # Legacy formato entero grande: mostrar tal cual
+            return f"{v:.0f}"
+    except (ValueError, TypeError):
+        return str(val)
+
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -426,7 +442,7 @@ def admin_dashboard():
         equipos_todos = conn.execute(
             """SELECT * FROM equipos
                WHERE sync_id = ?
-               ORDER BY CAST(ind_desviacion AS INTEGER) DESC
+               ORDER BY ind_desviacion DESC
                LIMIT ? OFFSET ?""",
             (sync_id, adm_per_page, (adm_page - 1) * adm_per_page)
         ).fetchall()
@@ -1634,8 +1650,8 @@ def cio_dashboard():
         all_equipos = conn.execute(
             """SELECT * FROM equipos
                WHERE sync_id = ?
-               AND CAST(ind_desviacion AS INTEGER) >= -10
-               ORDER BY CAST(ind_desviacion AS INTEGER) DESC""",
+               AND estado_mp NOT IN ('En ciclo', 'Sin dato')
+               ORDER BY ind_desviacion DESC""",
             (sync_id,)
         ).fetchall()
 
@@ -1656,6 +1672,7 @@ def cio_dashboard():
                     'ind_desviacion':     equipo['ind_desviacion'],
                     'desviacion':         equipo['desviacion'],
                     'estado_mp':          equipo['estado_mp'],
+                    'tipo_ot':            equipo['tipo_ot'],
                     'equipo_ids':         [],
                     'sol_ids_pendientes': [],
                     'motivos_no_ej':      [],

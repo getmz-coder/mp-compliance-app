@@ -52,12 +52,13 @@ def init_db():
             familia            VARCHAR(100),
             rutina             TEXT,
             desviacion         TEXT,
-            ind_desviacion     INTEGER,
+            ind_desviacion     REAL,
             estado_mp          VARCHAR(50),
             fecha_programacion DATETIME,
             justificacion      TEXT,
             observaciones      TEXT,
             observaciones_2    TEXT,
+            tipo_ot            VARCHAR(50),
             sync_id            INTEGER,
             sync_timestamp     DATETIME
         );
@@ -204,6 +205,7 @@ def _migrate_equipos(conn):
         'justificacion':  'TEXT',
         'observaciones':  'TEXT',
         'observaciones_2': 'TEXT',
+        'tipo_ot':        'VARCHAR(50)',
     }
     for col, coltype in nuevas.items():
         if col not in existing:

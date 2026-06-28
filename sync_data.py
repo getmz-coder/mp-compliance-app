@@ -38,17 +38,31 @@ def _get_col(row, *names):
 
 def sync_programacion(filepath):
     """
-    Lee Excel procesado (hoja Programacion_preventivos, header en fila 1)
-    y hace UPSERT en tabla equipos basado en consecutivo.
-    Retorna: {'nuevos': X, 'actualizados': Y, 'total': Z, 'sync_id': N}
+    Lee Excel de programación MP (soporta formato v2 y v3).
+    v2: hoja Programacion_preventivos, 14 columnas, ind_desviacion entero
+    v3: hoja Sheet1, 11 columnas, Ind_desviacion decimal, +tipo_ot, -4 columnas
+    Hace UPSERT en tabla equipos basado en consecutivo.
     """
-    df = pd.read_excel(
-        filepath,
-        sheet_name='Programacion_preventivos',
-        header=0,
-        dtype=str,
-    )
+    # Detectar hoja automáticamente
+    xls = pd.ExcelFile(filepath)
+    if 'Programacion_preventivos' in xls.sheet_names:
+        sheet = 'Programacion_preventivos'
+    elif 'Sheet1' in xls.sheet_names:
+        sheet = 'Sheet1'
+    else:
+        sheet = xls.sheet_names[0]
+
+    df = pd.read_excel(filepath, sheet_name=sheet, header=0, dtype=str)
     df.columns = df.columns.str.strip()
+
+    # Normalizar nombres de columna (soporta ambos formatos)
+    col_renames = {}
+    for c in df.columns:
+        cl = c.lower().replace(' ', '_')
+        if cl == 'ind_desviacion' or cl == 'indice_desviacion':
+            col_renames[c] = 'ind_desviacion'
+    if col_renames:
+        df = df.rename(columns=col_renames)
 
     missing_req = [c for c in COLS_PROGRAMACION_REQUERIDAS if c not in df.columns]
     if missing_req:
@@ -107,22 +121,26 @@ def sync_programacion(filepath):
     actualizados = 0
 
     # Snapshot de vehículos en zona de riesgo ANTES del UPSERT
+    # Zona de riesgo = estado_mp indica que requiere atención
+    _ESTADOS_RIESGO = ('Vencido por tiempo', 'Vencido por medidor', 'Próximo', 'En tolerancia')
     prev_en_riesgo = {}
     for r in cur.execute(
-        """SELECT vehiculo, CAST(ind_desviacion AS INTEGER) AS ind,
-                  familia, rutina, sync_id
+        """SELECT vehiculo, ind_desviacion AS ind,
+                  familia, rutina, sync_id, estado_mp
            FROM equipos
-           WHERE CAST(ind_desviacion AS INTEGER) >= -10
-             AND vehiculo IS NOT NULL"""
+           WHERE estado_mp IN ({})
+             AND vehiculo IS NOT NULL""".format(','.join('?' * len(_ESTADOS_RIESGO))),
+        _ESTADOS_RIESGO
     ).fetchall():
         v = r['vehiculo']
-        ind = r['ind'] if r['ind'] is not None else -999
+        ind = float(r['ind']) if r['ind'] is not None else -999
         if v not in prev_en_riesgo or ind > (prev_en_riesgo[v]['ind'] or -999):
             prev_en_riesgo[v] = {
                 'ind':     ind,
                 'familia': r['familia'],
                 'rutina':  r['rutina'],
                 'sync_id': r['sync_id'],
+                'estado_mp': r['estado_mp'],
             }
 
     # Snapshot ind_desviacion de respuestas "ejecutado" sin verificar, ANTES del UPSERT
@@ -162,13 +180,13 @@ def sync_programacion(filepath):
             except Exception:
                 pass
 
-        ind_raw = _get_col(row, 'indice_desviacion')
+        ind_raw = _get_col(row, 'ind_desviacion', 'indice_desviacion', 'Ind_desviacion')
         ind_desviacion = None
         if ind_raw is not None:
             try:
-                ind_desviacion = int(float(ind_raw))
+                ind_desviacion = float(ind_raw.replace(',', '.'))
             except (ValueError, TypeError):
-                logging.warning("indice_desviacion no numérico ignorado: %r", ind_raw)
+                logging.warning("ind_desviacion no numérico ignorado: %r", ind_raw)
 
         vals = (
             vehiculo,
@@ -184,6 +202,7 @@ def sync_programacion(filepath):
             _get_col(row, 'justificacion'),
             _get_col(row, 'observaciones'),
             _get_col(row, 'observaciones_2'),
+            _get_col(row, 'tipo_ot'),
             sync_id,
             sync_timestamp,
         )
@@ -198,7 +217,7 @@ def sync_programacion(filepath):
                 SET vehiculo=?, categoria=?, estado_vehiculo=?, linea_vehiculo=?,
                     familia=?, rutina=?, desviacion=?, ind_desviacion=?, estado_mp=?,
                     fecha_programacion=?, justificacion=?, observaciones=?,
-                    observaciones_2=?, sync_id=?, sync_timestamp=?
+                    observaciones_2=?, tipo_ot=?, sync_id=?, sync_timestamp=?
                 WHERE consecutivo=?
             """, (*vals, consecutivo))
             actualizados += 1
@@ -208,8 +227,8 @@ def sync_programacion(filepath):
                     (consecutivo, vehiculo, categoria, estado_vehiculo, linea_vehiculo,
                      familia, rutina, desviacion, ind_desviacion, estado_mp,
                      fecha_programacion, justificacion, observaciones, observaciones_2,
-                     sync_id, sync_timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     tipo_ot, sync_id, sync_timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (consecutivo, *vals))
             nuevos += 1
 
@@ -218,16 +237,21 @@ def sync_programacion(filepath):
     ahora_nr = datetime.now(TZ_COL).isoformat()
     for vehiculo, prev in prev_en_riesgo.items():
         new_rows = cur.execute(
-            """SELECT CAST(ind_desviacion AS INTEGER) AS ind
+            """SELECT estado_mp, ind_desviacion AS ind
                FROM equipos
                WHERE UPPER(vehiculo) = ? AND sync_id = ?""",
             (vehiculo.upper(), sync_id)
         ).fetchall()
         if not new_rows:
             continue
-        new_inds = [r['ind'] for r in new_rows if r['ind'] is not None]
-        if not new_inds or max(new_inds) >= -10:
-            continue  # sigue en zona de riesgo o sin dato
+        # Si todos los equipos del vehículo salieron de zona de riesgo → no reportada
+        new_estados = [r['estado_mp'] for r in new_rows if r['estado_mp']]
+        if not new_estados:
+            continue
+        if any(e in _ESTADOS_RIESGO for e in new_estados):
+            continue  # sigue en zona de riesgo
+
+        new_inds = [float(r['ind']) for r in new_rows if r['ind'] is not None]
 
         prev_sync_id = prev['sync_id']
         if not prev_sync_id:
@@ -266,17 +290,15 @@ def sync_programacion(filepath):
         no_reportadas += 1
 
     # Verificación de ejecuciones reportadas por el CIO
-    # Compara ind_desviacion anterior vs nuevo para confirmar si el MP realmente se hizo.
-    # Umbral: new_ind < -20 → confirmada (contador se reinició)
-    #         new_ind >= -10 → no_confirmada (sigue en zona de riesgo, no hubo cambio)
-    # H-NEW-08: Ventana de gracia de 5 días — equipos con Tipo C (Paymover, Dorthy)
-    # pueden tardar 2-3 días. No marcar como 'no_confirmada' hasta pasar la ventana.
+    # Compara estado_mp anterior vs nuevo para confirmar si el MP realmente se hizo.
+    # Confirmada: estado_mp cambió a 'En ciclo' (equipo regresó a zona normal)
+    # No confirmada: estado_mp sigue en zona de riesgo tras ventana de gracia
+    # H-NEW-08: Ventana de gracia de 5 días para Tipo C (Paymover, Dorthy)
     DIAS_GRACIA = 5
     verificadas     = 0
     no_verificadas  = 0
     en_gracia       = 0
 
-    # Obtener timestamps de respuestas para calcular días desde ejecutado
     resp_ejecutados = {}
     for r in cur.execute(
         """SELECT s.equipo_id, r.timestamp AS resp_ts
@@ -288,17 +310,18 @@ def sync_programacion(filepath):
 
     for equipo_id, old_ind in prev_ejecutados.items():
         new_row = cur.execute(
-            "SELECT ind_desviacion FROM equipos WHERE id = ?", (equipo_id,)
+            "SELECT ind_desviacion, estado_mp FROM equipos WHERE id = ?", (equipo_id,)
         ).fetchone()
-        if not new_row or new_row['ind_desviacion'] is None:
+        if not new_row:
             continue
 
-        new_ind = int(new_row['ind_desviacion'])
+        new_estado = new_row['estado_mp'] or ''
+        new_ind = float(new_row['ind_desviacion']) if new_row['ind_desviacion'] is not None else None
 
-        if new_ind < -20:
+        if new_estado == 'En ciclo':
             verif = 'confirmada'
             verificadas += 1
-        elif new_ind >= -10:
+        elif new_estado in _ESTADOS_RIESGO:
             # Verificar ventana de gracia
             resp_ts = resp_ejecutados.get(equipo_id)
             if resp_ts:
@@ -307,13 +330,13 @@ def sync_programacion(filepath):
                     dias_desde = (datetime.now(TZ_COL) - resp_dt).days
                     if dias_desde < DIAS_GRACIA:
                         en_gracia += 1
-                        continue  # Dentro de gracia, no marcar aún
+                        continue
                 except (ValueError, TypeError):
                     pass
             verif = 'no_confirmada'
             no_verificadas += 1
         else:
-            continue  # zona ambigua (-20 <= new_ind < -10), no actualizar
+            continue  # Sin dato u otro estado, no actualizar
 
         cur.execute(
             """UPDATE respuestas
