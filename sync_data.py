@@ -296,6 +296,25 @@ def sync_programacion(filepath):
         if ejecutado:
             continue
 
+        # H-V5-01: Verificar si CIO dijo "no_ejecutado" pero medidor bajó
+        # → contradicción, NO crear entrada duplicada sino marcar la respuesta original
+        no_ejecutado_resp = cur.execute(
+            """SELECT r.id FROM respuestas r
+               JOIN solicitudes s ON s.id = r.solicitud_id
+               JOIN equipos e     ON e.id = s.equipo_id
+               WHERE UPPER(e.vehiculo) = ? AND s.sync_id = ? AND r.accion = 'no_ejecutado'
+               LIMIT 1""",
+            (vehiculo.upper(), prev_sync_id)
+        ).fetchone()
+        if no_ejecutado_resp:
+            # Marcar la respuesta con contradicción — no crear entrada nueva
+            cur.execute(
+                """UPDATE respuestas SET verificacion = 'contradiccion_medidor'
+                   WHERE id = ?""",
+                (no_ejecutado_resp['id'],)
+            )
+            continue
+
         ya = cur.execute(
             """SELECT 1 FROM ejecuciones_no_reportadas
                WHERE UPPER(vehiculo) = ? AND sync_id_anterior = ? AND sync_id_nuevo = ?

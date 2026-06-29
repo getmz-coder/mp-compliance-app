@@ -580,12 +580,16 @@ def admin_sync():
                         f'sin pasar por el sistema. Revísalos en Historial → filtro "Sin Reporte".',
                         'warning'
                     )
-                # Registrar en bitácora de sync
+                # Registrar en bitácora de sync + auditoría
                 conn = get_db()
                 try:
                     _log_sync(conn, current_user.id, 'programacion',
                               secure_filename(file_prog.filename), res['total'],
                               res['sync_id'], res)
+                    _log_actividad(conn, current_user.id, 'sync_programacion',
+                                   f'Sync programación MP: {res["total"]} equipos '
+                                   f'({res["nuevos"]} nuevos, {res["actualizados"]} actualizados)')
+                    conn.commit()
                 finally:
                     conn.close()
             except Exception as exc:

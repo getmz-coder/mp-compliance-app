@@ -222,6 +222,8 @@
   }
   .badge-verif-ok  { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
   .badge-verif-no  { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-verif-pend { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
+  .badge-verif-contra { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
 
   .td-rutina { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .td-motivo { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gris); font-size: 12.5px; }
@@ -521,11 +523,18 @@
                   {% if f.verificacion == 'confirmada' %}
                     <span class="badge-verif badge-verif-ok">✓ Verificado</span>
                   {% elif f.verificacion == 'no_confirmada' %}
-                    <span class="badge-verif badge-verif-no" title="Ind. desv. no cambió ({{ f.ind_desv_anterior }}% → {{ f.ind_desv_posterior }}%)">⚠ No verificado</span>
+                    <span class="badge-verif badge-verif-no" title="Ind. desv. no cambió tras 5+ días">⚠ No verificado</span>
+                  {% else %}
+                    <span class="badge-verif badge-verif-pend" title="Esperando siguiente sync para verificar medidor (ventana 5 días)">⏳ Pendiente verificación</span>
                   {% endif %}
                 </div>
               {% elif f.accion == 'no_ejecutado' %}
-                <span class="badge-accion badge-no">✗ No ejecutado</span>
+                <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start;">
+                  <span class="badge-accion badge-no">✗ No ejecutado</span>
+                  {% if f.verificacion == 'contradiccion_medidor' %}
+                    <span class="badge-verif badge-verif-contra" title="CIO reportó No Ejecutado pero el medidor indica que el MP sí se realizó">⚠ Contradicción medidor</span>
+                  {% endif %}
+                </div>
               {% elif f.accion == 'sin_reporte' %}
                 {% if f.nr_estado == 'justificado' %}
                   <span class="badge-accion badge-ent">✓ Justificado</span>
