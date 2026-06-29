@@ -572,7 +572,7 @@ def admin_sync():
                 else:
                     msg = (f'Programación MP sincronizada: {res["nuevos"]} nuevos, '
                            f'{res["actualizados"]} actualizados — {res["total"]} equipos totales '
-                           f'(ciclo {res["sync_id"]})')
+                           f'(ciclo {_filter_format_sync_id(res["sync_id"])})')
                 flash(msg, 'success')
                 if res.get('no_reportadas', 0) > 0:
                     flash(
@@ -1110,7 +1110,7 @@ def admin_export():
 @admin_required
 def admin_usuarios():
     is_superadmin = current_user.rol == 'superadmin'
-    valid_roles_create = ('admin', 'cio', 'tecnico', 'superadmin') if is_superadmin else ('admin', 'cio', 'tecnico')
+    valid_roles_create = ('admin', 'cio', 'tecnico', 'almacen', 'superadmin') if is_superadmin else ('admin', 'cio', 'tecnico', 'almacen')
 
     if request.method == 'POST':
         action = request.form.get('action', '')

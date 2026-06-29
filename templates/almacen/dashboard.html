@@ -250,12 +250,10 @@
       <div class="val" style="color:var(--azul);">{{ total_ubicaciones }}</div>
       <div class="lbl">Ubicaciones cargadas</div>
     </div>
-    {% if ultima_sync_ubic %}
     <div class="kpi-pill" style="border-left-color:#9ca3af;">
-      <div class="val" style="font-size:14px;color:var(--texto);">{{ ultima_sync_ubic[:16]|replace('T',' ') }}</div>
+      <div class="val" style="font-size:14px;color:var(--texto);">{{ ultima_sync_ubic[:16]|replace('T',' ') if ultima_sync_ubic else 'Nunca' }}</div>
       <div class="lbl">Última sync ubicaciones</div>
     </div>
-    {% endif %}
   </div>
 
   {% if equipos %}

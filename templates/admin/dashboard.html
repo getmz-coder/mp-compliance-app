@@ -383,6 +383,7 @@
   .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
   .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
   .badge-tolerancia { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+  .badge-ot-admin { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:10px; font-size:10.5px; font-weight:700; background:#f0f9ff; color:#0c4a6e; border:1px solid #bae6fd; margin-top:4px; }
   .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
   .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 
@@ -758,7 +759,7 @@
                 <span class="badge-estado badge-default">{{ eq.estado_mp or '—' }}</span>
               {% endif %}
               {% if eq.tipo_ot %}
-                <span style="display:inline-block;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0c4a6e;border:1px solid #bae6fd;margin-left:4px;">{{ eq.tipo_ot }}</span>
+                <br><span class="badge-ot-admin">🔧 {{ eq.tipo_ot }}</span>
               {% endif %}
             </td>
           </tr>

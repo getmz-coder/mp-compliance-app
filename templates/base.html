@@ -525,7 +525,7 @@
     <div class="topbar-right">
       <div class="topbar-user">
         <span class="topbar-user-name">{{ current_user.nombre_completo }}</span>
-        <span class="topbar-user-rol">{{ current_user.rol }}</span>
+        <span class="topbar-user-rol">{{ current_user.rol|display_rol }}</span>
       </div>
       <a href="{{ url_for('logout') }}" class="topbar-logout">Salir</a>
     </div>

@@ -1,5 +1,7 @@
 """ETL: sincronización de datos desde archivos Excel hacia SQLite."""
 import logging
+import re
+import unicodedata
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -16,6 +18,41 @@ COLS_FILTROS = ['EQUIPO', 'TIPO', 'NOMBRE ARTÍCULO', 'CODIGO SAP', 'TIPO FILTRO
 COLS_HOMOLOGOS = ['Grupo', 'Estado', 'Codigo SAP', 'Descripcion']
 
 COLS_FRECUENCIAS = ['rutina', 'frecuencia_medidor', 'frecuencia_dias']
+
+# Sinónimos para normalización de cabeceras
+_COL_SYNONYMS = {
+    # Ubicaciones
+    'descripcion': 'nombre',
+    'articulo': 'nombre',
+    'nombre_articulo': 'nombre',
+    'locacion': 'ubicacion',
+    'ubicacion_almacen': 'ubicacion',
+    'codigo_sap': 'codigo_sap',
+    'sap': 'codigo_sap',
+    # Frecuencias
+    'frecuencia_medidor': 'frecuencia_medidor',
+    'frecuencia_dias': 'frecuencia_dias',
+    # Programación
+    'indice_desviacion': 'ind_desviacion',
+    'ind_desviacion': 'ind_desviacion',
+}
+
+
+def _normalize_col_name(name):
+    """Normaliza nombre de columna: strip, lower, sin tildes, espacios→_, sinónimos."""
+    s = str(name).strip()
+    # Remover tildes
+    s = ''.join(c for c in unicodedata.normalize('NFD', s)
+                if unicodedata.category(c) != 'Mn')
+    s = s.lower().replace(' ', '_')
+    # Aplicar sinónimo si existe
+    return _COL_SYNONYMS.get(s, s)
+
+
+def _normalize_columns(df):
+    """Normaliza todas las cabeceras de un DataFrame."""
+    df.columns = [_normalize_col_name(c) for c in df.columns]
+    return df
 
 
 def _clean(val):
@@ -53,16 +90,7 @@ def sync_programacion(filepath):
         sheet = xls.sheet_names[0]
 
     df = pd.read_excel(filepath, sheet_name=sheet, header=0, dtype=str)
-    df.columns = df.columns.str.strip()
-
-    # Normalizar nombres de columna (soporta ambos formatos)
-    col_renames = {}
-    for c in df.columns:
-        cl = c.lower().replace(' ', '_')
-        if cl == 'ind_desviacion' or cl == 'indice_desviacion':
-            col_renames[c] = 'ind_desviacion'
-    if col_renames:
-        df = df.rename(columns=col_renames)
+    df = _normalize_columns(df)
 
     missing_req = [c for c in COLS_PROGRAMACION_REQUERIDAS if c not in df.columns]
     if missing_req:
@@ -476,8 +504,10 @@ def sync_frecuencias(filepath):
     con DELETE + INSERT completo.
     Retorna: {'total_registros': X}
     """
-    df = pd.read_excel(filepath, sheet_name='DB_FRECUENCIAS', header=0, dtype=str)
-    df.columns = df.columns.str.strip().str.lower()
+    xls = pd.ExcelFile(filepath)
+    sheet = 'DB_FRECUENCIAS' if 'DB_FRECUENCIAS' in xls.sheet_names else xls.sheet_names[0]
+    df = pd.read_excel(filepath, sheet_name=sheet, header=0, dtype=str)
+    df = _normalize_columns(df)
 
     missing = [c for c in COLS_FRECUENCIAS if c not in df.columns]
     if missing:
@@ -520,17 +550,17 @@ def sync_frecuencias(filepath):
     return {'total_registros': int(total)}
 
 
-COLS_UBICACIONES = ['CODIGO SAP', 'NOMBRE', 'UBICACION']
+COLS_UBICACIONES = ['codigo_sap', 'nombre', 'ubicacion']
 
 
 def sync_ubicaciones(filepath):
     """
-    Lee Excel de ubicaciones de filtros (3 columnas: CODIGO SAP, NOMBRE, UBICACION).
+    Lee Excel de ubicaciones de filtros.
+    Acepta sinónimos de cabecera (Descripcion→nombre, CODIGO SAP→codigo_sap, etc.)
     Hace DELETE + INSERT completo en tabla ubicaciones_filtros.
-    Retorna: {'total_registros': X, 'codigos_unicos': Y}
     """
     df = pd.read_excel(filepath, header=0, dtype=str)
-    df.columns = df.columns.str.strip().str.upper()
+    df = _normalize_columns(df)
 
     missing = [c for c in COLS_UBICACIONES if c not in df.columns]
     if missing:
@@ -541,7 +571,7 @@ def sync_ubicaciones(filepath):
     for col in df.columns:
         df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
 
-    df = df[df['CODIGO SAP'].map(lambda x: _clean(x) is not None)]
+    df = df[df['codigo_sap'].map(lambda x: _clean(x) is not None)]
 
     conn = get_db()
     cur = conn.cursor()
@@ -552,15 +582,15 @@ def sync_ubicaciones(filepath):
         cur.execute(
             """INSERT INTO ubicaciones_filtros (codigo_sap, nombre, ubicacion, sync_timestamp)
                VALUES (?, ?, ?, ?)""",
-            (_clean_sap(_clean(row['CODIGO SAP'])),
-             _clean(row['NOMBRE']),
-             _clean(row['UBICACION']),
+            (_clean_sap(_clean(row['codigo_sap'])),
+             _clean(row['nombre']),
+             _clean(row['ubicacion']),
              ahora)
         )
 
     conn.commit()
     total_registros = len(df)
-    codigos_unicos = df['CODIGO SAP'].nunique()
+    codigos_unicos = df['codigo_sap'].nunique()
     conn.close()
 
     return {'total_registros': total_registros, 'codigos_unicos': codigos_unicos}
