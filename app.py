@@ -501,7 +501,10 @@ def admin_dashboard():
         )
 
         alerta_no_reportadas = conn.execute(
-            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE estado IN ('pendiente', 'sin_justificar')"
+            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas
+               WHERE estado IN ('pendiente', 'sin_justificar')
+               AND sync_id_nuevo = ?""",
+            (sync_id,)
         ).fetchone()['c'] or 0
 
         alerta_no_verificadas = conn.execute(
@@ -3202,6 +3205,40 @@ def admin_indicadores():
         sol_params
     ).fetchall()
 
+    # ── No reportadas confirmadas por ciclo ───────────────────────────────
+    nr_por_ciclo = {}
+    for nr_row in conn.execute(
+        """SELECT sync_id_nuevo, COUNT(*) AS total
+           FROM ejecuciones_no_reportadas
+           WHERE estado = 'justificado'
+           GROUP BY sync_id_nuevo"""
+    ).fetchall():
+        nr_por_ciclo[nr_row['sync_id_nuevo']] = nr_row['total']
+
+    # Enriquecer historial con total real ejecutados
+    historial_sync_enriched = []
+    for h in historial_sync:
+        hd = dict(h)
+        nr_conf = nr_por_ciclo.get(h['sync_id'], 0)
+        ejec_ciclo = (h['ejecutados'] or 0)
+        hd['nr_confirmados'] = nr_conf
+        hd['total_real_ejecutados'] = ejec_ciclo + nr_conf
+        historial_sync_enriched.append(hd)
+
+    # ── Indicador de proactividad: ¿en qué estado se ejecutan los MPs? ────
+    proactividad = conn.execute(
+        f"""SELECT e.estado_mp, COUNT(*) AS cantidad
+           FROM respuestas r
+           JOIN solicitudes s ON s.id = r.solicitud_id
+           JOIN equipos e ON e.id = s.equipo_id
+           WHERE r.accion = 'ejecutado' AND {sol_where}
+           GROUP BY e.estado_mp
+           ORDER BY cantidad DESC""",
+        sol_params
+    ).fetchall()
+    proactividad_data = [{'estado': p['estado_mp'] or 'Sin dato', 'cantidad': p['cantidad']} for p in proactividad]
+    total_proactividad = sum(p['cantidad'] for p in proactividad_data) or 1
+
     # ── KPIs de verificación ────────────────────────────────────────────────
     verif_row = conn.execute(
         f"""SELECT
@@ -3231,12 +3268,14 @@ def admin_indicadores():
         top_motivos=top_motivos,
         total_no_ej_global=total_no_ej_global,
         familias_cumplimiento=familias_cumplimiento,
-        historial_sync=historial_sync,
+        historial_sync=historial_sync_enriched,
         current_sync_id=sync_id,
         donut_segments=donut_segments,
         familias_chart=familias_chart,
         ejec_verificadas=ejec_verificadas,
         ejec_no_verificadas=ejec_no_verificadas,
+        proactividad_data=proactividad_data,
+        total_proactividad=total_proactividad,
         # filtro de fechas
         d_desde=d_desde,
         d_hasta=d_hasta,

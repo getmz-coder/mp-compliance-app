@@ -792,11 +792,12 @@
           <tr>
             <th>Ciclo</th>
             <th>Primera Solicitud</th>
-            <th class="th-num">Solicitados</th>
-            <th class="th-num">Ejecutados</th>
-            <th class="th-num">No Ejecutados</th>
-            <th class="th-num">Pendientes</th>
-            <th>% Cumplimiento</th>
+            <th class="th-num">Sol.</th>
+            <th class="th-num">Ejec. CIO</th>
+            <th class="th-num">No Ejec.</th>
+            <th class="th-num">Sin Rep. Conf.</th>
+            <th class="th-num" style="color:var(--azul);">Total Real</th>
+            <th>% Cumpl.</th>
           </tr>
         </thead>
         <tbody>
@@ -804,6 +805,8 @@
             {% set ejec_h = h.ejecutados or 0 %}
             {% set sol_h  = h.total_solicitados or 0 %}
             {% set noej_h = h.no_ejecutados or 0 %}
+            {% set nr_conf = h.nr_confirmados or 0 %}
+            {% set total_real = h.total_real_ejecutados or 0 %}
             {% set pend_h = sol_h - ejec_h - noej_h %}
             {% set pct_h  = ((ejec_h / sol_h) * 100)|round|int if sol_h else 0 %}
             {% set hc     = 'green' if pct_h >= 80 else ('amber' if pct_h >= 60 else 'red') %}
@@ -815,7 +818,8 @@
             <td class="td-num">{{ sol_h }}</td>
             <td class="td-num" style="color:var(--verde)">{{ ejec_h }}</td>
             <td class="td-num" style="color:var(--rojo)">{{ noej_h }}</td>
-            <td class="td-num" style="color:var(--gris)">{{ [pend_h, 0]|max }}</td>
+            <td class="td-num" style="color:#9a3412;">{{ nr_conf if nr_conf > 0 else '—' }}</td>
+            <td class="td-num" style="color:var(--azul);font-weight:800;">{{ total_real }}</td>
             <td>
               <div class="prog-bar-wrap">
                 <div class="prog-bar-bg">
@@ -833,6 +837,49 @@
       <div class="empty-ind">No hay ciclos con solicitudes en el período seleccionado.</div>
     {% endif %}
   </div>
+
+  <!-- ── Proactividad: ¿en qué estado ejecutamos? ── -->
+  {% if proactividad_data %}
+  <div class="ind-card" style="margin-top:20px;">
+    <div class="ind-card-hdr">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Índice de Proactividad
+      </h2>
+      <span class="count-badge">¿En qué estado ejecutamos los MPs?</span>
+    </div>
+    <div style="padding:20px;">
+      <p style="font-size:13px;color:var(--gris);margin-bottom:16px;">
+        Distribución de los mantenimientos ejecutados según el estado del equipo al momento de la ejecución.
+        Un equipo ejecutado en <strong style="color:var(--verde);">Próximo</strong> o <strong style="color:#f59e0b;">Tolerancia</strong> indica gestión proactiva.
+        En <strong style="color:var(--rojo);">Vencido</strong> indica gestión reactiva.
+      </p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        {% for p in proactividad_data %}
+          {% set pct_p = ((p.cantidad / total_proactividad) * 100)|round|int %}
+          {% set ec = p.estado|lower %}
+          {% if 'vencido' in ec %}
+            {% set bar_color = '#dc2626' %}
+          {% elif 'tolerancia' in ec %}
+            {% set bar_color = '#f59e0b' %}
+          {% elif 'próximo' in ec or 'proximo' in ec %}
+            {% set bar_color = '#80AE3F' %}
+          {% else %}
+            {% set bar_color = '#9ca3af' %}
+          {% endif %}
+          <div style="flex:1;min-width:160px;background:#fff;border:1px solid var(--borde);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;">{{ p.estado }}</div>
+            <div style="font-size:28px;font-weight:700;color:{{ bar_color }};line-height:1;">{{ p.cantidad }}</div>
+            <div style="background:#f3f4f6;border-radius:4px;height:8px;margin-top:8px;overflow:hidden;">
+              <div style="background:{{ bar_color }};height:100%;width:{{ pct_p }}%;border-radius:4px;transition:width 0.4s;"></div>
+            </div>
+            <div style="font-size:12px;color:var(--gris);margin-top:4px;">{{ pct_p }}% del total</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
