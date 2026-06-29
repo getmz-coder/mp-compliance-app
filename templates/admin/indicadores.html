@@ -253,6 +253,27 @@
     stroke: var(--cielo); fill: none;
     stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
   }
+  .ind-card-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--borde);
+    background: #f8fafc;
+  }
+  .ind-card-hdr h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--azul);
+  }
+  .ind-card-hdr h2 svg {
+    width: 15px; height: 15px;
+    stroke: var(--cielo); fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
   .count-badge {
     font-size: 11.5px;
     color: var(--gris);
@@ -840,8 +861,8 @@
 
   <!-- ── Proactividad: ¿en qué estado ejecutamos? ── -->
   {% if proactividad_data %}
-  <div class="ind-card" style="margin-top:20px;">
-    <div class="ind-card-hdr">
+  <div class="section-card full-width" style="margin-top:20px;">
+    <div class="section-hdr">
       <h2>
         <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         Índice de Proactividad

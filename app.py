@@ -3236,7 +3236,18 @@ def admin_indicadores():
            ORDER BY cantidad DESC""",
         sol_params
     ).fetchall()
-    proactividad_data = [{'estado': p['estado_mp'] or 'Sin dato', 'cantidad': p['cantidad']} for p in proactividad]
+    proactividad_raw = {(p['estado_mp'] or 'Sin dato'): p['cantidad'] for p in proactividad}
+    # Siempre mostrar los 4 estados relevantes, en orden de proactividad
+    _ESTADOS_PROACTIVIDAD = [
+        'Próximo', 'En tolerancia', 'Vencido por tiempo', 'Vencido por medidor',
+    ]
+    proactividad_data = []
+    for est in _ESTADOS_PROACTIVIDAD:
+        proactividad_data.append({'estado': est, 'cantidad': proactividad_raw.pop(est, 0)})
+    # Agregar cualquier otro estado que tenga datos
+    for est, cant in proactividad_raw.items():
+        if cant > 0:
+            proactividad_data.append({'estado': est, 'cantidad': cant})
     total_proactividad = sum(p['cantidad'] for p in proactividad_data) or 1
 
     # ── KPIs de verificación ────────────────────────────────────────────────
