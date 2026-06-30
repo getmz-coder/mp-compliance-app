@@ -55,6 +55,29 @@ def _normalize_columns(df):
     return df
 
 
+def clasificar_rutina(nombre_rutina, frecuencia_medidor=None, frecuencia_dias=None):
+    """
+    Clasifica una rutina como 'principal' o 'verificacion'.
+    Reglas (en orden, primera que coincida):
+    1. Nombre contiene 'PRUEBA DE SERVICIO' → verificacion
+    2. Frecuencia ≤200h con días <30 → verificacion
+    3. Default → principal
+    """
+    nombre_upper = (nombre_rutina or '').upper()
+    if 'PRUEBA DE SERVICIO' in nombre_upper:
+        return 'verificacion'
+    if 'PRUEBA' in nombre_upper and 'SERVICIO' in nombre_upper:
+        return 'verificacion'
+    try:
+        fm = float(frecuencia_medidor) if frecuencia_medidor else None
+        fd = float(frecuencia_dias) if frecuencia_dias else None
+        if fm and fm <= 200 and (not fd or fd < 30):
+            return 'verificacion'
+    except (ValueError, TypeError):
+        pass
+    return 'principal'
+
+
 def _clean(val):
     """Convierte NaN/NaT/None/vacíos a None; hace strip al resto."""
     if val is None:
@@ -259,6 +282,20 @@ def sync_programacion(filepath):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (consecutivo, *vals))
             nuevos += 1
+
+    # Clasificar rutinas: principal vs verificación
+    # Cruza con frecuencias_rutinas para obtener frecuencia_medidor/días
+    freq_map = {}
+    for fr in cur.execute("SELECT rutina, frecuencia_medidor, frecuencia_dias FROM frecuencias_rutinas").fetchall():
+        freq_map[fr['rutina'].upper().strip() if fr['rutina'] else ''] = (fr['frecuencia_medidor'], fr['frecuencia_dias'])
+
+    for eq in cur.execute("SELECT id, rutina FROM equipos WHERE sync_id = ?", (sync_id,)).fetchall():
+        rutina_name = (eq['rutina'] or '').upper().strip()
+        fm, fd = freq_map.get(rutina_name, (None, None))
+        tipo = clasificar_rutina(eq['rutina'], fm, fd)
+        cur.execute("UPDATE equipos SET tipo_rutina = ? WHERE id = ?", (tipo, eq['id']))
+
+    conn.commit()
 
     # Detección de ejecuciones no reportadas
     no_reportadas = 0

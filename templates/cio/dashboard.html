@@ -818,6 +818,9 @@
                 {% if equipo.tipo_ot %}
                   <span class="badge-ot">🔧 {{ equipo.tipo_ot }}</span>
                 {% endif %}
+                {% if equipo.tipo_rutina == 'verificacion' %}
+                  <span style="display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;margin-top:2px;">🔄 Verificación</span>
+                {% endif %}
               </td>
               <td style="min-width:220px;">
                 {% if sol_state == 'pendiente' %}

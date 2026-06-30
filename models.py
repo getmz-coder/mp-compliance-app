@@ -59,6 +59,7 @@ def init_db():
             observaciones      TEXT,
             observaciones_2    TEXT,
             tipo_ot            VARCHAR(50),
+            tipo_rutina        VARCHAR(20) DEFAULT 'principal',
             sync_id            INTEGER,
             sync_timestamp     DATETIME
         );
@@ -206,6 +207,7 @@ def _migrate_equipos(conn):
         'observaciones':  'TEXT',
         'observaciones_2': 'TEXT',
         'tipo_ot':        'VARCHAR(50)',
+        'tipo_rutina':    "VARCHAR(20) DEFAULT 'principal'",
     }
     for col, coltype in nuevas.items():
         if col not in existing:

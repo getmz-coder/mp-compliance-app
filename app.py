@@ -402,6 +402,7 @@ def admin_dashboard():
     alerta_pendientes     = 0
     alerta_no_ej          = 0
     alerta_no_reportadas  = 0
+    alerta_verificaciones = 0
     alerta_no_verificadas = 0
     sol_equipo_ids        = frozenset()
 
@@ -501,9 +502,18 @@ def admin_dashboard():
         )
 
         alerta_no_reportadas = conn.execute(
-            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas
-               WHERE estado IN ('pendiente', 'sin_justificar')
-               AND sync_id_nuevo = ?""",
+            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas nr
+               WHERE nr.estado IN ('pendiente', 'sin_justificar')
+               AND nr.sync_id_nuevo = ?
+               AND UPPER(nr.rutina) NOT LIKE '%PRUEBA DE SERVICIO%'""",
+            (sync_id,)
+        ).fetchone()['c'] or 0
+
+        alerta_verificaciones = conn.execute(
+            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas nr
+               WHERE nr.estado IN ('pendiente', 'sin_justificar')
+               AND nr.sync_id_nuevo = ?
+               AND UPPER(nr.rutina) LIKE '%PRUEBA DE SERVICIO%'""",
             (sync_id,)
         ).fetchone()['c'] or 0
 
@@ -527,6 +537,7 @@ def admin_dashboard():
         alerta_pendientes=alerta_pendientes,
         alerta_no_ej=alerta_no_ej,
         alerta_no_reportadas=alerta_no_reportadas,
+        alerta_verificaciones=alerta_verificaciones,
         alerta_no_verificadas=alerta_no_verificadas,
         sol_equipo_ids=sol_equipo_ids,
         adm_page=adm_page,
@@ -1680,6 +1691,7 @@ def cio_dashboard():
                     'desviacion':         equipo['desviacion'],
                     'estado_mp':          equipo['estado_mp'],
                     'tipo_ot':            equipo['tipo_ot'],
+                    'tipo_rutina':        equipo['tipo_rutina'] or 'principal',
                     'equipo_ids':         [],
                     'sol_ids_pendientes': [],
                     'motivos_no_ej':      [],
@@ -3096,14 +3108,16 @@ def admin_indicadores():
         nr_params  = ()
         rango_label = None   # None → "todo el histórico"
 
-    # ── KPIs ────────────────────────────────────────────────────────────────
+    # ── KPIs (solo rutinas principales — excluye verificaciones) ─────────
     row = conn.execute(
         f"""SELECT COUNT(s.id) AS total,
                   SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejec,
                   SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ej
            FROM solicitudes s
            LEFT JOIN respuestas r ON r.solicitud_id = s.id
-           WHERE {sol_where}""",
+           LEFT JOIN equipos e ON e.id = s.equipo_id
+           WHERE {sol_where}
+           AND COALESCE(e.tipo_rutina, 'principal') = 'principal'""",
         sol_params
     ).fetchone()
     total_solicitados = row['total'] or 0
