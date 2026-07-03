@@ -711,12 +711,21 @@
       {% endfor %}
     </select>
 
-    <div class="toolbar-search">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="adm-fil-bus" placeholder="Buscar vehículo...">
-    </div>
+    <form action="{{ url_for('admin_dashboard') }}" method="GET" class="toolbar-search" style="display:flex;align-items:center;gap:0;">
+      <svg viewBox="0 0 24 24" style="position:absolute;margin-left:8px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" name="q" value="{{ adm_search }}" placeholder="Buscar en todos los equipos..." style="padding-left:32px;">
+    </form>
+    {% if adm_search %}
+      <a href="{{ url_for('admin_dashboard') }}" style="font-size:12px;color:var(--azul);text-decoration:none;white-space:nowrap;">✕ Limpiar búsqueda</a>
+    {% endif %}
 
-    <span class="toolbar-count" id="adm-count">{{ equipos_todos|length }} de {{ total_equipos }} equipo(s) — pág. {{ adm_page }}/{{ adm_total_pages }}</span>
+    <span class="toolbar-count" id="adm-count">
+      {% if adm_search %}
+        {{ equipos_todos|length }} resultado(s) para "{{ adm_search }}" — pág. {{ adm_page }}/{{ adm_total_pages }}
+      {% else %}
+        {{ equipos_todos|length }} de {{ total_equipos }} equipo(s) — pág. {{ adm_page }}/{{ adm_total_pages }}
+      {% endif %}
+    </span>
   </div>
 
   <div class="table-card">
@@ -788,23 +797,23 @@
       </span>
       <div style="display:flex;gap:4px;">
         {% if adm_page > 1 %}
-          <a href="{{ url_for('admin_dashboard', page=adm_page - 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">← Ant.</a>
+          <a href="{{ url_for('admin_dashboard', q=adm_search, page=adm_page - 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">← Ant.</a>
         {% endif %}
         {% set start_p = [1, adm_page - 2]|max %}
         {% set end_p = [adm_total_pages, adm_page + 2]|min %}
         {% if start_p > 1 %}
-          <a href="{{ url_for('admin_dashboard', page=1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">1</a>
+          <a href="{{ url_for('admin_dashboard', q=adm_search, page=1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">1</a>
           {% if start_p > 2 %}<span style="display:inline-flex;align-items:center;min-width:34px;height:34px;justify-content:center;color:#d1d5db;">…</span>{% endif %}
         {% endif %}
         {% for p in range(start_p, end_p + 1) %}
-          <a href="{{ url_for('admin_dashboard', page=p) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid {% if p == adm_page %}var(--azul){% else %}var(--borde){% endif %};border-radius:6px;font-size:13px;text-decoration:none;{% if p == adm_page %}color:#fff;background:var(--azul);font-weight:700;{% else %}color:var(--texto);background:#fff;{% endif %}">{{ p }}</a>
+          <a href="{{ url_for('admin_dashboard', q=adm_search, page=p) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid {% if p == adm_page %}var(--azul){% else %}var(--borde){% endif %};border-radius:6px;font-size:13px;text-decoration:none;{% if p == adm_page %}color:#fff;background:var(--azul);font-weight:700;{% else %}color:var(--texto);background:#fff;{% endif %}">{{ p }}</a>
         {% endfor %}
         {% if end_p < adm_total_pages %}
           {% if end_p < adm_total_pages - 1 %}<span style="display:inline-flex;align-items:center;min-width:34px;height:34px;justify-content:center;color:#d1d5db;">…</span>{% endif %}
-          <a href="{{ url_for('admin_dashboard', page=adm_total_pages) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">{{ adm_total_pages }}</a>
+          <a href="{{ url_for('admin_dashboard', q=adm_search, page=adm_total_pages) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">{{ adm_total_pages }}</a>
         {% endif %}
         {% if adm_page < adm_total_pages %}
-          <a href="{{ url_for('admin_dashboard', page=adm_page + 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">Sig. →</a>
+          <a href="{{ url_for('admin_dashboard', q=adm_search, page=adm_page + 1) }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border:1px solid var(--borde);border-radius:6px;font-size:13px;text-decoration:none;color:var(--texto);background:#fff;">Sig. →</a>
         {% endif %}
       </div>
     </div>

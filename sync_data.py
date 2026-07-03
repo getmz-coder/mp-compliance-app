@@ -225,7 +225,7 @@ def sync_programacion(filepath):
         fecha_programacion = None
         if fecha_raw:
             try:
-                dt = pd.to_datetime(fecha_raw, dayfirst=True, errors='coerce')
+                dt = pd.to_datetime(fecha_raw, dayfirst=False, errors='coerce')
                 if pd.notna(dt):
                     fecha_programacion = dt.strftime('%Y-%m-%d %H:%M:%S')
             except Exception:

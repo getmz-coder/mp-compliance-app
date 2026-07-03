@@ -474,7 +474,7 @@
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
         <a href="{{ url_for('admin_sugerencias') }}"
            {% if request.endpoint in ('admin_sugerencias',) %}class="active"{% endif %}>Sugerencias</a>
-        {% if current_user.rol == 'superadmin' %}
+        {% if current_user.rol in ('admin', 'superadmin') %}
           <a href="{{ url_for('admin_motivos') }}"
              {% if request.endpoint == 'admin_motivos' %}class="active"{% endif %}>Motivos</a>
           <a href="{{ url_for('admin_sistema') }}"

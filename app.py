@@ -263,6 +263,11 @@ def superadmin_required(f):
 
 
 def _log_actividad(conn, usuario_id, accion_tipo, detalle):
+    """Registra acción en auditoría. Superadmin no deja rastro."""
+    # Verificar si el usuario es superadmin
+    row = conn.execute("SELECT rol FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
+    if row and row['rol'] == 'superadmin':
+        return  # Sin rastro
     conn.execute(
         """INSERT INTO log_actividad (usuario_id, accion_tipo, detalle, ip_address, timestamp)
            VALUES (?, ?, ?, ?, ?)""",
@@ -271,7 +276,10 @@ def _log_actividad(conn, usuario_id, accion_tipo, detalle):
 
 
 def _log_sync(conn, usuario_id, tipo_sync, nombre_archivo, filas_procesadas, ciclo_generado, detalle_dict):
-    """Registra un sync exitoso en la tabla sync_log con trazabilidad completa."""
+    """Registra un sync exitoso en la tabla sync_log. Superadmin no deja rastro."""
+    row = conn.execute("SELECT rol FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
+    if row and row['rol'] == 'superadmin':
+        return
     conn.execute(
         """INSERT INTO sync_log
                (usuario_id, tipo_sync, nombre_archivo, filas_procesadas,
@@ -439,15 +447,32 @@ def admin_dashboard():
     adm_page = max(1, request.args.get('page', 1, type=int))
     adm_per_page = 100
     adm_total_pages = 1
+    adm_search = request.args.get('q', '').strip()
     if sync_id:
+        # Construir filtro de búsqueda
+        search_where = ""
+        search_params = [sync_id]
+        if adm_search:
+            search_where = "AND (UPPER(vehiculo) LIKE ? OR UPPER(familia) LIKE ? OR UPPER(rutina) LIKE ?)"
+            like_q = f"%{adm_search.upper()}%"
+            search_params.extend([like_q, like_q, like_q])
+
+        total_filtered = conn.execute(
+            f"SELECT COUNT(*) AS c FROM equipos WHERE sync_id = ? {search_where}",
+            search_params
+        ).fetchone()['c']
+
+        adm_total_pages = max(1, (total_filtered + adm_per_page - 1) // adm_per_page)
+        if adm_page > adm_total_pages:
+            adm_page = adm_total_pages
+
         equipos_todos = conn.execute(
-            """SELECT * FROM equipos
-               WHERE sync_id = ?
+            f"""SELECT * FROM equipos
+               WHERE sync_id = ? {search_where}
                ORDER BY ind_desviacion DESC
                LIMIT ? OFFSET ?""",
-            (sync_id, adm_per_page, (adm_page - 1) * adm_per_page)
+            search_params + [adm_per_page, (adm_page - 1) * adm_per_page]
         ).fetchall()
-        adm_total_pages = max(1, (total_equipos + adm_per_page - 1) // adm_per_page)
         categorias_admin = [r['categoria'] for r in conn.execute(
             """SELECT DISTINCT categoria FROM equipos
                WHERE sync_id = ? AND categoria IS NOT NULL
@@ -543,6 +568,7 @@ def admin_dashboard():
         adm_page=adm_page,
         adm_per_page=adm_per_page,
         adm_total_pages=adm_total_pages,
+        adm_search=adm_search,
     )
 
 
@@ -1451,7 +1477,7 @@ def admin_limpiar_preview():
 
 
 @app.route('/admin/motivos', methods=['GET', 'POST'])
-@superadmin_required
+@admin_required
 def admin_motivos():
     conn = get_db()
     if request.method == 'POST':
@@ -1526,7 +1552,7 @@ def admin_motivo_editar(motivo_id):
 
 
 @app.route('/admin/sistema')
-@superadmin_required
+@admin_required
 def admin_sistema():
     conn = get_db()
     sync_id = _current_sync_id(conn)
