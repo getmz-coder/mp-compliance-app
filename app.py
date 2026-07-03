@@ -1172,7 +1172,7 @@ def admin_usuarios():
                     elif row['rol'] == 'superadmin':
                         flash('No tienes permiso para eliminar esta cuenta.', 'error')
                     elif not is_superadmin and row['rol'] == 'admin':
-                        flash('Solo un superadmin puede eliminar cuentas de administrador.', 'error')
+                        flash('No tienes permiso para eliminar esta cuenta.', 'error')
                     else:
                         n_sol = conn.execute(
                             "SELECT COUNT(*) AS c FROM solicitudes WHERE solicitado_por = ?", (uid,)
@@ -1246,7 +1246,7 @@ def admin_usuarios():
                         if row['rol'] == 'superadmin':
                             flash('No tienes permiso para modificar esta cuenta.', 'error')
                         elif not is_superadmin and row['rol'] == 'admin':
-                            flash('Solo un superadmin puede modificar cuentas de administrador.', 'error')
+                            flash('No tienes permiso para modificar esta cuenta.', 'error')
                         else:
                             nuevo = 0 if row['activo'] else 1
                             conn.execute(

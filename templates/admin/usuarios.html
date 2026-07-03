@@ -455,6 +455,7 @@
                 {{ u.created_at[:10] if u.created_at else '—' }}
               </td>
               <td style="white-space:nowrap;">
+                {% set can_manage = (u.id != current_user.id) and (is_superadmin or u.rol not in ('admin', 'superadmin')) %}
                 <form method="POST" action="{{ url_for('admin_usuarios') }}"
                       style="display:inline;">
                   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -462,6 +463,8 @@
                   <input type="hidden" name="user_id" value="{{ u.id }}">
                   {% if u.id == current_user.id %}
                     <button type="button" class="btn-toggle" disabled title="No puedes modificar tu propia cuenta">—</button>
+                  {% elif not can_manage %}
+                    <button type="button" class="btn-toggle" disabled title="Sin permiso">—</button>
                   {% elif u.activo %}
                     <button type="submit" class="btn-toggle desactivar"
                             onclick="return confirm('¿Desactivar al usuario {{ u.username }}?')">
@@ -473,19 +476,17 @@
                     </button>
                   {% endif %}
                 </form>
-                {% if u.id != current_user.id %}
-                  {% if current_user.rol == 'superadmin' or u.rol != 'superadmin' %}
-                    <button type="button" class="btn-eliminar"
-                            onclick="abrirModalEliminar({{ u.id }}, '{{ u.username }}')">
-                      Eliminar
-                    </button>
-                  {% endif %}
-                  {% if is_superadmin %}
-                    <button type="button" class="btn-cambiar-pwd"
-                            onclick="abrirModalPwd({{ u.id }}, '{{ u.username }}')">
-                      Cambiar pwd
-                    </button>
-                  {% endif %}
+                {% if can_manage %}
+                  <button type="button" class="btn-eliminar"
+                          onclick="abrirModalEliminar({{ u.id }}, '{{ u.username }}')">
+                    Eliminar
+                  </button>
+                {% endif %}
+                {% if is_superadmin and u.id != current_user.id %}
+                  <button type="button" class="btn-cambiar-pwd"
+                          onclick="abrirModalPwd({{ u.id }}, '{{ u.username }}')">
+                    Cambiar pwd
+                  </button>
                 {% endif %}
               </td>
             </tr>
