@@ -1169,8 +1169,10 @@ def admin_usuarios():
                     ).fetchone()
                     if not row:
                         flash('Usuario no encontrado.', 'error')
-                    elif not is_superadmin and row['rol'] == 'superadmin':
-                        flash('No tienes permiso para eliminar cuentas superadmin.', 'error')
+                    elif row['rol'] == 'superadmin':
+                        flash('No tienes permiso para eliminar esta cuenta.', 'error')
+                    elif not is_superadmin and row['rol'] == 'admin':
+                        flash('Solo un superadmin puede eliminar cuentas de administrador.', 'error')
                     else:
                         n_sol = conn.execute(
                             "SELECT COUNT(*) AS c FROM solicitudes WHERE solicitado_por = ?", (uid,)
@@ -1241,8 +1243,10 @@ def admin_usuarios():
                         "SELECT activo, username, rol FROM usuarios WHERE id = ?", (uid,)
                     ).fetchone()
                     if row:
-                        if not is_superadmin and row['rol'] == 'superadmin':
-                            flash('No tienes permiso para modificar cuentas superadmin.', 'error')
+                        if row['rol'] == 'superadmin':
+                            flash('No tienes permiso para modificar esta cuenta.', 'error')
+                        elif not is_superadmin and row['rol'] == 'admin':
+                            flash('Solo un superadmin puede modificar cuentas de administrador.', 'error')
                         else:
                             nuevo = 0 if row['activo'] else 1
                             conn.execute(
@@ -1260,14 +1264,9 @@ def admin_usuarios():
 
     conn = get_db()
     try:
-        if is_superadmin:
-            usuarios = conn.execute(
-                "SELECT * FROM usuarios ORDER BY created_at DESC"
-            ).fetchall()
-        else:
-            usuarios = conn.execute(
-                "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
-            ).fetchall()
+        usuarios = conn.execute(
+            "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
+        ).fetchall()
     finally:
         conn.close()
 
@@ -1558,7 +1557,7 @@ def admin_sistema():
     sync_id = _current_sync_id(conn)
 
     total_usuarios_activos = conn.execute(
-        "SELECT COUNT(*) AS c FROM usuarios WHERE activo = 1"
+        "SELECT COUNT(*) AS c FROM usuarios WHERE activo = 1 AND rol != 'superadmin'"
     ).fetchone()['c']
 
     total_equipos = 0
@@ -1597,7 +1596,7 @@ def admin_sistema():
     ).fetchone()['c']
 
     usuarios = conn.execute(
-        "SELECT * FROM usuarios ORDER BY created_at DESC"
+        "SELECT * FROM usuarios WHERE rol != 'superadmin' ORDER BY created_at DESC"
     ).fetchall()
 
     conn.close()
