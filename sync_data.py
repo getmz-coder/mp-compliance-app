@@ -35,6 +35,10 @@ _COL_SYNONYMS = {
     # Programación
     'indice_desviacion': 'ind_desviacion',
     'ind_desviacion': 'ind_desviacion',
+    'desv_medidor': 'desv_medidor',
+    'desviacion_medidor': 'desv_medidor',
+    'desv_tiempo': 'desv_tiempo',
+    'desviacion_tiempo': 'desv_tiempo',
 }
 
 
@@ -247,6 +251,8 @@ def sync_programacion(filepath):
             _get_col(row, 'familia'),
             _get_col(row, 'rutina'),
             _get_col(row, 'desviacion'),
+            _get_col(row, 'desv_medidor'),
+            _get_col(row, 'desv_tiempo'),
             ind_desviacion,
             _get_col(row, 'estado_mp'),
             fecha_programacion,
@@ -266,7 +272,8 @@ def sync_programacion(filepath):
             cur.execute("""
                 UPDATE equipos
                 SET vehiculo=?, categoria=?, estado_vehiculo=?, linea_vehiculo=?,
-                    familia=?, rutina=?, desviacion=?, ind_desviacion=?, estado_mp=?,
+                    familia=?, rutina=?, desviacion=?, desv_medidor=?, desv_tiempo=?,
+                    ind_desviacion=?, estado_mp=?,
                     fecha_programacion=?, justificacion=?, observaciones=?,
                     observaciones_2=?, tipo_ot=?, sync_id=?, sync_timestamp=?
                 WHERE consecutivo=?
@@ -276,10 +283,11 @@ def sync_programacion(filepath):
             cur.execute("""
                 INSERT INTO equipos
                     (consecutivo, vehiculo, categoria, estado_vehiculo, linea_vehiculo,
-                     familia, rutina, desviacion, ind_desviacion, estado_mp,
+                     familia, rutina, desviacion, desv_medidor, desv_tiempo,
+                     ind_desviacion, estado_mp,
                      fecha_programacion, justificacion, observaciones, observaciones_2,
                      tipo_ot, sync_id, sync_timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (consecutivo, *vals))
             nuevos += 1
 

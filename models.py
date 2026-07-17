@@ -52,6 +52,8 @@ def init_db():
             familia            VARCHAR(100),
             rutina             TEXT,
             desviacion         TEXT,
+            desv_medidor       TEXT,
+            desv_tiempo        TEXT,
             ind_desviacion     REAL,
             estado_mp          VARCHAR(50),
             fecha_programacion DATETIME,
@@ -208,6 +210,8 @@ def _migrate_equipos(conn):
         'observaciones_2': 'TEXT',
         'tipo_ot':        'VARCHAR(50)',
         'tipo_rutina':    "VARCHAR(20) DEFAULT 'principal'",
+        'desv_medidor':   'TEXT',
+        'desv_tiempo':    'TEXT',
     }
     for col, coltype in nuevas.items():
         if col not in existing:
