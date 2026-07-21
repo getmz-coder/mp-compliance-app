@@ -352,6 +352,36 @@
         </p>
       </div>
 
+      <!-- Medidor Promedio por Equipo -->
+      <div class="upload-section">
+        <div class="upload-header">
+          <div>
+            <h3>Medidor Promedio por Equipo <span class="badge-optional">Opcional</span></h3>
+            <p>Promedios de horas/km por día por vehículo individual. Mejora la precisión de la Planeación Predictiva usando datos reales por equipo en vez de promedios por familia.</p>
+          </div>
+        </div>
+        <div class="file-zone" id="zone-medi">
+          <input type="file" name="file_medidor" accept=".xlsx,.xls"
+                 onchange="setFile(this,'zone-medi','name-medi')">
+          <div class="fz-placeholder">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>Seleccionar archivo o arrastrar aquí</span>
+          </div>
+          <div class="fz-selected" style="display:none;">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div>
+              <div class="fz-name" id="name-medi"></div>
+              <div class="fz-change">Cambiar archivo</div>
+            </div>
+          </div>
+        </div>
+
+        <p class="cols-hint">
+          Hoja 1: <code>DB_MEDIDOR_PROM</code> — Columnas: <code>VEHÍCULO</code> · <code>FAMILIA</code> · <code>MEDIDOR TRABAJO DÍA</code> · <code>TIPO MEDIDOR</code><br>
+          Hoja 2: <code>MED_ESTANDAR</code> — Fallback por familia (opcional)
+        </p>
+      </div>
+
       <div class="form-footer">
         <button type="submit" class="btn-sync">
           <svg viewBox="0 0 24 24">
@@ -361,7 +391,7 @@
           </svg>
           Sincronizar Datos
         </button>
-        <span class="form-note">Se debe subir al menos uno de los cuatro archivos.</span>
+        <span class="form-note">Se debe subir al menos uno de los cinco archivos.</span>
       </div>
 
     </div>

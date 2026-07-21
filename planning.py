@@ -75,23 +75,21 @@ def parse_desviacion(s):
     return None
 
 
-def calcular_fecha_estimada(parsed, familia, promedios_map, today=None):
+def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo=None,
+                            vehiculo_map=None, estandar_map=None):
     """
     Calcula la fecha estimada de próximo MP.
 
-    parsed: resultado de parse_desviacion()
-    familia: string nombre de familia del equipo
-    promedios_map: dict {familia: {'horas_promedio_dia': float, 'km_promedio_dia': float}}
-    today: date (inyectable para tests), default date.today()
-
-    Retorna:
-      {'fecha': date|None, 'tipo': str|None, 'sin_dato': bool, 'vencido': bool}
+    Cascada de promedios para horas/km:
+    1. promedios_vehiculo (dato real por equipo) → vehiculo_map
+    2. medidor_estandar (estándar por familia) → estandar_map
+    3. promedios_familia (carga manual admin) → promedios_map
     """
     if today is None:
         today = date.today()
 
     if parsed is None:
-        return {'fecha': None, 'tipo': None, 'sin_dato': True, 'vencido': False}
+        return {'fecha': None, 'tipo': None, 'sin_dato': True, 'vencido': False, 'fuente_prom': None}
 
     tipo = parsed['tipo']
     valor = parsed['valor']
@@ -100,29 +98,55 @@ def calcular_fecha_estimada(parsed, familia, promedios_map, today=None):
     if tipo == 'dias':
         delta = timedelta(days=valor)
         fecha = (today - delta) if vencido else (today + delta)
-        return {'fecha': fecha, 'tipo': 'dias', 'sin_dato': False, 'vencido': vencido}
+        return {'fecha': fecha, 'tipo': 'dias', 'sin_dato': False, 'vencido': vencido, 'fuente_prom': 'tiempo'}
 
-    prom = promedios_map.get(familia, {}) if promedios_map else {}
+    # Para horas/km: buscar promedio en cascada
+    hpd = None
+    fuente = None
 
-    if tipo == 'horas':
-        hpd = prom.get('horas_promedio_dia')
-        if not hpd or hpd <= 0:
-            return {'fecha': None, 'tipo': 'horas', 'sin_dato': True, 'vencido': vencido}
-        dias = valor / hpd
-        delta = timedelta(days=dias)
-        fecha = (today - delta) if vencido else (today + delta)
-        return {'fecha': fecha, 'tipo': 'horas', 'sin_dato': False, 'vencido': vencido}
+    # 1. Promedio por vehículo específico
+    if vehiculo and vehiculo_map:
+        veh_upper = vehiculo.upper().strip()
+        v_data = vehiculo_map.get(veh_upper)
+        if v_data:
+            trab = v_data.get('medidor_trabajo_dia')
+            calc = v_data.get('promedio_dia_calc')
+            if trab and trab > 0:
+                hpd = trab
+                fuente = 'vehiculo'
+            elif calc and calc > 0:
+                hpd = calc
+                fuente = 'vehiculo_calc'
 
-    if tipo == 'km':
-        kpd = prom.get('km_promedio_dia')
-        if not kpd or kpd <= 0:
-            return {'fecha': None, 'tipo': 'km', 'sin_dato': True, 'vencido': vencido}
-        dias = valor / kpd
-        delta = timedelta(days=dias)
-        fecha = (today - delta) if vencido else (today + delta)
-        return {'fecha': fecha, 'tipo': 'km', 'sin_dato': False, 'vencido': vencido}
+    # 2. Estándar por familia
+    if not hpd and estandar_map and familia:
+        fam_upper = familia.upper().strip()
+        tipo_med = 'Horómetro' if tipo == 'horas' else 'Odómetro'
+        key = (fam_upper, tipo_med)
+        est = estandar_map.get(key)
+        if est and est > 0:
+            hpd = est
+            fuente = 'estandar_familia'
 
-    return {'fecha': None, 'tipo': tipo, 'sin_dato': True, 'vencido': vencido}
+    # 3. Promedio manual por familia (legacy)
+    if not hpd:
+        prom = promedios_map.get(familia, {}) if promedios_map else {}
+        if tipo == 'horas':
+            hpd = prom.get('horas_promedio_dia')
+        elif tipo == 'km':
+            hpd = prom.get('km_promedio_dia')
+        if hpd and hpd > 0:
+            fuente = 'manual_familia'
+        else:
+            hpd = None
+
+    if not hpd or hpd <= 0:
+        return {'fecha': None, 'tipo': tipo, 'sin_dato': True, 'vencido': vencido, 'fuente_prom': None}
+
+    dias = valor / hpd
+    delta = timedelta(days=dias)
+    fecha = (today - delta) if vencido else (today + delta)
+    return {'fecha': fecha, 'tipo': tipo, 'sin_dato': False, 'vencido': vencido, 'fuente_prom': fuente}
 
 
 def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=None):
@@ -150,6 +174,7 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
     if today is None:
         today = date.today()
 
+    # Cascada nivel 3: promedios manuales por familia (legacy)
     promedios_map = {}
     for row in conn.execute(
         "SELECT familia, horas_promedio_dia, km_promedio_dia FROM promedios_familia"
@@ -158,6 +183,24 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
             'horas_promedio_dia': row['horas_promedio_dia'],
             'km_promedio_dia': row['km_promedio_dia'],
         }
+
+    # Cascada nivel 1: promedios por vehículo específico
+    vehiculo_map = {}
+    for row in conn.execute(
+        "SELECT vehiculo, medidor_trabajo_dia, promedio_dia_calc, tipo_medidor FROM promedios_vehiculo"
+    ).fetchall():
+        vehiculo_map[row['vehiculo'].upper().strip() if row['vehiculo'] else ''] = {
+            'medidor_trabajo_dia': row['medidor_trabajo_dia'],
+            'promedio_dia_calc': row['promedio_dia_calc'],
+            'tipo_medidor': row['tipo_medidor'],
+        }
+
+    # Cascada nivel 2: estándar por familia
+    estandar_map = {}
+    for row in conn.execute(
+        "SELECT familia, valor, tipo_medidor FROM medidor_estandar"
+    ).fetchall():
+        estandar_map[(row['familia'].upper().strip(), row['tipo_medidor'])] = row['valor']
 
     row = conn.execute("SELECT MAX(sync_id) AS msid FROM equipos").fetchone()
     if not row or not row['msid']:
@@ -194,7 +237,12 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
             continue
 
         parsed = parse_desviacion(eq['desviacion'] or '')
-        est = calcular_fecha_estimada(parsed, eq['familia'], promedios_map, today=today)
+        est = calcular_fecha_estimada(
+            parsed, eq['familia'], promedios_map, today=today,
+            vehiculo=eq['vehiculo'],
+            vehiculo_map=vehiculo_map,
+            estandar_map=estandar_map,
+        )
 
         equipo_dict = {
             'id': eq['id'],
@@ -208,6 +256,7 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
             'tipo_medidor': est['tipo'],
             'sin_dato': est['sin_dato'],
             'vencido_actual': est['vencido'],
+            'fuente_promedio': est.get('fuente_prom'),
         }
 
         if est['sin_dato']:

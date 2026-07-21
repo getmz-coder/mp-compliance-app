@@ -92,6 +92,30 @@ def init_db():
             timestamp          DATETIME
         );
 
+        CREATE TABLE IF NOT EXISTS promedios_vehiculo (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehiculo              VARCHAR(30),
+            tipo_vehiculo         VARCHAR(100),
+            familia               VARCHAR(100),
+            medidor_transcurrido  REAL,
+            dias_transcurridos    REAL,
+            promedio_dia_calc     REAL,
+            promedio_dia_conf     REAL,
+            medidor_trabajo_dia   REAL,
+            tipo_medidor          VARCHAR(20),
+            medidor_estandar      REAL,
+            sync_timestamp        DATETIME,
+            UNIQUE(vehiculo, tipo_medidor)
+        );
+
+        CREATE TABLE IF NOT EXISTS medidor_estandar (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            familia          VARCHAR(100),
+            valor            REAL,
+            tipo_medidor     VARCHAR(20),
+            UNIQUE(familia, tipo_medidor)
+        );
+
         CREATE TABLE IF NOT EXISTS frecuencias_rutinas (
             id                 INTEGER PRIMARY KEY AUTOINCREMENT,
             rutina             VARCHAR(200),

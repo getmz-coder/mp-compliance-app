@@ -658,3 +658,124 @@ def sync_ubicaciones(filepath):
     conn.close()
 
     return {'total_registros': total_registros, 'codigos_unicos': codigos_unicos}
+
+
+def sync_medidor_promedio(filepath):
+    """
+    Lee Excel Database Medidor Promedio (2 hojas):
+    - DB_MEDIDOR_PROM: promedios por vehículo individual
+    - MED_ESTANDAR: promedios estándar por familia (fallback)
+    Filtra solo equipos con tipo_medidor válido (horómetro/odómetro).
+    En duplicados, conserva el de mayor medidor_trabajo_dia.
+    """
+    xls = pd.ExcelFile(filepath)
+
+    # ── Hoja 1: Promedios por vehículo ──
+    sheet1 = 'DB_MEDIDOR_PROM' if 'DB_MEDIDOR_PROM' in xls.sheet_names else xls.sheet_names[0]
+    df = pd.read_excel(filepath, sheet_name=sheet1, header=0, dtype=str)
+    df = _normalize_columns(df)
+
+    # Mapeo de columnas esperadas
+    col_map = {
+        'vehiculo': 'vehiculo',
+        'tipo_vehiculo': 'tipo_vehiculo',
+        'familia': 'familia',
+        'medidor_transcurrido': 'medidor_transcurrido',
+        'dias_transcurridos': 'dias_transcurridos',
+        'medidor_promedio_dia_calc.': 'promedio_dia_calc',
+        'medidor_promedio_dia_conf.': 'promedio_dia_conf',
+        'medidor_trabajo_dia': 'medidor_trabajo_dia',
+        'medidor_estandar': 'medidor_estandar',
+        'tipo_medidor': 'tipo_medidor',
+    }
+    rename = {}
+    for col in df.columns:
+        if col in col_map:
+            rename[col] = col_map[col]
+    df = df.rename(columns=rename)
+
+    # Filtrar solo filas con tipo_medidor válido
+    if 'tipo_medidor' in df.columns:
+        df = df[df['tipo_medidor'].notna() & (df['tipo_medidor'].str.strip() != '')]
+    else:
+        return {'vehiculos': 0, 'familias_estandar': 0, 'error': 'Columna tipo_medidor no encontrada'}
+
+    # Convertir numéricos
+    for col in ['medidor_transcurrido', 'dias_transcurridos', 'promedio_dia_calc',
+                'promedio_dia_conf', 'medidor_trabajo_dia', 'medidor_estandar']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col].str.replace(',', '.') if df[col].dtype == object else df[col],
+                                    errors='coerce')
+
+    # Deduplicar: por vehículo+tipo_medidor, quedarse con el mayor medidor_trabajo_dia
+    if 'vehiculo' in df.columns and 'medidor_trabajo_dia' in df.columns:
+        df = df.sort_values('medidor_trabajo_dia', ascending=False, na_position='last')
+        df = df.drop_duplicates(subset=['vehiculo', 'tipo_medidor'], keep='first')
+
+    ahora = datetime.now(TZ_COL).isoformat()
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # DELETE + INSERT promedios_vehiculo
+    cur.execute("DELETE FROM promedios_vehiculo")
+    insertados = 0
+    for _, row in df.iterrows():
+        veh = _clean(row.get('vehiculo', ''))
+        if not veh:
+            continue
+        cur.execute(
+            """INSERT OR REPLACE INTO promedios_vehiculo
+               (vehiculo, tipo_vehiculo, familia, medidor_transcurrido, dias_transcurridos,
+                promedio_dia_calc, promedio_dia_conf, medidor_trabajo_dia,
+                tipo_medidor, medidor_estandar, sync_timestamp)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (veh.upper().strip(),
+             _clean(row.get('tipo_vehiculo', '')),
+             _clean(row.get('familia', '')),
+             row.get('medidor_transcurrido'),
+             row.get('dias_transcurridos'),
+             row.get('promedio_dia_calc'),
+             row.get('promedio_dia_conf'),
+             row.get('medidor_trabajo_dia'),
+             _clean(row.get('tipo_medidor', '')),
+             row.get('medidor_estandar'),
+             ahora)
+        )
+        insertados += 1
+
+    # ── Hoja 2: Estándar por familia (fallback) ──
+    familias_estandar = 0
+    if 'MED_ESTANDAR' in xls.sheet_names:
+        df2 = pd.read_excel(filepath, sheet_name='MED_ESTANDAR', header=0, dtype=str)
+        df2 = _normalize_columns(df2)
+
+        cur.execute("DELETE FROM medidor_estandar")
+        for _, row in df2.iterrows():
+            fam = _clean(row.get('familia', ''))
+            if not fam:
+                continue
+            val = None
+            for col_name in ['medidor_estandar', 'valor']:
+                if col_name in df2.columns:
+                    try:
+                        val = float(str(row.get(col_name, '')).replace(',', '.'))
+                    except (ValueError, TypeError):
+                        pass
+                    break
+            tipo = _clean(row.get('tipo_medidor', ''))
+            if val and tipo:
+                cur.execute(
+                    "INSERT OR REPLACE INTO medidor_estandar (familia, valor, tipo_medidor) VALUES (?, ?, ?)",
+                    (fam.upper().strip(), val, tipo)
+                )
+                familias_estandar += 1
+
+    conn.commit()
+    conn.close()
+
+    return {
+        'vehiculos': insertados,
+        'familias_estandar': familias_estandar,
+        'total_registros': insertados + familias_estandar,
+    }

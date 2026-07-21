@@ -582,13 +582,15 @@ def admin_sync():
     file_filt = request.files.get('file_filtros')
     file_homo = request.files.get('file_homologos')
     file_frec = request.files.get('file_frecuencias')
+    file_medi = request.files.get('file_medidor')
 
     has_prog = file_prog and file_prog.filename
     has_filt = file_filt and file_filt.filename
     has_homo = file_homo and file_homo.filename
     has_frec = file_frec and file_frec.filename
+    has_medi = file_medi and file_medi.filename
 
-    if not has_prog and not has_filt and not has_homo and not has_frec:
+    if not has_prog and not has_filt and not has_homo and not has_frec and not has_medi:
         flash('Debes subir al menos un archivo.', 'error')
         return render_template('admin/sync.html')
 
@@ -715,6 +717,35 @@ def admin_sync():
                     os.remove(save_path)
                 except Exception as exc:
                     app.logger.error('No se pudo eliminar frecuencias_rutinas.xlsx: %s', exc)
+
+    # ── Medidor promedio ──
+    if has_medi:
+        if not _allowed_excel(file_medi.filename):
+            flash('Medidor Promedio: formato no válido. Solo se aceptan .xlsx o .xls', 'error')
+        else:
+            save_path = os.path.join(config.UPLOAD_FOLDER, 'medidor_promedio.xlsx')
+            file_medi.save(save_path)
+            try:
+                res = sync_data.sync_medidor_promedio(save_path)
+                flash(f'Medidor Promedio sincronizado: {res["vehiculos"]} vehículos '
+                      f'+ {res["familias_estandar"]} familias estándar.', 'success')
+                conn = get_db()
+                try:
+                    _log_sync(conn, current_user.id, 'medidor_promedio',
+                              secure_filename(file_medi.filename),
+                              res['total_registros'], None, res)
+                    _log_actividad(conn, current_user.id, 'sync_medidor',
+                                   f'Sync medidor promedio: {res["vehiculos"]} vehículos')
+                    conn.commit()
+                finally:
+                    conn.close()
+            except Exception as exc:
+                flash(f'Error en Medidor Promedio: {exc}', 'error')
+            else:
+                try:
+                    os.remove(save_path)
+                except Exception:
+                    pass
 
     return redirect(url_for('admin_sync'))
 
