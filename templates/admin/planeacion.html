@@ -43,31 +43,6 @@
   .kpi-card .kpi-val.warn { color: var(--ambar); }
   .kpi-card .kpi-lbl { font-size:11.5px; color:var(--gris); margin-top:4px; }
 
-  .prom-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .prom-table th { background:var(--azul); color:#fff; padding:8px 12px; text-align:left; font-weight:600; font-size:12px; }
-  .prom-table td { padding:8px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
-  .prom-table tr:last-child td { border-bottom:none; }
-  .prom-input {
-    width:90px; padding:5px 8px; font-size:13px;
-    border:1px solid #d1d5db; border-radius:6px;
-    text-align:right; outline:none; transition:border-color 0.15s;
-  }
-  .prom-input:focus { border-color:var(--cielo); box-shadow:0 0 0 2px rgba(30,136,229,0.15); }
-  .btn-save-prom {
-    padding:5px 12px; font-size:12px; font-weight:600;
-    background:var(--azul); color:#fff; border:none;
-    border-radius:6px; cursor:pointer; transition:background 0.15s;
-  }
-  .btn-save-prom:hover { background:#003580; }
-  .save-status { font-size:11.5px; margin-left:6px; }
-  .save-ok { color:var(--verde); }
-  .save-err { color:var(--rojo); }
-  .badge-sin-prom {
-    display:inline-block; background:#fef3c7; color:#92400e;
-    font-size:10px; font-weight:700; padding:1px 7px;
-    border-radius:10px; letter-spacing:0.3px; margin-left:5px;
-  }
-
   .calc-form { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
   .calc-field { display:flex; flex-direction:column; gap:5px; }
   .calc-field label { font-size:12px; font-weight:600; color:#374151; }
@@ -147,71 +122,9 @@
   </a>
 
   <h1 class="page-title">Planeación de Repuestos Predictiva</h1>
-  <p class="page-sub">Calcula fechas estimadas de próximo MP y agrega los repuestos necesarios para un rango de fechas.</p>
+  <p class="page-sub">Calcula fechas estimadas de próximo MP y agrega los repuestos necesarios para un rango de fechas. Los promedios de consumo se alimentan automáticamente desde <strong>Medidor Promedio por Equipo</strong> (sincronización).</p>
 
-  <!-- SECCIÓN 1: Promedios por familia -->
-  <div class="card">
-    <div class="card-header">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-      </svg>
-      <h2>Promedios de Consumo por Familia</h2>
-    </div>
-    <div class="card-body">
-      <p style="font-size:12.5px;color:var(--gris);margin-bottom:14px;">
-        Ingrese el promedio diario de horas o km por familia. Se usa para convertir desviaciones en horas/km a fechas estimadas.
-      </p>
-
-      {% if familias_sin_prom %}
-      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#92400e;">
-        <strong>Familias sin promedio configurado:</strong>
-        {% for f in familias_sin_prom %}<span class="badge-sin-prom">{{ f }}</span>{% endfor %}
-      </div>
-      {% endif %}
-
-      {% if promedios %}
-      <table class="prom-table">
-        <thead>
-          <tr>
-            <th>Familia</th>
-            <th>Horas / día</th>
-            <th>Km / día</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in promedios %}
-          <tr id="prom-row-{{ loop.index }}">
-            <td><strong>{{ p.familia }}</strong></td>
-            <td>
-              <input class="prom-input" type="number" step="0.1" min="0"
-                     id="hpd-{{ loop.index }}"
-                     value="{{ p.horas_promedio_dia if p.horas_promedio_dia else '' }}"
-                     placeholder="—">
-            </td>
-            <td>
-              <input class="prom-input" type="number" step="1" min="0"
-                     id="kpd-{{ loop.index }}"
-                     value="{{ p.km_promedio_dia if p.km_promedio_dia else '' }}"
-                     placeholder="—">
-            </td>
-            <td>
-              <button class="btn-save-prom" onclick="saveProm('{{ p.familia | e }}', {{ loop.index }})">Guardar</button>
-              <span class="save-status" id="st-{{ loop.index }}"></span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty-state">
-        <p>No hay familias registradas aún. Sincronice la programación MP para poblar las familias.</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- SECCIÓN 2: Calculadora -->
+  <!-- SECCIÓN 1: Calculadora -->
   <div class="card">
     <div class="card-header">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -252,7 +165,7 @@
   </div>
 
   {% if resultados %}
-  <!-- SECCIÓN 3: KPIs + Tabla resultados -->
+  <!-- SECCIÓN 2: KPIs + Tabla resultados -->
   <div class="card">
     <div class="card-header">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002D6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -361,7 +274,7 @@
     </div>
   </div>
 
-  <!-- SECCIÓN 4: Repuestos agregados -->
+  <!-- SECCIÓN 3: Repuestos agregados -->
   {% if repuestos %}
   <div class="card">
     <div class="card-header">
@@ -427,43 +340,6 @@
 
 {% block scripts %}
 <script>
-function getCsrfToken() {
-  var m = document.querySelector('meta[name="csrf-token"]');
-  return m ? m.getAttribute('content') : '';
-}
-
-function saveProm(familia, idx) {
-  var hpd = document.getElementById('hpd-' + idx).value;
-  var kpd = document.getElementById('kpd-' + idx).value;
-  var st  = document.getElementById('st-' + idx);
-  st.textContent = 'Guardando...';
-  st.className = 'save-status';
-
-  fetch('/admin/planeacion/promedio/' + encodeURIComponent(familia), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': getCsrfToken()
-    },
-    body: JSON.stringify({ horas_promedio_dia: hpd || null, km_promedio_dia: kpd || null })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if (data.ok) {
-      st.textContent = 'Guardado';
-      st.className = 'save-status save-ok';
-    } else {
-      st.textContent = 'Error';
-      st.className = 'save-status save-err';
-    }
-    setTimeout(function() { st.textContent = ''; }, 2500);
-  })
-  .catch(function() {
-    st.textContent = 'Error de red';
-    st.className = 'save-status save-err';
-  });
-}
-
 function toggleHomRep(idx, count) {
   var div = document.getElementById('homo-rep-' + idx);
   var btn = document.getElementById('hbtn-' + idx);
@@ -476,7 +352,7 @@ function toggleHomRep(idx, count) {
 {% endblock %}
 
 {% block help_tips %}
-<li>Configure los promedios de horas o km por día por familia para calcular fechas</li>
+<li>Los promedios de consumo por equipo se cargan en la sección de Sincronización → Medidor Promedio por Equipo</li>
 <li>Seleccione un rango de fechas y presione Calcular para ver los equipos</li>
 <li>Active "Incluir vencidos" para agregar equipos ya vencidos sin respuesta</li>
 <li>Use Exportar Excel para descargar la tabla de repuestos consolidada</li>
