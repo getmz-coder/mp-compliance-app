@@ -75,7 +75,7 @@ def parse_desviacion(s):
     return None
 
 
-def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo=None,
+def calcular_fecha_estimada(parsed, familia, today=None, vehiculo=None,
                             vehiculo_map=None, estandar_map=None):
     """
     Calcula la fecha estimada de próximo MP.
@@ -83,7 +83,10 @@ def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo
     Cascada de promedios para horas/km:
     1. promedios_vehiculo (dato real por equipo) → vehiculo_map
     2. medidor_estandar (estándar por familia) → estandar_map
-    3. promedios_familia (carga manual admin) → promedios_map
+
+    Nota: la cascada legacy 'promedios_familia' fue retirada — ahora la
+    planeación se alimenta exclusivamente por datos reales de operación
+    por equipo, con fallback a estándar de familia cuando no hay historial.
     """
     if today is None:
         today = date.today()
@@ -104,7 +107,7 @@ def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo
     hpd = None
     fuente = None
 
-    # 1. Promedio por vehículo específico
+    # 1. Promedio por vehículo específico (dato real)
     if vehiculo and vehiculo_map:
         veh_upper = vehiculo.upper().strip()
         v_data = vehiculo_map.get(veh_upper)
@@ -118,7 +121,7 @@ def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo
                 hpd = calc
                 fuente = 'vehiculo_calc'
 
-    # 2. Estándar por familia
+    # 2. Estándar por familia (fallback cuando no hay dato por equipo)
     if not hpd and estandar_map and familia:
         fam_upper = familia.upper().strip()
         tipo_med = 'Horómetro' if tipo == 'horas' else 'Odómetro'
@@ -127,18 +130,6 @@ def calcular_fecha_estimada(parsed, familia, promedios_map, today=None, vehiculo
         if est and est > 0:
             hpd = est
             fuente = 'estandar_familia'
-
-    # 3. Promedio manual por familia (legacy)
-    if not hpd:
-        prom = promedios_map.get(familia, {}) if promedios_map else {}
-        if tipo == 'horas':
-            hpd = prom.get('horas_promedio_dia')
-        elif tipo == 'km':
-            hpd = prom.get('km_promedio_dia')
-        if hpd and hpd > 0:
-            fuente = 'manual_familia'
-        else:
-            hpd = None
 
     if not hpd or hpd <= 0:
         return {'fecha': None, 'tipo': tipo, 'sin_dato': True, 'vencido': vencido, 'fuente_prom': None}
@@ -173,16 +164,6 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
     """
     if today is None:
         today = date.today()
-
-    # Cascada nivel 3: promedios manuales por familia (legacy)
-    promedios_map = {}
-    for row in conn.execute(
-        "SELECT familia, horas_promedio_dia, km_promedio_dia FROM promedios_familia"
-    ).fetchall():
-        promedios_map[row['familia']] = {
-            'horas_promedio_dia': row['horas_promedio_dia'],
-            'km_promedio_dia': row['km_promedio_dia'],
-        }
 
     # Cascada nivel 1: promedios por vehículo específico
     vehiculo_map = {}
@@ -238,7 +219,7 @@ def calcular_planeacion(conn, fecha_desde, fecha_hasta, incluir_vencidos, today=
 
         parsed = parse_desviacion(eq['desviacion'] or '')
         est = calcular_fecha_estimada(
-            parsed, eq['familia'], promedios_map, today=today,
+            parsed, eq['familia'], today=today,
             vehiculo=eq['vehiculo'],
             vehiculo_map=vehiculo_map,
             estandar_map=estandar_map,

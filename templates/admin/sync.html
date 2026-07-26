@@ -76,6 +76,8 @@
   .section-icon.amber svg { stroke: var(--ambar); }
   .section-icon.purple { background: #f5f3ff; }
   .section-icon.purple svg { stroke: #7c3aed; }
+  .section-icon.teal { background: #ecfeff; }
+  .section-icon.teal svg { stroke: #0891b2; }
 
   .section-info h3 {
     font-size: 14.5px;
@@ -354,24 +356,32 @@
 
       <!-- Medidor Promedio por Equipo -->
       <div class="upload-section">
-        <div class="upload-header">
-          <div>
+        <div class="section-header">
+          <div class="section-icon teal">
+            <svg viewBox="0 0 24 24">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="section-info">
             <h3>Medidor Promedio por Equipo <span class="badge-optional">Opcional</span></h3>
-            <p>Promedios de horas/km por día por vehículo individual. Mejora la precisión de la Planeación Predictiva usando datos reales por equipo en vez de promedios por familia.</p>
+            <p>Promedios de horas/km por día por vehículo individual. Alimenta la Planeación Predictiva con datos reales de operación por equipo.</p>
           </div>
         </div>
+
         <div class="file-zone" id="zone-medi">
           <input type="file" name="file_medidor" accept=".xlsx,.xls"
                  onchange="setFile(this,'zone-medi','name-medi')">
-          <div class="fz-placeholder">
-            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            <span>Seleccionar archivo o arrastrar aquí</span>
-          </div>
-          <div class="fz-selected" style="display:none;">
-            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div class="file-zone-inner">
+            <div class="fz-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
             <div>
+              <div class="fz-text">Haz clic para seleccionar o arrastra el archivo aquí</div>
               <div class="fz-name" id="name-medi"></div>
-              <div class="fz-change">Cambiar archivo</div>
             </div>
           </div>
         </div>
