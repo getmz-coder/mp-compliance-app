@@ -1881,59 +1881,6 @@ def cio_dashboard():
     )
 
 
-@app.route('/cio/solicitar', methods=['POST'])
-@cio_required
-def cio_solicitar():
-    vehiculos = request.form.getlist('vehiculos')
-    if not vehiculos:
-        flash('No seleccionaste ningún vehículo.', 'error')
-        return redirect(url_for('cio_dashboard'))
-
-    conn = get_db()
-    sync_id = _current_sync_id(conn)
-    ahora   = datetime.now(TZ_COL).isoformat()
-    registrados = 0
-
-    for vehiculo in vehiculos:
-        vehiculo = vehiculo.strip().upper()
-        equipo_rows = conn.execute(
-            """SELECT id FROM equipos
-               WHERE UPPER(vehiculo) = ? AND sync_id = ?
-               AND CAST(ind_desviacion AS INTEGER) >= -10""",
-            (vehiculo, sync_id)
-        ).fetchall()
-
-        for row in equipo_rows:
-            eid = row['id']
-            existing_pendiente = conn.execute(
-                """SELECT id FROM solicitudes
-                   WHERE equipo_id = ? AND sync_id = ? AND estado = 'pendiente'""",
-                (eid, sync_id)
-            ).fetchone()
-            if not existing_pendiente:
-                conn.execute(
-                    """INSERT INTO solicitudes
-                           (equipo_id, solicitado_por, fecha_solicitud, sync_id, estado)
-                       VALUES (?, ?, ?, ?, 'pendiente')""",
-                    (eid, current_user.id, ahora, sync_id)
-                )
-                registrados += 1
-
-    if registrados:
-        _log_actividad(conn, current_user.id, 'solicitud',
-                       f'Solicitó {registrados} rutina(s): {", ".join(vehiculos)}')
-    conn.commit()
-    conn.close()
-
-    if registrados:
-        flash(f'{len(vehiculos)} vehículo(s) solicitados — {registrados} rutina(s) registradas. '
-              'Notifica a Operaciones para coordinar la entrega.', 'success')
-    else:
-        flash('Los vehículos seleccionados ya tenían solicitudes pendientes en este ciclo.', 'warning')
-
-    return redirect(url_for('cio_dashboard'))
-
-
 @app.route('/cio/motivos')
 @cio_required
 def cio_motivos():
@@ -3416,62 +3363,6 @@ def api_buscar_vehiculo():
 # ---------------------------------------------------------------------------
 
 
-@app.route('/admin/no-reportadas/<int:nr_id>/justificar', methods=['POST'])
-@admin_required
-def admin_no_reportadas_justificar(nr_id):
-    data         = request.get_json(force=True) or {}
-    estado       = data.get('estado', '')
-    justificacion = (data.get('justificacion') or '').strip() or None
-
-    if estado not in ('justificado', 'sin_justificar'):
-        return jsonify({'success': False, 'error': 'Estado inválido.'}), 400
-
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT id FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,)
-        ).fetchone()
-        if not row:
-            return jsonify({'success': False, 'error': 'Registro no encontrado.'}), 404
-        conn.execute(
-            """UPDATE ejecuciones_no_reportadas
-               SET estado = ?, justificacion = ?, registrado_por = ?
-               WHERE id = ?""",
-            (estado, justificacion, current_user.id, nr_id)
-        )
-        _log_actividad(conn, current_user.id, 'justificar_no_reportada',
-                       f'No reportada id={nr_id} → estado: {estado}')
-        conn.commit()
-    finally:
-        conn.close()
-    return jsonify({'success': True, 'estado': estado})
-
-
-@app.route('/admin/no-reportada/<int:nr_id>/eliminar', methods=['POST'])
-@admin_required
-def admin_no_reportada_eliminar(nr_id):
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT id, vehiculo FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,)
-        ).fetchone()
-        if not row:
-            return jsonify({'success': False, 'error': 'Registro no encontrado.'}), 404
-        conn.execute("DELETE FROM ejecuciones_no_reportadas WHERE id = ?", (nr_id,))
-        conn.execute(
-            """INSERT INTO log_actividad (usuario_id, accion_tipo, detalle, ip_address, timestamp)
-               VALUES (?, 'eliminar_no_reportada', ?, ?, ?)""",
-            (current_user.id,
-             f'Eliminado registro no_reportada id={nr_id} vehiculo={row["vehiculo"]}',
-             request.remote_addr,
-             datetime.now(TZ_COL).isoformat())
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    return jsonify({'success': True})
-
-
 # ---------------------------------------------------------------------------
 # Admin — Planeación Predictiva de Repuestos
 # ---------------------------------------------------------------------------
@@ -3546,43 +3437,6 @@ def admin_planeacion():
         repuestos=repuestos,
         error_calc=error_calc,
     )
-
-
-@app.route('/admin/planeacion/promedio/<familia>', methods=['POST'])
-@login_required
-@admin_required
-def admin_planeacion_promedio(familia):
-    data = request.get_json(silent=True) or {}
-    hpd_raw = data.get('horas_promedio_dia')
-    kpd_raw = data.get('km_promedio_dia')
-
-    def to_float(v):
-        if v is None or str(v).strip() == '':
-            return None
-        try:
-            f = float(v)
-            return f if f > 0 else None
-        except (ValueError, TypeError):
-            return None
-
-    hpd = to_float(hpd_raw)
-    kpd = to_float(kpd_raw)
-    now = datetime.now(TZ_COL).isoformat()
-
-    conn = get_db()
-    conn.execute(
-        """INSERT INTO promedios_familia (familia, horas_promedio_dia, km_promedio_dia, timestamp, actualizado_por)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(familia) DO UPDATE SET
-               horas_promedio_dia = excluded.horas_promedio_dia,
-               km_promedio_dia    = excluded.km_promedio_dia,
-               timestamp          = excluded.timestamp,
-               actualizado_por    = excluded.actualizado_por""",
-        (familia, hpd, kpd, now, current_user.id)
-    )
-    conn.commit()
-    conn.close()
-    return {'ok': True, 'familia': familia}
 
 
 @app.route('/admin/planeacion/exportar')
@@ -3675,6 +3529,137 @@ def admin_planeacion_exportar():
 # ---------------------------------------------------------------------------
 # Dev
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# v2 — Admin solicita equipos motorizados al CIO
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/solicitar', methods=['GET'])
+@admin_required
+def admin_solicitar():
+    """Admin (planeador) selecciona motorizados en riesgo y los envía al CIO."""
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+    if not sync_id:
+        conn.close()
+        flash('No hay sincronización de programación. Sube el Excel primero.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    _ESTADOS_RIESGO = ('Vencido por tiempo', 'Vencido por medidor', 'Próximo', 'En tolerancia')
+
+    equipos = conn.execute(
+        """SELECT e.id, e.vehiculo, e.categoria, e.familia, e.rutina,
+                  e.desviacion, e.ind_desviacion, e.estado_mp, e.tipo_ot,
+                  CASE WHEN EXISTS (
+                      SELECT 1 FROM solicitudes s
+                      WHERE s.equipo_id = e.id AND s.sync_id = ?
+                  ) THEN 1 ELSE 0 END AS ya_solicitado,
+                  CASE WHEN EXISTS (
+                      SELECT 1 FROM filtros_equipo f
+                      WHERE UPPER(f.equipo) = UPPER(e.vehiculo)
+                  ) THEN 1 ELSE 0 END AS tiene_filtros
+           FROM equipos e
+           WHERE e.sync_id = ?
+             AND COALESCE(e.tipo_rutina, 'principal') = 'principal'
+             AND e.estado_mp IN ({})
+             AND (e.categoria IS NULL OR LOWER(e.categoria) NOT LIKE '%no motoriz%')
+           ORDER BY
+               CASE e.estado_mp
+                   WHEN 'Vencido por tiempo'  THEN 1
+                   WHEN 'Vencido por medidor' THEN 2
+                   WHEN 'En tolerancia'       THEN 3
+                   WHEN 'Próximo'             THEN 4
+                   ELSE 5
+               END,
+               e.ind_desviacion DESC,
+               e.vehiculo""".format(','.join('?' * len(_ESTADOS_RIESGO))),
+        (sync_id, sync_id) + _ESTADOS_RIESGO
+    ).fetchall()
+
+    familias = sorted({e['familia'] for e in equipos if e['familia']})
+    conn.close()
+
+    return render_template('admin/solicitar.html',
+        equipos=[dict(e) for e in equipos],
+        familias=familias,
+        current_sync_id=sync_id,
+    )
+
+
+@app.route('/admin/solicitar', methods=['POST'])
+@admin_required
+def admin_solicitar_crear():
+    """Crea una solicitud individual. Body JSON: {equipo_id: int}."""
+    data = request.get_json(force=True, silent=True) or {}
+    equipo_id = data.get('equipo_id')
+    if not equipo_id:
+        return jsonify({'success': False, 'error': 'equipo_id requerido'}), 400
+
+    conn = get_db()
+    try:
+        eq = conn.execute(
+            "SELECT id, vehiculo, sync_id FROM equipos WHERE id = ?", (equipo_id,)
+        ).fetchone()
+        if not eq:
+            return jsonify({'success': False, 'error': 'Equipo no encontrado'}), 404
+
+        ya = conn.execute(
+            "SELECT id FROM solicitudes WHERE equipo_id = ? AND sync_id = ?",
+            (equipo_id, eq['sync_id'])
+        ).fetchone()
+        if ya:
+            return jsonify({'success': False, 'error': 'Ya solicitado en este ciclo'}), 400
+
+        conn.execute(
+            """INSERT INTO solicitudes (equipo_id, solicitado_por, fecha_solicitud, sync_id, estado)
+               VALUES (?, ?, ?, ?, 'pendiente')""",
+            (equipo_id, current_user.id, datetime.now(TZ_COL).isoformat(), eq['sync_id'])
+        )
+        _log_actividad(conn, current_user.id, 'admin_solicitar',
+                       f'Solicitud creada para {eq["vehiculo"]} (equipo_id={equipo_id})')
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/cio/no-motorizados')
+@login_required
+def cio_no_motorizados():
+    """Vista visual del CIO para no motorizados en riesgo. Checks son locales (no persisten)."""
+    if current_user.rol not in ('cio', 'admin', 'superadmin'):
+        flash('Sin permiso.', 'error')
+        return redirect(url_for('index'))
+
+    conn = get_db()
+    sync_id = _current_sync_id(conn)
+    if not sync_id:
+        conn.close()
+        return render_template('cio/no_motorizados.html', equipos=[], current_sync_id=None)
+
+    _ESTADOS_RIESGO = ('Vencido por tiempo', 'Vencido por medidor', 'Próximo', 'En tolerancia')
+
+    equipos = conn.execute(
+        """SELECT e.id, e.vehiculo, e.categoria, e.familia, e.rutina,
+                  e.desviacion, e.ind_desviacion, e.estado_mp
+           FROM equipos e
+           WHERE e.sync_id = ?
+             AND COALESCE(e.tipo_rutina, 'principal') = 'principal'
+             AND e.estado_mp IN ({})
+             AND LOWER(e.categoria) LIKE '%no motoriz%'
+           ORDER BY e.ind_desviacion DESC, e.vehiculo""".format(
+               ','.join('?' * len(_ESTADOS_RIESGO))
+           ),
+        (sync_id,) + _ESTADOS_RIESGO
+    ).fetchall()
+
+    conn.close()
+    return render_template('cio/no_motorizados.html',
+        equipos=[dict(e) for e in equipos],
+        current_sync_id=sync_id,
+    )
+
 
 if __name__ == '__main__':
     os.makedirs('data', exist_ok=True)

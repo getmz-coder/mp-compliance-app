@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Equipos al CIO — Seguimiento MP GET{% endblock %}
+
+{% block styles %}
+<style>
+  :root {
+    --azul: #002D6E; --verde: #80AE3F; --cielo: #1E88E5;
+    --ambar: #E67E22; --fondo: #F0F2F5; --gris: #6b7280;
+    --rojo: #dc2626;
+  }
+
+  .sol-page { max-width: 1200px; margin: 28px auto 60px; padding: 0 20px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--cielo); text-decoration: none; font-size: 13px;
+    font-weight: 500; margin-bottom: 14px;
+  }
+  .back-link:hover { text-decoration: underline; }
+  .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  .page-title { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-sub { font-size: 13.5px; color: var(--gris); margin-top: 5px; line-height: 1.5; }
+
+  .card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0, 45, 110, 0.09);
+    margin-top: 20px; overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 22px 14px; border-bottom: 1px solid #f3f4f6;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .card-header h2 { font-size: 15px; font-weight: 700; color: var(--azul); margin: 0; }
+
+  .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+  .filter-input, .filter-select {
+    padding: 7px 12px; font-size: 13px;
+    border: 1px solid #d1d5db; border-radius: 7px;
+    background: #fff; outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-input:focus, .filter-select:focus { border-color: var(--cielo); box-shadow: 0 0 0 2px rgba(30,136,229,0.15); }
+
+  .kpi-bar {
+    display: flex; gap: 14px; padding: 14px 22px;
+    background: #fafbfc; border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+  }
+  .kpi-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 20px; font-weight: 600;
+  }
+  .kpi-chip .num { color: var(--azul); }
+  .kpi-chip.warn .num { color: var(--ambar); }
+  .kpi-chip.danger .num { color: var(--rojo); }
+
+  .tbl-wrap { overflow-x: auto; }
+  .sol-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sol-tbl thead th {
+    background: var(--azul); color: #fff;
+    padding: 10px 12px; font-weight: 600; font-size: 12px;
+    text-align: left; position: sticky; top: 0; z-index: 2;
+  }
+  .sol-tbl tbody td {
+    padding: 8px 12px; border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .sol-tbl tbody tr:hover td { background: #f0f7ff; }
+  .sol-tbl tbody tr.ya-solicitado td { background: #f0fdf4; color: #6b7280; }
+  .sol-tbl tbody tr.ya-solicitado:hover td { background: #e6f7de; }
+
+  .chip {
+    display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 700;
+    border-radius: 10px; letter-spacing: 0.2px;
+  }
+  .chip-vencido-t { background: #fee2e2; color: var(--rojo); }
+  .chip-vencido-m { background: #fee2e2; color: var(--rojo); }
+  .chip-tolerancia { background: #fef3c7; color: #92400e; }
+  .chip-proximo { background: #fffbeb; color: #a16207; }
+
+  .icon-warn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fef3c7; color: #92400e;
+    cursor: help;
+  }
+  .icon-warn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+  .icon-ok {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; color: #16a34a;
+  }
+  .icon-ok svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+  .btn-solicitar {
+    padding: 5px 14px; font-size: 12px; font-weight: 600;
+    background: var(--azul); color: #fff; border: none;
+    border-radius: 6px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-solicitar:hover { background: #003580; }
+  .btn-solicitar:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-solicitado {
+    padding: 5px 14px; font-size: 12px; font-weight: 600;
+    background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+    border-radius: 6px; cursor: default;
+  }
+
+  .status-msg { font-size: 11.5px; margin-left: 6px; }
+  .status-ok { color: var(--verde); }
+  .status-err { color: var(--rojo); }
+
+  .empty-state {
+    text-align: center; padding: 40px 24px;
+    color: var(--gris); font-size: 13.5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sol-page">
+
+  <a href="{{ url_for('admin_dashboard') }}" class="back-link">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver al panel
+  </a>
+
+  <h1 class="page-title">Solicitar Equipos al CIO</h1>
+  <p class="page-sub">
+    Seleccione los equipos motorizados que requiere ingresar a taller para MP.
+    Los CIOs recibirán solo los que usted marque como solicitados.
+    El ícono <span class="icon-warn"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17.02l.01-.011M4.93 19h14.14a2 2 0 0 0 1.73-3l-7.07-12.25a2 2 0 0 0-3.46 0L3.2 16a2 2 0 0 0 1.73 3z"/></svg></span>
+    advierte que el vehículo no tiene filtros registrados en el maestro.
+  </p>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Equipos motorizados en zona de riesgo</h2>
+      <div class="filters">
+        <input type="text" id="f-vehiculo" class="filter-input" placeholder="Buscar vehículo..." style="width:180px;">
+        <select id="f-familia" class="filter-select">
+          <option value="">Todas las familias</option>
+          {% for f in familias %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+        </select>
+        <select id="f-estado" class="filter-select">
+          <option value="">Todos los estados</option>
+          <option value="Vencido por tiempo">Vencido por tiempo</option>
+          <option value="Vencido por medidor">Vencido por medidor</option>
+          <option value="En tolerancia">En tolerancia</option>
+          <option value="Próximo">Próximo</option>
+        </select>
+        <label class="filter-select" style="display:flex; align-items:center; gap:6px; padding: 6px 10px; cursor:pointer;">
+          <input type="checkbox" id="f-ocultar-solicitados" style="margin:0;"> Ocultar ya solicitados
+        </label>
+      </div>
+    </div>
+
+    <div class="kpi-bar" id="kpi-bar">
+      <span class="kpi-chip">Total: <span class="num" id="kpi-total">{{ equipos|length }}</span></span>
+      <span class="kpi-chip">Ya solicitados: <span class="num" id="kpi-solic">{{ equipos|selectattr('ya_solicitado')|list|length }}</span></span>
+      <span class="kpi-chip warn">Sin filtros: <span class="num" id="kpi-sin-filtros">{{ equipos|rejectattr('tiene_filtros')|list|length }}</span></span>
+    </div>
+
+    <div class="tbl-wrap">
+      {% if equipos %}
+      <table class="sol-tbl" id="sol-tbl">
+        <thead>
+          <tr>
+            <th style="width:110px;">Vehículo</th>
+            <th>Familia</th>
+            <th>Rutina</th>
+            <th style="width:150px;">Estado MP</th>
+            <th style="width:110px;">Desviación</th>
+            <th style="width:80px;">Ind.</th>
+            <th style="width:70px;text-align:center;">Filtros</th>
+            <th style="width:140px;">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in equipos %}
+          <tr data-id="{{ e.id }}"
+              data-vehiculo="{{ e.vehiculo|upper }}"
+              data-familia="{{ e.familia or '' }}"
+              data-estado="{{ e.estado_mp or '' }}"
+              class="{{ 'ya-solicitado' if e.ya_solicitado else '' }}">
+            <td><strong>{{ e.vehiculo }}</strong></td>
+            <td>{{ e.familia or '—' }}</td>
+            <td style="font-size:12px;max-width:280px;">{{ e.rutina or '—' }}</td>
+            <td>
+              {% if e.estado_mp == 'Vencido por tiempo' %}<span class="chip chip-vencido-t">Vencido por tiempo</span>
+              {% elif e.estado_mp == 'Vencido por medidor' %}<span class="chip chip-vencido-m">Vencido por medidor</span>
+              {% elif e.estado_mp == 'En tolerancia' %}<span class="chip chip-tolerancia">En tolerancia</span>
+              {% elif e.estado_mp == 'Próximo' %}<span class="chip chip-proximo">Próximo</span>
+              {% else %}{{ e.estado_mp or '—' }}{% endif %}
+            </td>
+            <td>{{ e.desviacion or '—' }}</td>
+            <td>{{ '%.2f'|format(e.ind_desviacion) if e.ind_desviacion is not none else '—' }}</td>
+            <td style="text-align:center;">
+              {% if e.tiene_filtros %}
+                <span class="icon-ok" title="Filtros registrados"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+              {% else %}
+                <span class="icon-warn" title="Este vehículo no tiene filtros registrados en el maestro"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17.02l.01-.011M4.93 19h14.14a2 2 0 0 0 1.73-3l-7.07-12.25a2 2 0 0 0-3.46 0L3.2 16a2 2 0 0 0 1.73 3z"/></svg></span>
+              {% endif %}
+            </td>
+            <td>
+              {% if e.ya_solicitado %}
+                <span class="btn-solicitado">✓ Solicitado</span>
+              {% else %}
+                <button class="btn-solicitar" onclick="solicitar({{ e.id }}, this)">Solicitar</button>
+                <span class="status-msg" data-id="st-{{ e.id }}"></span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>No hay equipos motorizados en zona de riesgo en el ciclo actual.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function getCsrfToken() {
+  var m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.getAttribute('content') : '';
+}
+
+function solicitar(equipoId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  var stEl = btn.parentElement.querySelector('.status-msg');
+
+  fetch('{{ url_for("admin_solicitar_crear") }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': getCsrfToken()
+    },
+    body: JSON.stringify({ equipo_id: equipoId })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      var row = btn.closest('tr');
+      row.classList.add('ya-solicitado');
+      btn.outerHTML = '<span class="btn-solicitado">✓ Solicitado</span>';
+      if (stEl) stEl.textContent = '';
+      // Actualizar contador
+      var kpiSolic = document.getElementById('kpi-solic');
+      if (kpiSolic) kpiSolic.textContent = parseInt(kpiSolic.textContent) + 1;
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Solicitar';
+      if (stEl) { stEl.textContent = data.error || 'Error'; stEl.className = 'status-msg status-err'; }
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Solicitar';
+    if (stEl) { stEl.textContent = 'Error de red'; stEl.className = 'status-msg status-err'; }
+  });
+}
+
+// Filtros en el cliente
+function aplicarFiltros() {
+  var fVeh = (document.getElementById('f-vehiculo').value || '').toUpperCase().trim();
+  var fFam = document.getElementById('f-familia').value;
+  var fEst = document.getElementById('f-estado').value;
+  var ocultar = document.getElementById('f-ocultar-solicitados').checked;
+
+  var rows = document.querySelectorAll('#sol-tbl tbody tr');
+  var visibles = 0;
+  rows.forEach(function(tr) {
+    var okVeh = !fVeh || (tr.dataset.vehiculo || '').indexOf(fVeh) !== -1;
+    var okFam = !fFam || tr.dataset.familia === fFam;
+    var okEst = !fEst || tr.dataset.estado === fEst;
+    var okOcultar = !ocultar || !tr.classList.contains('ya-solicitado');
+    var visible = okVeh && okFam && okEst && okOcultar;
+    tr.style.display = visible ? '' : 'none';
+    if (visible) visibles++;
+  });
+  var kpiTotal = document.getElementById('kpi-total');
+  if (kpiTotal) kpiTotal.textContent = visibles;
+}
+
+['f-vehiculo', 'f-familia', 'f-estado', 'f-ocultar-solicitados'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', aplicarFiltros);
+  if (el) el.addEventListener('change', aplicarFiltros);
+});
+</script>
+{% endblock %}
+
+{% block help_tips %}
+<li>Solicite los equipos que requiera enviar a taller para MP</li>
+<li>El ícono amarillo indica vehículos sin filtros registrados — verifique disponibilidad antes de solicitar</li>
+<li>Al hacer sync del día siguiente, las solicitudes sin respuesta se cierran automáticamente</li>
+{% endblock %}

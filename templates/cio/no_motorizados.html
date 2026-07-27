@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Equipos No Motorizados — Seguimiento MP GET{% endblock %}
+
+{% block styles %}
+<style>
+  :root {
+    --azul: #002D6E; --verde: #80AE3F; --cielo: #1E88E5;
+    --ambar: #E67E22; --fondo: #F0F2F5; --gris: #6b7280;
+    --rojo: #dc2626;
+  }
+
+  .nm-page { max-width: 1100px; margin: 28px auto 60px; padding: 0 20px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--cielo); text-decoration: none; font-size: 13px;
+    font-weight: 500; margin-bottom: 14px;
+  }
+  .back-link:hover { text-decoration: underline; }
+  .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  .page-title { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-sub { font-size: 13.5px; color: var(--gris); margin-top: 5px; line-height: 1.5; }
+
+  .info-banner {
+    background: #eff6ff; border-left: 4px solid var(--cielo);
+    padding: 12px 18px; margin-top: 16px; border-radius: 8px;
+    font-size: 13px; color: #1e40af;
+  }
+
+  .card {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0, 45, 110, 0.09);
+    margin-top: 20px; overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 22px 14px; border-bottom: 1px solid #f3f4f6;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .card-header h2 { font-size: 15px; font-weight: 700; color: var(--azul); margin: 0; }
+
+  .kpi-mini {
+    margin-left: auto; display: flex; gap: 10px; font-size: 13px; color: var(--gris);
+  }
+  .kpi-mini b { color: var(--azul); }
+
+  .tbl-wrap { overflow-x: auto; }
+  .nm-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .nm-tbl thead th {
+    background: var(--azul); color: #fff;
+    padding: 10px 12px; font-weight: 600; font-size: 12px;
+    text-align: left; position: sticky; top: 0; z-index: 2;
+  }
+  .nm-tbl tbody td {
+    padding: 8px 12px; border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .nm-tbl tbody tr:hover td { background: #f0f7ff; }
+  .nm-tbl tbody tr.checked td { background: #f0fdf4; color: #6b7280; }
+  .nm-tbl tbody tr.checked:hover td { background: #e6f7de; }
+
+  .chip {
+    display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 700;
+    border-radius: 10px;
+  }
+  .chip-vencido-t { background: #fee2e2; color: var(--rojo); }
+  .chip-vencido-m { background: #fee2e2; color: var(--rojo); }
+  .chip-tolerancia { background: #fef3c7; color: #92400e; }
+  .chip-proximo { background: #fffbeb; color: #a16207; }
+
+  .chk-local {
+    width: 18px; height: 18px; cursor: pointer;
+    accent-color: var(--verde);
+  }
+
+  .empty-state {
+    text-align: center; padding: 40px 24px;
+    color: var(--gris); font-size: 13.5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="nm-page">
+
+  <a href="{{ url_for('index') }}" class="back-link">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver al inicio
+  </a>
+
+  <h1 class="page-title">Equipos No Motorizados</h1>
+  <p class="page-sub">
+    Listado de equipos no motorizados en zona de riesgo del ciclo actual.
+    Los checks son de uso interno del CIO — no se guardan en el sistema.
+  </p>
+
+  <div class="info-banner">
+    <strong>Importante:</strong> Los no motorizados no requieren solicitud formal de admin.
+    Marque los checks para su propio seguimiento; se reinician al recargar.
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Equipos no motorizados en zona de riesgo</h2>
+      <div class="kpi-mini">
+        <span>Total: <b>{{ equipos|length }}</b></span>
+        <span>Marcados: <b id="nm-marcados">0</b></span>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      {% if equipos %}
+      <table class="nm-tbl" id="nm-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px;text-align:center;"></th>
+            <th style="width:110px;">Vehículo</th>
+            <th>Familia</th>
+            <th>Rutina</th>
+            <th style="width:150px;">Estado MP</th>
+            <th style="width:110px;">Desviación</th>
+            <th style="width:80px;">Ind.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in equipos %}
+          <tr data-id="{{ e.id }}">
+            <td style="text-align:center;">
+              <input type="checkbox" class="chk-local" onchange="marcar(this)">
+            </td>
+            <td><strong>{{ e.vehiculo }}</strong></td>
+            <td>{{ e.familia or '—' }}</td>
+            <td style="font-size:12px;max-width:280px;">{{ e.rutina or '—' }}</td>
+            <td>
+              {% if e.estado_mp == 'Vencido por tiempo' %}<span class="chip chip-vencido-t">Vencido por tiempo</span>
+              {% elif e.estado_mp == 'Vencido por medidor' %}<span class="chip chip-vencido-m">Vencido por medidor</span>
+              {% elif e.estado_mp == 'En tolerancia' %}<span class="chip chip-tolerancia">En tolerancia</span>
+              {% elif e.estado_mp == 'Próximo' %}<span class="chip chip-proximo">Próximo</span>
+              {% else %}{{ e.estado_mp or '—' }}{% endif %}
+            </td>
+            <td>{{ e.desviacion or '—' }}</td>
+            <td>{{ '%.2f'|format(e.ind_desviacion) if e.ind_desviacion is not none else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>No hay equipos no motorizados en zona de riesgo en el ciclo actual.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function marcar(cb) {
+  var tr = cb.closest('tr');
+  if (cb.checked) tr.classList.add('checked');
+  else tr.classList.remove('checked');
+
+  var marcadosEl = document.getElementById('nm-marcados');
+  if (marcadosEl) {
+    var total = document.querySelectorAll('#nm-tbl tbody input:checked').length;
+    marcadosEl.textContent = total;
+  }
+}
+</script>
+{% endblock %}
