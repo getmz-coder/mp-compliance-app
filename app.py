@@ -1685,140 +1685,76 @@ def admin_motivo_toggle(motivo_id):
 @app.route('/cio')
 @cio_required
 def cio_dashboard():
+    # v2-cio-only-admin-solicitados — CIO ve solo motorizados con solicitud pendiente enviada por admin
+    if current_user.rol not in ('cio', 'admin', 'superadmin'):
+        flash('Sin permiso.', 'error')
+        return redirect(url_for('index'))
+
     conn = get_db()
     sync_id = _current_sync_id(conn)
-
     equipos_grouped = []
     familias, estados, categorias, estados_vehiculo = [], [], [], []
     total = vencidos = proximos = ya_solicitados = ejecutados_count = pendientes_respuesta = 0
     ultima_actualizacion = None
 
     if sync_id:
-        rows_sol = conn.execute(
-            """SELECT s.id, s.equipo_id, s.estado, e.vehiculo,
-                      r.accion, m.descripcion AS motivo_desc, r.comentario_libre
-               FROM solicitudes s
-               JOIN equipos e ON e.id = s.equipo_id
-               LEFT JOIN respuestas r ON r.solicitud_id = s.id
-               LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
-               WHERE s.sync_id = ?""",
-            (sync_id,)
-        ).fetchall()
-
-        sol_by_equipo = {}
-        for row in rows_sol:
-            eid = row['equipo_id']
-            existing = sol_by_equipo.get(eid)
-            entry = {
-                'sol_id':           row['id'],
-                'estado':           row['estado'],
-                'accion':           row['accion'],
-                'motivo_desc':      row['motivo_desc'],
-                'comentario_libre': row['comentario_libre'],
-            }
-            if existing is None:
-                sol_by_equipo[eid] = entry
-            elif existing['estado'] == 'respondido' and row['estado'] == 'pendiente':
-                sol_by_equipo[eid] = entry
-
-        all_equipos = conn.execute(
-            """SELECT * FROM equipos
-               WHERE sync_id = ?
-               AND estado_mp NOT IN ('En ciclo', 'Sin dato')
-               ORDER BY ind_desviacion DESC""",
+        rows = conn.execute(
+            """SELECT e.*, s.id AS sol_id, s.estado AS sol_estado, s.solicitado_por,
+                      u.nombre_completo AS solicitado_por_nombre
+               FROM equipos e
+               JOIN solicitudes s ON s.equipo_id = e.id
+               LEFT JOIN usuarios u ON u.id = s.solicitado_por
+               WHERE s.sync_id = ?
+                 AND s.estado = 'pendiente'
+                 AND (e.categoria IS NULL OR LOWER(e.categoria) NOT LIKE '%no motoriz%')
+               ORDER BY e.ind_desviacion DESC""",
             (sync_id,)
         ).fetchall()
 
         vehicles = {}
-        for equipo in all_equipos:
-            sol = sol_by_equipo.get(equipo['id'])
-            if sol and sol['accion'] == 'ejecutado' and sol['estado'] == 'respondido':
-                continue
-
+        for equipo in rows:
             v = equipo['vehiculo']
             if v not in vehicles:
                 vehicles[v] = {
-                    'vehiculo':           v,
-                    'familia':            equipo['familia'],
-                    'categoria':          equipo['categoria'],
-                    'estado_vehiculo':    equipo['estado_vehiculo'],
-                    'rutinas':            [],
-                    'ind_desviacion':     equipo['ind_desviacion'],
-                    'desviacion':         equipo['desviacion'],
-                    'estado_mp':          equipo['estado_mp'],
-                    'tipo_ot':            equipo['tipo_ot'],
-                    'tipo_rutina':        equipo['tipo_rutina'] or 'principal',
-                    'equipo_ids':         [],
+                    'vehiculo': v,
+                    'familia': equipo['familia'],
+                    'categoria': equipo['categoria'],
+                    'estado_vehiculo': equipo['estado_vehiculo'],
+                    'rutinas': [],
+                    'ind_desviacion': equipo['ind_desviacion'],
+                    'desviacion': equipo['desviacion'],
+                    'estado_mp': equipo['estado_mp'],
+                    'tipo_ot': equipo['tipo_ot'],
+                    'tipo_rutina': equipo['tipo_rutina'] or 'principal',
+                    'equipo_ids': [],
                     'sol_ids_pendientes': [],
-                    'motivos_no_ej':      [],
-                    '_has_pendiente':     False,
-                    '_has_no_ej':         False,
-                    'fecha_programacion': equipo['fecha_programacion'],
+                    'motivos_no_ej': [],
+                    'sol_state': 'pendiente',
+                    'rutinas_str': '',
+                    'motivo_no_ej_str': '',
+                    'dias_sin_gestionar': 0,
+                    'solicitado_por_nombre': equipo['solicitado_por_nombre'],
                 }
-
             vd = vehicles[v]
             vd['equipo_ids'].append(equipo['id'])
+            vd['sol_ids_pendientes'].append(equipo['sol_id'])
             if equipo['rutina']:
                 vd['rutinas'].append(equipo['rutina'])
-
-            em   = (equipo['estado_mp'] or '').lower()
+            em = (equipo['estado_mp'] or '').lower()
             curr = (vd['estado_mp'] or '').lower()
             if 'vencido' in em and 'vencido' not in curr:
                 vd['estado_mp'] = equipo['estado_mp']
 
-            if sol:
-                if sol['estado'] == 'pendiente':
-                    vd['sol_ids_pendientes'].append(sol['sol_id'])
-                    vd['_has_pendiente'] = True
-                elif sol['accion'] == 'no_ejecutado':
-                    mot = sol['motivo_desc'] or sol['comentario_libre'] or 'Sin motivo'
-                    if mot not in vd['motivos_no_ej']:
-                        vd['motivos_no_ej'].append(mot)
-                    vd['_has_no_ej'] = True
-
-        # Calcular días sin gestionar para vehículos vencidos sin solicitud
-        _today = datetime.now(TZ_COL).date()
-        for _vd in vehicles.values():
-            _vd['dias_sin_gestionar'] = 0
-            if _vd['_has_pendiente'] or _vd['_has_no_ej']:
-                continue
-            if 'vencido' not in (_vd['estado_mp'] or '').lower():
-                continue
-            fp = _vd.get('fecha_programacion')
-            if not fp:
-                continue
-            try:
-                d = datetime.strptime(str(fp)[:10], '%Y-%m-%d').date()
-                diff = (_today - d).days
-                if diff > 0:
-                    _vd['dias_sin_gestionar'] = diff
-            except (ValueError, TypeError):
-                pass
-
         for vd in vehicles.values():
-            if vd['_has_pendiente']:
-                vd['sol_state'] = 'pendiente'
-            elif vd['_has_no_ej']:
-                vd['sol_state'] = 'no_ejecutado'
-            else:
-                vd['sol_state'] = None
-            vd['rutinas_str']      = ', '.join(vd['rutinas'])
-            vd['motivo_no_ej_str'] = ' / '.join(vd['motivos_no_ej'])
-            del vd['_has_pendiente'], vd['_has_no_ej'], vd['fecha_programacion']
+            vd['rutinas_str'] = ', '.join(vd['rutinas'])
 
         def _sk(vd):
-            if vd.get('sol_state') == 'pendiente':
-                prio = 0
-            elif vd.get('sol_state') == 'no_ejecutado':
-                prio = 1
-            else:
-                prio = 2
             try:
                 desv = -(int(str(vd['ind_desviacion']).replace('%', '').strip())
                          if vd['ind_desviacion'] is not None else 0)
             except (ValueError, TypeError):
                 desv = 0
-            return (prio, desv)
+            return desv
 
         equipos_grouped = sorted(vehicles.values(), key=_sk)
 
@@ -1834,28 +1770,15 @@ def cio_dashboard():
                 estados_vehiculo.append(vd['estado_vehiculo']); _seen['eveh'].add(vd['estado_vehiculo'])
         familias.sort(); estados.sort(); categorias.sort(); estados_vehiculo.sort()
 
-        total          = len(equipos_grouped)
-        vencidos       = sum(1 for vd in equipos_grouped
-                             if vd['estado_mp'] and 'vencido' in vd['estado_mp'].lower())
-        proximos       = sum(1 for vd in equipos_grouped
-                             if vd['estado_mp'] and
-                             ('próximo' in vd['estado_mp'].lower() or 'proximo' in vd['estado_mp'].lower()))
-        ya_solicitados = sum(1 for vd in equipos_grouped if vd['sol_state'] is not None)
-        pendientes_respuesta = sum(1 for vd in equipos_grouped if vd['sol_state'] == 'pendiente')
-
-        veh_sol_acciones = {}
-        for row in rows_sol:
-            veh = row['vehiculo']
-            if veh not in veh_sol_acciones:
-                veh_sol_acciones[veh] = []
-            if row['accion']:
-                veh_sol_acciones[veh].append(row['accion'])
-
-        ejecutados_count = sum(
-            1 for veh, acciones in veh_sol_acciones.items()
-            if acciones and all(a == 'ejecutado' for a in acciones)
-            and veh not in vehicles
-        )
+        total = len(equipos_grouped)
+        vencidos = sum(1 for vd in equipos_grouped
+                       if vd['estado_mp'] and 'vencido' in vd['estado_mp'].lower())
+        proximos = sum(1 for vd in equipos_grouped
+                       if vd['estado_mp'] and
+                       ('próximo' in vd['estado_mp'].lower() or 'proximo' in vd['estado_mp'].lower()))
+        pendientes_respuesta = total
+        ya_solicitados = total
+        ejecutados_count = 0
 
         row_ult = conn.execute(
             "SELECT fecha_programacion FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
