@@ -25,9 +25,13 @@ EXPORT_FOLDER = os.path.join(_BASE, 'exports')
 
 ESTACIONES_BOG = ['BOG']
 
+# Catálogo inicial de motivos de no ejecución.
+# impacta_a: 'admin' (planeador) | 'cio' (supervisor) | 'externo' (no penaliza)
+# Admin puede cambiar el impacta_a desde /admin/motivos según política del área.
 CATALOGO_MOTIVOS_INICIAL = [
-    {'codigo': 'M01', 'descripcion': 'Operaciones no lo trajo', 'orden': 1},
-    {'codigo': 'M02', 'descripcion': 'Baja disponibilidad de la familia', 'orden': 2},
-    {'codigo': 'M03', 'descripcion': 'Sin repuestos', 'orden': 3},
-    {'codigo': 'M04', 'descripcion': 'Sin personal altamente capacitado (Equipos especiales)', 'orden': 4},
+    {'codigo': 'M01', 'descripcion': 'Operaciones no lo trajo',                          'orden': 1, 'impacta_a': 'externo'},
+    {'codigo': 'M02', 'descripcion': 'Baja disponibilidad de la familia',                'orden': 2, 'impacta_a': 'externo'},
+    {'codigo': 'M03', 'descripcion': 'Sin repuestos',                                    'orden': 3, 'impacta_a': 'externo'},
+    {'codigo': 'M04', 'descripcion': 'Sin personal altamente capacitado (Equipos especiales)', 'orden': 4, 'impacta_a': 'externo'},
+    {'codigo': 'M05', 'descripcion': 'Falta de filtros',                                 'orden': 5, 'impacta_a': 'admin'},
 ]

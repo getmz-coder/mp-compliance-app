@@ -18,18 +18,20 @@ def get_db():
 
 
 def init_db():
-    """Crea todas las tablas si no existen."""
+    """Crea todas las tablas si no existen y aplica migraciones idempotentes."""
     os.makedirs(os.path.dirname(config.DATABASE_PATH), exist_ok=True)
     conn = get_db()
     cur = conn.cursor()
 
     cur.executescript("""
         CREATE TABLE IF NOT EXISTS catalogo_motivos (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            codigo      VARCHAR(10),
-            descripcion VARCHAR(200),
-            activo      BOOLEAN DEFAULT TRUE,
-            orden       INTEGER
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo                VARCHAR(10),
+            descripcion           VARCHAR(200),
+            impacta_a             VARCHAR(20) DEFAULT 'externo',
+            fecha_inicio_registro DATETIME,
+            activo                BOOLEAN DEFAULT TRUE,
+            orden                 INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS usuarios (
@@ -195,6 +197,7 @@ def init_db():
             estado                  VARCHAR(20) DEFAULT 'pendiente',
             justificacion           TEXT,
             registrado_por          INTEGER REFERENCES usuarios(id),
+            tipo_categoria          VARCHAR(20) DEFAULT 'motorizado',
             timestamp               DATETIME
         );
 
@@ -213,11 +216,24 @@ def init_db():
             autorizado_por          INTEGER REFERENCES usuarios(id),
             timestamp               DATETIME
         );
+
+        CREATE TABLE IF NOT EXISTS ciclos_diarios (
+            id                              INTEGER PRIMARY KEY AUTOINCREMENT,
+            sync_id                         INTEGER NOT NULL,
+            fecha_corte                     DATETIME NOT NULL,
+            solicitudes_pendientes_cerradas INTEGER DEFAULT 0,
+            ejec_no_reportadas_motor        INTEGER DEFAULT 0,
+            ejec_no_reportadas_no_motor     INTEGER DEFAULT 0,
+            usuario_id                      INTEGER REFERENCES usuarios(id),
+            timestamp                       DATETIME NOT NULL
+        );
     """)
 
     _migrate_equipos(conn)
     _migrate_respuestas(conn)
     _migrate_planeacion(conn)
+    _migrate_motivos_kpi(conn)
+    _migrate_ejecuciones_no_reportadas(conn)
 
     conn.commit()
     conn.close()
@@ -279,20 +295,66 @@ def _migrate_respuestas(conn):
             cur.execute(f"ALTER TABLE respuestas ADD COLUMN {col} {coltype}")
 
 
+def _migrate_motivos_kpi(conn):
+    """
+    v2 - KPIs por motivo:
+      - impacta_a (admin | cio | externo) para saber a qué rol pega el motivo
+      - fecha_inicio_registro para acumular KPIs desde una fecha específica
+    """
+    cur = conn.cursor()
+    existing = {row[1] for row in cur.execute("PRAGMA table_info(catalogo_motivos)")}
+
+    if 'impacta_a' not in existing:
+        cur.execute(
+            "ALTER TABLE catalogo_motivos ADD COLUMN impacta_a VARCHAR(20) DEFAULT 'externo'"
+        )
+
+    if 'fecha_inicio_registro' not in existing:
+        cur.execute("ALTER TABLE catalogo_motivos ADD COLUMN fecha_inicio_registro DATETIME")
+        # Backfill: los motivos existentes empiezan a contar desde hoy
+        ahora = datetime.now(TZ_COL).isoformat()
+        cur.execute(
+            "UPDATE catalogo_motivos SET fecha_inicio_registro = ? WHERE fecha_inicio_registro IS NULL",
+            (ahora,)
+        )
+
+
+def _migrate_ejecuciones_no_reportadas(conn):
+    """v2 - agrega tipo_categoria (motorizado / no_motorizado) para separar KPIs."""
+    cur = conn.cursor()
+    existing = {row[1] for row in cur.execute("PRAGMA table_info(ejecuciones_no_reportadas)")}
+    if 'tipo_categoria' not in existing:
+        cur.execute(
+            "ALTER TABLE ejecuciones_no_reportadas ADD COLUMN tipo_categoria VARCHAR(20) DEFAULT 'motorizado'"
+        )
+
+
 def seed_motivos():
-    """Inserta los motivos iniciales si aún no existen."""
+    """
+    Inserta los motivos iniciales si aún no existen.
+    Aplica impacta_a y fecha_inicio_registro si vienen definidos en el catálogo.
+    """
     conn = get_db()
     cur = conn.cursor()
+    ahora = datetime.now(TZ_COL).isoformat()
 
     for motivo in config.CATALOGO_MOTIVOS_INICIAL:
         existe = cur.execute(
-            "SELECT 1 FROM catalogo_motivos WHERE codigo = ?",
+            "SELECT id FROM catalogo_motivos WHERE codigo = ?",
             (motivo['codigo'],)
         ).fetchone()
         if not existe:
             cur.execute(
-                "INSERT INTO catalogo_motivos (codigo, descripcion, activo, orden) VALUES (?, ?, 1, ?)",
-                (motivo['codigo'], motivo['descripcion'], motivo['orden'])
+                """INSERT INTO catalogo_motivos
+                       (codigo, descripcion, impacta_a, fecha_inicio_registro, activo, orden)
+                   VALUES (?, ?, ?, ?, 1, ?)""",
+                (
+                    motivo['codigo'],
+                    motivo['descripcion'],
+                    motivo.get('impacta_a', 'externo'),
+                    ahora,
+                    motivo['orden'],
+                )
             )
 
     conn.commit()
@@ -327,10 +389,10 @@ def create_user(username, password, nombre, rol):
 if __name__ == '__main__':
     print("Inicializando base de datos...")
     init_db()
-    print("  Tablas creadas.")
+    print("  Tablas creadas y migraciones aplicadas.")
 
     seed_motivos()
-    print("  Catálogo de motivos cargado.")
+    print("  Catálogo de motivos cargado (con impacta_a y fecha_inicio_registro).")
 
     # IMPORTANTE: cambia estas contraseñas desde el panel de Usuarios antes de ir a producción.
     uid = create_user('admin', 'admin123', 'Administrador Planeación', 'admin')
@@ -339,8 +401,7 @@ if __name__ == '__main__':
     uid = create_user('cio_bog', 'cio123', 'CIO BOG', 'cio')
     print(f"  Usuario cio_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
 
-    uid = create_user('tecnico_bog', 'tec123', 'Técnico BOG', 'tecnico')
-    print(f"  Usuario tecnico_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
+    # Rol 'tecnico' retirado en v2 - ya no se crea usuario por defecto.
 
     uid = create_user('almacen_bog', 'alm123', 'Almacén BOG', 'almacen')
     print(f"  Usuario almacen_bog {'creado (id={})'.format(uid) if uid else 'ya existía'}.")
