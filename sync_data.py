@@ -1,4 +1,13 @@
-"""ETL: sincronización de datos desde archivos Excel hacia SQLite."""
+"""ETL: sincronización de datos desde archivos Excel hacia SQLite.
+
+v2 — Ciclo diario:
+  Si el último sync fue hace >= 20 hr, se hace CORTE DIARIO al inicio del nuevo:
+    - Solicitudes pendientes sin respuesta → estado='sin_respuesta'
+    - Ejecuciones no reportadas pendientes → estado='cerrado_ciclo'
+    - Se registra el corte en tabla ciclos_diarios
+  Ejecuciones no reportadas ahora se etiquetan con tipo_categoria (motorizado / no_motorizado)
+  según la categoría del vehículo en el maestro.
+"""
 import logging
 import re
 import unicodedata
@@ -19,9 +28,11 @@ COLS_HOMOLOGOS = ['Grupo', 'Estado', 'Codigo SAP', 'Descripcion']
 
 COLS_FRECUENCIAS = ['rutina', 'frecuencia_medidor', 'frecuencia_dias']
 
+# Umbral (en horas) para disparar el corte diario del ciclo de planeación.
+HORAS_CORTE_DIARIO = 20
+
 # Sinónimos para normalización de cabeceras
 _COL_SYNONYMS = {
-    # Ubicaciones
     'descripcion': 'nombre',
     'articulo': 'nombre',
     'nombre_articulo': 'nombre',
@@ -29,10 +40,8 @@ _COL_SYNONYMS = {
     'ubicacion_almacen': 'ubicacion',
     'codigo_sap': 'codigo_sap',
     'sap': 'codigo_sap',
-    # Frecuencias
     'frecuencia_medidor': 'frecuencia_medidor',
     'frecuencia_dias': 'frecuencia_dias',
-    # Programación
     'indice_desviacion': 'ind_desviacion',
     'ind_desviacion': 'ind_desviacion',
     'desv_medidor': 'desv_medidor',
@@ -45,11 +54,9 @@ _COL_SYNONYMS = {
 def _normalize_col_name(name):
     """Normaliza nombre de columna: strip, lower, sin tildes, espacios→_, sinónimos."""
     s = str(name).strip()
-    # Remover tildes
     s = ''.join(c for c in unicodedata.normalize('NFD', s)
                 if unicodedata.category(c) != 'Mn')
     s = s.lower().replace(' ', '_')
-    # Aplicar sinónimo si existe
     return _COL_SYNONYMS.get(s, s)
 
 
@@ -60,13 +67,7 @@ def _normalize_columns(df):
 
 
 def clasificar_rutina(nombre_rutina, frecuencia_medidor=None, frecuencia_dias=None):
-    """
-    Clasifica una rutina como 'principal' o 'verificacion'.
-    Reglas (en orden, primera que coincida):
-    1. Nombre contiene 'PRUEBA DE SERVICIO' → verificacion
-    2. Frecuencia ≤200h con días <30 → verificacion
-    3. Default → principal
-    """
+    """Clasifica una rutina como 'principal' o 'verificacion'."""
     nombre_upper = (nombre_rutina or '').upper()
     if 'PRUEBA DE SERVICIO' in nombre_upper:
         return 'verificacion'
@@ -100,14 +101,111 @@ def _get_col(row, *names):
     return None
 
 
+def _es_no_motorizado(categoria):
+    """
+    Determina si una categoría de vehículo corresponde a 'no motorizado'.
+    Case-insensitive, tolerante a variaciones de espacios/tildes.
+    """
+    if not categoria:
+        return False
+    return 'no motoriz' in categoria.lower().strip()
+
+
+def _tipo_categoria_from(categoria):
+    """Retorna 'no_motorizado' o 'motorizado' según la categoría de equipos."""
+    return 'no_motorizado' if _es_no_motorizado(categoria) else 'motorizado'
+
+
+def _aplicar_corte_diario(cur, sync_id, ahora):
+    """
+    Cierra el ciclo del día anterior si aplica.
+
+    Retorna dict con contadores:
+      {'aplicado': bool, 'solicitudes_cerradas': int,
+       'ejec_motor_cerradas': int, 'ejec_no_motor_cerradas': int,
+       'horas_transcurridas': float | None}
+    """
+    resultado = {
+        'aplicado': False,
+        'solicitudes_cerradas': 0,
+        'ejec_motor_cerradas': 0,
+        'ejec_no_motor_cerradas': 0,
+        'horas_transcurridas': None,
+    }
+
+    # Última fecha de sync registrada
+    last_ts_row = cur.execute(
+        "SELECT MAX(sync_timestamp) AS ts FROM equipos WHERE sync_timestamp IS NOT NULL"
+    ).fetchone()
+    if not last_ts_row or not last_ts_row['ts']:
+        return resultado
+
+    try:
+        last_dt = datetime.fromisoformat(last_ts_row['ts'])
+    except (ValueError, TypeError):
+        return resultado
+
+    horas = (ahora - last_dt).total_seconds() / 3600.0
+    resultado['horas_transcurridas'] = horas
+
+    if horas < HORAS_CORTE_DIARIO:
+        return resultado
+
+    # 1. Cerrar solicitudes pendientes SIN respuesta como 'sin_respuesta'
+    cur.execute(
+        """UPDATE solicitudes
+           SET estado = 'sin_respuesta'
+           WHERE estado = 'pendiente'
+             AND id NOT IN (
+                 SELECT solicitud_id FROM respuestas
+                 WHERE solicitud_id IS NOT NULL
+             )"""
+    )
+    resultado['solicitudes_cerradas'] = cur.rowcount
+
+    # 2. Cerrar ejecuciones no reportadas pendientes → 'cerrado_ciclo'
+    #    Separado por tipo_categoria para poder contar cada uno
+    cur.execute(
+        """UPDATE ejecuciones_no_reportadas
+           SET estado = 'cerrado_ciclo'
+           WHERE estado = 'pendiente'
+             AND tipo_categoria = 'motorizado'"""
+    )
+    resultado['ejec_motor_cerradas'] = cur.rowcount
+
+    cur.execute(
+        """UPDATE ejecuciones_no_reportadas
+           SET estado = 'cerrado_ciclo'
+           WHERE estado = 'pendiente'
+             AND (tipo_categoria = 'no_motorizado' OR tipo_categoria IS NULL)"""
+    )
+    resultado['ejec_no_motor_cerradas'] = cur.rowcount
+
+    # 3. Registrar el corte en ciclos_diarios
+    cur.execute(
+        """INSERT INTO ciclos_diarios
+               (sync_id, fecha_corte, solicitudes_pendientes_cerradas,
+                ejec_no_reportadas_motor, ejec_no_reportadas_no_motor,
+                usuario_id, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (sync_id, ahora.isoformat(),
+         resultado['solicitudes_cerradas'],
+         resultado['ejec_motor_cerradas'],
+         resultado['ejec_no_motor_cerradas'],
+         None,
+         ahora.isoformat())
+    )
+
+    resultado['aplicado'] = True
+    return resultado
+
+
 def sync_programacion(filepath):
     """
     Lee Excel de programación MP (soporta formato v2 y v3).
-    v2: hoja Programacion_preventivos, 14 columnas, ind_desviacion entero
-    v3: hoja Sheet1, 11 columnas, Ind_desviacion decimal, +tipo_ot, -4 columnas
     Hace UPSERT en tabla equipos basado en consecutivo.
+    Aplica corte diario si han pasado >= 20 hr desde el último sync.
     """
-    # Detectar hoja automáticamente
     xls = pd.ExcelFile(filepath)
     if 'Programacion_preventivos' in xls.sheet_names:
         sheet = 'Programacion_preventivos'
@@ -130,8 +228,7 @@ def sync_programacion(filepath):
 
     df = df[df['consecutivo'].map(lambda x: _clean(x) is not None)]
 
-    # H-NEW-06: Detectar si el Excel es idéntico al último sync
-    # Fingerprint = hash de consecutivos + desviaciones + estados
+    # Fingerprint (idempotencia)
     import hashlib
     fingerprint_parts = []
     for _, row in df.iterrows():
@@ -145,8 +242,8 @@ def sync_programacion(filepath):
 
     conn = get_db()
     cur = conn.cursor()
+    ahora_dt = datetime.now(TZ_COL)
 
-    # Verificar fingerprint del último sync
     ciclo_reusado = False
     last_sync = cur.execute(
         "SELECT sync_id FROM equipos ORDER BY sync_timestamp DESC LIMIT 1"
@@ -165,23 +262,25 @@ def sync_programacion(filepath):
                 pass
 
     if last_fingerprint and last_fingerprint == fingerprint and last_sync:
-        # Mismo archivo — reusar ciclo existente
         sync_id = last_sync['sync_id']
         ciclo_reusado = True
     else:
-        sync_id = int(datetime.now(TZ_COL).timestamp())
+        sync_id = int(ahora_dt.timestamp())
 
-    sync_timestamp = datetime.now(TZ_COL).isoformat()
+    # === CORTE DIARIO (independiente del reuse de ciclo) ===
+    # Si han pasado >= 20 hr desde el último sync, cerramos ciclo anterior.
+    corte = _aplicar_corte_diario(cur, sync_id, ahora_dt)
+
+    sync_timestamp = ahora_dt.isoformat()
     nuevos = 0
     actualizados = 0
 
     # Snapshot de vehículos en zona de riesgo ANTES del UPSERT
-    # Zona de riesgo = estado_mp indica que requiere atención
     _ESTADOS_RIESGO = ('Vencido por tiempo', 'Vencido por medidor', 'Próximo', 'En tolerancia')
     prev_en_riesgo = {}
     for r in cur.execute(
         """SELECT vehiculo, ind_desviacion AS ind,
-                  familia, rutina, sync_id, estado_mp
+                  familia, rutina, categoria, sync_id, estado_mp
            FROM equipos
            WHERE estado_mp IN ({})
              AND vehiculo IS NOT NULL""".format(','.join('?' * len(_ESTADOS_RIESGO))),
@@ -191,15 +290,16 @@ def sync_programacion(filepath):
         ind = float(r['ind']) if r['ind'] is not None else -999
         if v not in prev_en_riesgo or ind > (prev_en_riesgo[v]['ind'] or -999):
             prev_en_riesgo[v] = {
-                'ind':     ind,
-                'familia': r['familia'],
-                'rutina':  r['rutina'],
-                'sync_id': r['sync_id'],
+                'ind':       ind,
+                'familia':   r['familia'],
+                'rutina':    r['rutina'],
+                'categoria': r['categoria'],  # v2 — para tipo_categoria
+                'sync_id':   r['sync_id'],
                 'estado_mp': r['estado_mp'],
             }
 
     # Snapshot ind_desviacion de respuestas "ejecutado" sin verificar, ANTES del UPSERT
-    prev_ejecutados = {}  # equipo_id -> ind_desv anterior
+    prev_ejecutados = {}
     for r in cur.execute(
         """SELECT s.equipo_id, e.ind_desviacion AS old_ind
            FROM respuestas r
@@ -211,6 +311,7 @@ def sync_programacion(filepath):
         if eid not in prev_ejecutados:
             prev_ejecutados[eid] = r['old_ind']
 
+    # UPSERT
     for _, row in df.iterrows():
         consecutivo_raw = _get_col(row, 'consecutivo')
         if consecutivo_raw is None:
@@ -292,10 +393,11 @@ def sync_programacion(filepath):
             nuevos += 1
 
     # Clasificar rutinas: principal vs verificación
-    # Cruza con frecuencias_rutinas para obtener frecuencia_medidor/días
     freq_map = {}
     for fr in cur.execute("SELECT rutina, frecuencia_medidor, frecuencia_dias FROM frecuencias_rutinas").fetchall():
-        freq_map[fr['rutina'].upper().strip() if fr['rutina'] else ''] = (fr['frecuencia_medidor'], fr['frecuencia_dias'])
+        freq_map[fr['rutina'].upper().strip() if fr['rutina'] else ''] = (
+            fr['frecuencia_medidor'], fr['frecuencia_dias']
+        )
 
     for eq in cur.execute("SELECT id, rutina FROM equipos WHERE sync_id = ?", (sync_id,)).fetchall():
         rutina_name = (eq['rutina'] or '').upper().strip()
@@ -306,8 +408,12 @@ def sync_programacion(filepath):
     conn.commit()
 
     # Detección de ejecuciones no reportadas
+    # v2 — cada registro se etiqueta con tipo_categoria según el maestro
     no_reportadas = 0
-    ahora_nr = datetime.now(TZ_COL).isoformat()
+    no_reportadas_motor = 0
+    no_reportadas_no_motor = 0
+    ahora_nr = ahora_dt.isoformat()
+
     for vehiculo, prev in prev_en_riesgo.items():
         new_rows = cur.execute(
             """SELECT estado_mp, ind_desviacion AS ind
@@ -317,12 +423,11 @@ def sync_programacion(filepath):
         ).fetchall()
         if not new_rows:
             continue
-        # Si todos los equipos del vehículo salieron de zona de riesgo → no reportada
         new_estados = [r['estado_mp'] for r in new_rows if r['estado_mp']]
         if not new_estados:
             continue
         if any(e in _ESTADOS_RIESGO for e in new_estados):
-            continue  # sigue en zona de riesgo
+            continue
 
         new_inds = [float(r['ind']) for r in new_rows if r['ind'] is not None]
 
@@ -341,8 +446,6 @@ def sync_programacion(filepath):
         if ejecutado:
             continue
 
-        # H-V5-01: Verificar si CIO dijo "no_ejecutado" pero medidor bajó
-        # → contradicción, NO crear entrada duplicada sino marcar la respuesta original
         no_ejecutado_resp = cur.execute(
             """SELECT r.id FROM respuestas r
                JOIN solicitudes s ON s.id = r.solicitud_id
@@ -352,7 +455,6 @@ def sync_programacion(filepath):
             (vehiculo.upper(), prev_sync_id)
         ).fetchone()
         if no_ejecutado_resp:
-            # Marcar la respuesta con contradicción — no crear entrada nueva
             cur.execute(
                 """UPDATE respuestas SET verificacion = 'contradiccion_medidor'
                    WHERE id = ?""",
@@ -369,23 +471,26 @@ def sync_programacion(filepath):
         if ya:
             continue
 
+        # v2 — clasificar por categoría de vehículo
+        tipo_cat = _tipo_categoria_from(prev.get('categoria'))
+
         cur.execute(
             """INSERT INTO ejecuciones_no_reportadas
                    (vehiculo, familia, rutina, ind_desviacion_anterior,
                     ind_desviacion_nuevo, sync_id_anterior, sync_id_nuevo,
-                    estado, timestamp)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?)""",
+                    estado, tipo_categoria, timestamp)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?)""",
             (vehiculo, prev['familia'], prev['rutina'],
              prev['ind'], min(new_inds),
-             prev_sync_id, sync_id, ahora_nr)
+             prev_sync_id, sync_id, tipo_cat, ahora_nr)
         )
         no_reportadas += 1
+        if tipo_cat == 'motorizado':
+            no_reportadas_motor += 1
+        else:
+            no_reportadas_no_motor += 1
 
     # Verificación de ejecuciones reportadas por el CIO
-    # Compara estado_mp anterior vs nuevo para confirmar si el MP realmente se hizo.
-    # Confirmada: estado_mp cambió a 'En ciclo' (equipo regresó a zona normal)
-    # No confirmada: estado_mp sigue en zona de riesgo tras ventana de gracia
-    # H-NEW-08: Ventana de gracia de 5 días para Tipo C (Paymover, Dorthy)
     DIAS_GRACIA = 5
     verificadas     = 0
     no_verificadas  = 0
@@ -414,7 +519,6 @@ def sync_programacion(filepath):
             verif = 'confirmada'
             verificadas += 1
         elif new_estado in _ESTADOS_RIESGO:
-            # Verificar ventana de gracia
             resp_ts = resp_ejecutados.get(equipo_id)
             if resp_ts:
                 try:
@@ -428,7 +532,7 @@ def sync_programacion(filepath):
             verif = 'no_confirmada'
             no_verificadas += 1
         else:
-            continue  # Sin dato u otro estado, no actualizar
+            continue
 
         cur.execute(
             """UPDATE respuestas
@@ -449,11 +553,19 @@ def sync_programacion(filepath):
         'total': nuevos + actualizados,
         'sync_id': sync_id,
         'no_reportadas': no_reportadas,
+        'no_reportadas_motor': no_reportadas_motor,
+        'no_reportadas_no_motor': no_reportadas_no_motor,
         'verificadas': verificadas,
         'no_verificadas': no_verificadas,
         'en_gracia': en_gracia,
         'fingerprint': fingerprint,
         'ciclo_reusado': ciclo_reusado,
+        # v2 — corte diario
+        'corte_diario_aplicado': corte['aplicado'],
+        'horas_desde_ultimo_sync': corte['horas_transcurridas'],
+        'solicitudes_cerradas_sin_respuesta': corte['solicitudes_cerradas'],
+        'ejec_no_rep_motor_cerradas': corte['ejec_motor_cerradas'],
+        'ejec_no_rep_no_motor_cerradas': corte['ejec_no_motor_cerradas'],
     }
 
 
@@ -468,11 +580,7 @@ def _clean_sap(val):
 
 
 def sync_filtros(filepath):
-    """
-    Lee Excel maestro filtración (hoja 'Filtros', header fila 1) y reemplaza
-    toda la tabla filtros_equipo con DELETE + INSERT.
-    Retorna: {'total_registros': X, 'equipos_unicos': Y}
-    """
+    """Reemplaza toda la tabla filtros_equipo con DELETE + INSERT."""
     df = pd.read_excel(filepath, sheet_name='Filtros', header=0, dtype=str)
     df.columns = df.columns.str.strip()
 
@@ -481,7 +589,6 @@ def sync_filtros(filepath):
         raise ValueError(f"Columnas faltantes en Excel de filtración: {', '.join(missing)}")
 
     df = df[COLS_FILTROS].copy()
-
     for col in df.columns:
         df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
 
@@ -490,7 +597,6 @@ def sync_filtros(filepath):
 
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("DELETE FROM filtros_equipo")
 
     for _, row in df.iterrows():
@@ -509,16 +615,11 @@ def sync_filtros(filepath):
     total_registros = len(df)
     equipos_unicos = df['EQUIPO'].nunique()
     conn.close()
-
     return {'total_registros': total_registros, 'equipos_unicos': equipos_unicos}
 
 
 def sync_homologos(filepath):
-    """
-    Lee Excel hoja 'Grupos_Homologos' y reemplaza tabla homologos
-    con DELETE + INSERT completo.
-    Retorna: {'total_registros': X, 'grupos': Y}
-    """
+    """Reemplaza tabla homologos con DELETE + INSERT."""
     df = pd.read_excel(filepath, sheet_name='Grupos_Homologos', header=0, dtype=str)
     df.columns = df.columns.str.strip()
 
@@ -563,11 +664,7 @@ def sync_homologos(filepath):
 
 
 def sync_frecuencias(filepath):
-    """
-    Lee Excel hoja 'DB_FRECUENCIAS' y reemplaza tabla frecuencias_rutinas
-    con DELETE + INSERT completo.
-    Retorna: {'total_registros': X}
-    """
+    """Reemplaza tabla frecuencias_rutinas con DELETE + INSERT."""
     xls = pd.ExcelFile(filepath)
     sheet = 'DB_FRECUENCIAS' if 'DB_FRECUENCIAS' in xls.sheet_names else xls.sheet_names[0]
     df = pd.read_excel(filepath, sheet_name=sheet, header=0, dtype=str)
@@ -618,11 +715,7 @@ COLS_UBICACIONES = ['codigo_sap', 'nombre', 'ubicacion']
 
 
 def sync_ubicaciones(filepath):
-    """
-    Lee Excel de ubicaciones de filtros.
-    Acepta sinónimos de cabecera (Descripcion→nombre, CODIGO SAP→codigo_sap, etc.)
-    Hace DELETE + INSERT completo en tabla ubicaciones_filtros.
-    """
+    """DELETE + INSERT completo en tabla ubicaciones_filtros."""
     df = pd.read_excel(filepath, header=0, dtype=str)
     df = _normalize_columns(df)
 
@@ -631,7 +724,6 @@ def sync_ubicaciones(filepath):
         raise ValueError(f"Columnas faltantes en Excel de ubicaciones: {', '.join(missing)}")
 
     df = df[COLS_UBICACIONES].copy()
-
     for col in df.columns:
         df[col] = df[col].map(lambda x: str(x).strip() if pd.notna(x) else None)
 
@@ -661,21 +753,13 @@ def sync_ubicaciones(filepath):
 
 
 def sync_medidor_promedio(filepath):
-    """
-    Lee Excel Database Medidor Promedio (2 hojas):
-    - DB_MEDIDOR_PROM: promedios por vehículo individual
-    - MED_ESTANDAR: promedios estándar por familia (fallback)
-    Filtra solo equipos con tipo_medidor válido (horómetro/odómetro).
-    En duplicados, conserva el de mayor medidor_trabajo_dia.
-    """
+    """Sync de promedios por vehículo + estándar por familia."""
     xls = pd.ExcelFile(filepath)
 
-    # ── Hoja 1: Promedios por vehículo ──
     sheet1 = 'DB_MEDIDOR_PROM' if 'DB_MEDIDOR_PROM' in xls.sheet_names else xls.sheet_names[0]
     df = pd.read_excel(filepath, sheet_name=sheet1, header=0, dtype=str)
     df = _normalize_columns(df)
 
-    # Mapeo de columnas esperadas
     col_map = {
         'vehiculo': 'vehiculo',
         'tipo_vehiculo': 'tipo_vehiculo',
@@ -694,20 +778,17 @@ def sync_medidor_promedio(filepath):
             rename[col] = col_map[col]
     df = df.rename(columns=rename)
 
-    # Filtrar solo filas con tipo_medidor válido
     if 'tipo_medidor' in df.columns:
         df = df[df['tipo_medidor'].notna() & (df['tipo_medidor'].str.strip() != '')]
     else:
         return {'vehiculos': 0, 'familias_estandar': 0, 'error': 'Columna tipo_medidor no encontrada'}
 
-    # Convertir numéricos
     for col in ['medidor_transcurrido', 'dias_transcurridos', 'promedio_dia_calc',
                 'promedio_dia_conf', 'medidor_trabajo_dia', 'medidor_estandar']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col].str.replace(',', '.') if df[col].dtype == object else df[col],
                                     errors='coerce')
 
-    # Deduplicar: por vehículo+tipo_medidor, quedarse con el mayor medidor_trabajo_dia
     if 'vehiculo' in df.columns and 'medidor_trabajo_dia' in df.columns:
         df = df.sort_values('medidor_trabajo_dia', ascending=False, na_position='last')
         df = df.drop_duplicates(subset=['vehiculo', 'tipo_medidor'], keep='first')
@@ -717,7 +798,6 @@ def sync_medidor_promedio(filepath):
     conn = get_db()
     cur = conn.cursor()
 
-    # DELETE + INSERT promedios_vehiculo
     cur.execute("DELETE FROM promedios_vehiculo")
     insertados = 0
     for _, row in df.iterrows():
@@ -744,7 +824,6 @@ def sync_medidor_promedio(filepath):
         )
         insertados += 1
 
-    # ── Hoja 2: Estándar por familia (fallback) ──
     familias_estandar = 0
     if 'MED_ESTANDAR' in xls.sheet_names:
         df2 = pd.read_excel(filepath, sheet_name='MED_ESTANDAR', header=0, dtype=str)
