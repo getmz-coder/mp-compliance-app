@@ -3661,6 +3661,18 @@ def cio_no_motorizados():
     )
 
 
+# ---------------------------------------------------------------------------
+# TEMP FASE 2B — stub para compatibilidad con template viejo del CIO.
+# Se retira en FASE 3 cuando se rediseñe el CIO. No debe ser invocado en el nuevo flujo.
+# ---------------------------------------------------------------------------
+
+@app.route("/cio/solicitar", methods=["POST", "GET"])
+@login_required
+def cio_solicitar():
+    flash("Esta acción se retiró. Ahora es el planeador (admin) quien envía las solicitudes.", "error")
+    return redirect("/cio")
+
+
 if __name__ == '__main__':
     os.makedirs('data', exist_ok=True)
     os.makedirs('exports', exist_ok=True)
