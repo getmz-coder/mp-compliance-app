@@ -2313,11 +2313,11 @@ def almacen_flota():
 @app.route('/almacen/equipo/<vehiculo>')
 @almacen_required
 def almacen_equipo_detalle(vehiculo):
-    """Vista de filtros de un equipo CON ubicación (solo almacén)."""
+    # v2-almacen-homologos — filtros + ubicación + homólogos con sus ubicaciones
     vehiculo = vehiculo.upper().strip()
     conn = get_db()
 
-    filtros = conn.execute(
+    filtros_rows = conn.execute(
         """SELECT f.id, f.equipo, f.tipo, f.nombre_articulo, f.codigo_sap, f.tipo_filtro,
                   u.ubicacion, u.nombre AS nombre_ubicacion
            FROM filtros_equipo f
@@ -2327,10 +2327,29 @@ def almacen_equipo_detalle(vehiculo):
         (vehiculo,)
     ).fetchall()
 
+    filtros = []
+    for f in filtros_rows:
+        d = dict(f)
+        d['homologos'] = []
+        if d.get('codigo_sap'):
+            homos = conn.execute(
+                """SELECT h2.codigo_sap, h2.descripcion, h2.estado,
+                          u.ubicacion, u.nombre AS nombre_ubicacion
+                   FROM homologos h
+                   JOIN homologos h2 ON h2.grupo = h.grupo
+                   LEFT JOIN ubicaciones_filtros u ON u.codigo_sap = h2.codigo_sap
+                   WHERE h.codigo_sap = ?
+                     AND h2.codigo_sap != ?
+                   ORDER BY h2.estado DESC, h2.codigo_sap""",
+                (d['codigo_sap'], d['codigo_sap'])
+            ).fetchall()
+            d['homologos'] = [dict(h) for h in homos]
+        filtros.append(d)
+
     conn.close()
     return render_template('almacen/equipo_filtros.html',
         vehiculo=vehiculo,
-        filtros=[dict(f) for f in filtros],
+        filtros=filtros,
     )
 
 
