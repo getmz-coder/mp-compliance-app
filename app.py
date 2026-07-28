@@ -1688,7 +1688,7 @@ def cio_dashboard():
     # v2-cio-only-admin-solicitados — CIO ve solo motorizados con solicitud pendiente enviada por admin
     if current_user.rol not in ('cio', 'admin', 'superadmin'):
         flash('Sin permiso.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard_redirect'))
 
     conn = get_db()
     sync_id = _current_sync_id(conn)
@@ -3553,7 +3553,7 @@ def cio_no_motorizados():
     """Vista visual del CIO para no motorizados en riesgo. Checks son locales (no persisten)."""
     if current_user.rol not in ('cio', 'admin', 'superadmin'):
         flash('Sin permiso.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard_redirect'))
 
     conn = get_db()
     sync_id = _current_sync_id(conn)
