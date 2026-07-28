@@ -2974,13 +2974,13 @@ def _get_meses_disponibles(conn):
 @app.route('/admin/indicadores')
 @admin_required
 def admin_indicadores():
+    # v2-indicadores-kpis-por-motivo
     conn = get_db()
     sync_id = _current_sync_id(conn)
 
-    # ── Parsear rango de fechas ──────────────────────────────────────────────
-    preset  = request.args.get('preset', '').strip()
-    desde   = request.args.get('desde', '').strip()
-    hasta   = request.args.get('hasta', '').strip()
+    preset = request.args.get('preset', '').strip()
+    desde = request.args.get('desde', '').strip()
+    hasta = request.args.get('hasta', '').strip()
     mes_sel = request.args.get('mes', '').strip()
 
     today = date.today()
@@ -2990,9 +2990,15 @@ def admin_indicadores():
     elif preset == 'semana':
         d_desde = (today - timedelta(days=6)).isoformat()
         d_hasta = today.isoformat()
-    elif preset == 'mes':
-        d_desde = today.replace(day=1).isoformat()
+    elif preset == 'trimestre':
+        d_desde = (today - timedelta(days=90)).isoformat()
         d_hasta = today.isoformat()
+    elif preset == 'ytd':
+        d_desde = f"{today.year:04d}-01-01"
+        d_hasta = today.isoformat()
+    elif preset == 'todo':
+        d_desde = ''
+        d_hasta = ''
     elif mes_sel and len(mes_sel) == 7:
         try:
             yr, mn = int(mes_sel[:4]), int(mes_sel[5:7])
@@ -3003,225 +3009,135 @@ def admin_indicadores():
     elif desde and hasta:
         d_desde, d_hasta = desde, hasta
     else:
-        d_desde = d_hasta = ''   # todo el histórico
+        # Default: mes actual
+        d_desde = today.replace(day=1).isoformat()
+        d_hasta = today.isoformat()
 
+    # ── KPIs por motivo (respetando fecha_inicio_registro) ──
     if d_desde and d_hasta:
-        sol_where  = "date(s.fecha_solicitud) >= ? AND date(s.fecha_solicitud) <= ?"
-        sol_params = (d_desde, d_hasta)
-        nr_where   = "date(timestamp) >= ? AND date(timestamp) <= ?"
-        nr_params  = (d_desde, d_hasta)
-        rango_label = _fmt_rango(d_desde, d_hasta)
+        motivos_rows = conn.execute(
+            """SELECT m.id, m.codigo, m.descripcion, m.impacta_a, m.fecha_inicio_registro,
+                      COUNT(r.id) AS cantidad
+               FROM catalogo_motivos m
+               LEFT JOIN respuestas r
+                    ON r.motivo_id = m.id
+                    AND r.accion = 'no_ejecutado'
+                    AND date(r.timestamp) >= date(m.fecha_inicio_registro)
+                    AND date(r.timestamp) >= date(?)
+                    AND date(r.timestamp) <= date(?)
+               WHERE m.activo = 1
+               GROUP BY m.id
+               ORDER BY m.orden""",
+            (d_desde, d_hasta)
+        ).fetchall()
     else:
-        sol_where  = "1=1"
-        sol_params = ()
-        nr_where   = "1=1"
-        nr_params  = ()
-        rango_label = None   # None → "todo el histórico"
+        motivos_rows = conn.execute(
+            """SELECT m.id, m.codigo, m.descripcion, m.impacta_a, m.fecha_inicio_registro,
+                      COUNT(r.id) AS cantidad
+               FROM catalogo_motivos m
+               LEFT JOIN respuestas r
+                    ON r.motivo_id = m.id
+                    AND r.accion = 'no_ejecutado'
+                    AND date(r.timestamp) >= date(m.fecha_inicio_registro)
+               WHERE m.activo = 1
+               GROUP BY m.id
+               ORDER BY m.orden"""
+        ).fetchall()
 
-    # ── KPIs (solo rutinas principales — excluye verificaciones) ─────────
-    row = conn.execute(
-        f"""SELECT COUNT(s.id) AS total,
-                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejec,
-                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ej
-           FROM solicitudes s
-           LEFT JOIN respuestas r ON r.solicitud_id = s.id
-           LEFT JOIN equipos e ON e.id = s.equipo_id
-           WHERE {sol_where}
-           AND COALESCE(e.tipo_rutina, 'principal') = 'principal'""",
-        sol_params
-    ).fetchone()
-    total_solicitados = row['total'] or 0
-    ejecutados        = row['ejec']  or 0
-    no_ejecutados     = row['no_ej'] or 0
+    kpis_admin = [dict(m) for m in motivos_rows if (m['impacta_a'] or 'externo') == 'admin']
+    kpis_cio = [dict(m) for m in motivos_rows if (m['impacta_a'] or 'externo') == 'cio']
+    kpis_externo = [dict(m) for m in motivos_rows if (m['impacta_a'] or 'externo') == 'externo']
 
-    nr_kpi = conn.execute(
-        f"""SELECT
-              SUM(CASE WHEN estado = 'justificado' THEN 1 ELSE 0 END) AS justificados,
-              COUNT(*) AS total
-            FROM ejecuciones_no_reportadas WHERE {nr_where}""",
-        nr_params
-    ).fetchone()
-    sin_reporte_justificados = nr_kpi['justificados'] or 0
-    sin_reporte_total        = nr_kpi['total']        or 0
-    sin_reporte_pendientes   = sin_reporte_total - sin_reporte_justificados
+    # ── Sin respuesta (solicitudes cerradas por corte diario) ──
+    if d_desde and d_hasta:
+        sin_resp_row = conn.execute(
+            """SELECT COUNT(*) AS c FROM solicitudes
+               WHERE estado = 'sin_respuesta'
+                 AND date(fecha_solicitud) >= date(?)
+                 AND date(fecha_solicitud) <= date(?)""",
+            (d_desde, d_hasta)
+        ).fetchone()
+    else:
+        sin_resp_row = conn.execute(
+            "SELECT COUNT(*) AS c FROM solicitudes WHERE estado = 'sin_respuesta'"
+        ).fetchone()
+    sin_respuesta = sin_resp_row['c'] or 0
 
-    total_con_nr  = total_solicitados + sin_reporte_total
-    ejecutados_ef = ejecutados + sin_reporte_justificados
-    # H-01/H-04: Fórmula corregida — % = EJEC / SOL (cumplimiento de lo solicitado)
+    # ── Ejec no reportadas (motorizado vs no_motorizado) ──
+    if d_desde and d_hasta:
+        enr_motor_row = conn.execute(
+            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas
+               WHERE tipo_categoria = 'motorizado'
+                 AND date(timestamp) >= date(?)
+                 AND date(timestamp) <= date(?)""",
+            (d_desde, d_hasta)
+        ).fetchone()
+        enr_no_motor_row = conn.execute(
+            """SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas
+               WHERE (tipo_categoria = 'no_motorizado' OR tipo_categoria IS NULL)
+                 AND date(timestamp) >= date(?)
+                 AND date(timestamp) <= date(?)""",
+            (d_desde, d_hasta)
+        ).fetchone()
+    else:
+        enr_motor_row = conn.execute(
+            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE tipo_categoria = 'motorizado'"
+        ).fetchone()
+        enr_no_motor_row = conn.execute(
+            "SELECT COUNT(*) AS c FROM ejecuciones_no_reportadas WHERE tipo_categoria = 'no_motorizado' OR tipo_categoria IS NULL"
+        ).fetchone()
+    enr_motor = enr_motor_row['c'] or 0
+    enr_no_motor = enr_no_motor_row['c'] or 0
+
+    # ── Cumplimiento general ──
+    if d_desde and d_hasta:
+        gen_row = conn.execute(
+            """SELECT COUNT(s.id) AS solicitados,
+                      SUM(CASE WHEN r.accion = 'ejecutado' THEN 1 ELSE 0 END) AS ejecutados,
+                      SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
+               FROM solicitudes s
+               LEFT JOIN respuestas r ON r.solicitud_id = s.id
+               WHERE date(s.fecha_solicitud) >= date(?)
+                 AND date(s.fecha_solicitud) <= date(?)""",
+            (d_desde, d_hasta)
+        ).fetchone()
+    else:
+        gen_row = conn.execute(
+            """SELECT COUNT(s.id) AS solicitados,
+                      SUM(CASE WHEN r.accion = 'ejecutado' THEN 1 ELSE 0 END) AS ejecutados,
+                      SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
+               FROM solicitudes s
+               LEFT JOIN respuestas r ON r.solicitud_id = s.id"""
+        ).fetchone()
+
+    total_solicitados = gen_row['solicitados'] or 0
+    ejecutados = gen_row['ejecutados'] or 0
+    no_ejecutados = gen_row['no_ejecutados'] or 0
     pct_ejecucion = round(ejecutados / total_solicitados * 100) if total_solicitados else 0
 
-    # ── Top motivos (filtrado por rango) ────────────────────────────────────
-    top_motivos = conn.execute(
-        f"""SELECT CASE WHEN r.motivo_id IS NOT NULL
-                       THEN COALESCE(m.descripcion, 'Desconocido')
-                       ELSE 'Comentario libre'
-                  END AS motivo,
-                  COUNT(*) AS cantidad
-           FROM respuestas r
-           JOIN solicitudes s ON s.id = r.solicitud_id
-           LEFT JOIN catalogo_motivos m ON m.id = r.motivo_id
-           WHERE r.accion = 'no_ejecutado' AND {sol_where}
-           GROUP BY r.motivo_id
-           ORDER BY cantidad DESC
-           LIMIT 10""",
-        sol_params
-    ).fetchall()
-    total_no_ej_global = sum(m['cantidad'] for m in top_motivos) or 1
-
-    # ── Cumplimiento por familia (filtrado) ──────────────────────────────────
-    familias_cumplimiento_raw = conn.execute(
-        f"""SELECT e.familia,
-                  COUNT(s.id) AS solicitados,
-                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END) AS ejecutados,
-                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END) AS no_ejecutados
-           FROM solicitudes s
-           JOIN equipos e ON e.id = s.equipo_id
-           LEFT JOIN respuestas r ON r.solicitud_id = s.id
-           WHERE e.familia IS NOT NULL AND {sol_where}
-           GROUP BY e.familia
-           ORDER BY e.familia""",
-        sol_params
-    ).fetchall()
-
-    nr_familia_rows = conn.execute(
-        f"""SELECT familia,
-              SUM(CASE WHEN estado = 'justificado' THEN 1 ELSE 0 END) AS just,
-              COUNT(*) AS total
-            FROM ejecuciones_no_reportadas
-            WHERE familia IS NOT NULL AND {nr_where}
-            GROUP BY familia""",
-        nr_params
-    ).fetchall()
-    nr_just_familia = {r['familia']: r['just']  for r in nr_familia_rows}
-    nr_tot_familia  = {r['familia']: r['total'] for r in nr_familia_rows}
-
-    familias_cumplimiento = [
-        dict(f,
-             sin_reporte=nr_tot_familia.get(f['familia'], 0),
-             sin_reporte_just=nr_just_familia.get(f['familia'], 0),
-             sin_reporte_pend=nr_tot_familia.get(f['familia'], 0) - nr_just_familia.get(f['familia'], 0))
-        for f in familias_cumplimiento_raw
-    ]
-
-    # H-02: Incluir familias que solo tienen SIN REPORTE (SOL=0) para que SUM cuadre con KPI
-    familias_en_tabla = {f['familia'] for f in familias_cumplimiento_raw}
-    for fam, total_nr in nr_tot_familia.items():
-        if fam not in familias_en_tabla and total_nr > 0:
-            familias_cumplimiento.append({
-                'familia': fam,
-                'solicitados': 0,
-                'ejecutados': 0,
-                'no_ejecutados': 0,
-                'sin_reporte': total_nr,
-                'sin_reporte_just': nr_just_familia.get(fam, 0),
-                'sin_reporte_pend': total_nr - nr_just_familia.get(fam, 0),
-            })
-    familias_cumplimiento.sort(key=lambda x: x['familia'])
-
-    # ── Historial por ciclo (filtrado) ───────────────────────────────────────
-    historial_sync = conn.execute(
-        f"""SELECT s.sync_id,
-                  MIN(s.fecha_solicitud)                                        AS primera_solicitud,
-                  COUNT(s.id)                                                   AS total_solicitados,
-                  SUM(CASE WHEN r.accion = 'ejecutado'    THEN 1 ELSE 0 END)  AS ejecutados,
-                  SUM(CASE WHEN r.accion = 'no_ejecutado' THEN 1 ELSE 0 END)  AS no_ejecutados
-           FROM solicitudes s
-           LEFT JOIN respuestas r ON r.solicitud_id = s.id
-           WHERE {sol_where}
-           GROUP BY s.sync_id
-           ORDER BY s.sync_id DESC""",
-        sol_params
-    ).fetchall()
-
-    # ── No reportadas confirmadas por ciclo ───────────────────────────────
-    nr_por_ciclo = {}
-    for nr_row in conn.execute(
-        """SELECT sync_id_nuevo, COUNT(*) AS total
-           FROM ejecuciones_no_reportadas
-           WHERE estado = 'justificado'
-           GROUP BY sync_id_nuevo"""
-    ).fetchall():
-        nr_por_ciclo[nr_row['sync_id_nuevo']] = nr_row['total']
-
-    # Enriquecer historial con total real ejecutados
-    historial_sync_enriched = []
-    for h in historial_sync:
-        hd = dict(h)
-        nr_conf = nr_por_ciclo.get(h['sync_id'], 0)
-        ejec_ciclo = (h['ejecutados'] or 0)
-        hd['nr_confirmados'] = nr_conf
-        hd['total_real_ejecutados'] = ejec_ciclo + nr_conf
-        historial_sync_enriched.append(hd)
-
-    # ── Indicador de proactividad: ¿en qué estado se ejecutan los MPs? ────
-    proactividad = conn.execute(
-        f"""SELECT e.estado_mp, COUNT(*) AS cantidad
-           FROM respuestas r
-           JOIN solicitudes s ON s.id = r.solicitud_id
-           JOIN equipos e ON e.id = s.equipo_id
-           WHERE r.accion = 'ejecutado' AND {sol_where}
-           GROUP BY e.estado_mp
-           ORDER BY cantidad DESC""",
-        sol_params
-    ).fetchall()
-    proactividad_raw = {(p['estado_mp'] or 'Sin dato'): p['cantidad'] for p in proactividad}
-    # Siempre mostrar los 4 estados relevantes, en orden de proactividad
-    _ESTADOS_PROACTIVIDAD = [
-        'Próximo', 'En tolerancia', 'Vencido por tiempo', 'Vencido por medidor',
-    ]
-    proactividad_data = []
-    for est in _ESTADOS_PROACTIVIDAD:
-        proactividad_data.append({'estado': est, 'cantidad': proactividad_raw.pop(est, 0)})
-    # Agregar cualquier otro estado que tenga datos
-    for est, cant in proactividad_raw.items():
-        if cant > 0:
-            proactividad_data.append({'estado': est, 'cantidad': cant})
-    total_proactividad = sum(p['cantidad'] for p in proactividad_data) or 1
-
-    # ── KPIs de verificación ────────────────────────────────────────────────
-    verif_row = conn.execute(
-        f"""SELECT
-              SUM(CASE WHEN r.verificacion = 'confirmada'    THEN 1 ELSE 0 END) AS confirmadas,
-              SUM(CASE WHEN r.verificacion = 'no_confirmada' THEN 1 ELSE 0 END) AS no_confirmadas
-           FROM respuestas r
-           JOIN solicitudes s ON s.id = r.solicitud_id
-           WHERE r.accion = 'ejecutado' AND {sol_where}""",
-        sol_params
-    ).fetchone()
-    ejec_verificadas    = verif_row['confirmadas']    or 0
-    ejec_no_verificadas = verif_row['no_confirmadas'] or 0
-
+    rango_label = _fmt_rango(d_desde, d_hasta) if d_desde and d_hasta else None
     meses_disponibles = _get_meses_disponibles(conn)
-    donut_segments    = _build_donut_segments(top_motivos, total_no_ej_global)
-    familias_chart    = _build_familias_chart_data(familias_cumplimiento)
+
     conn.close()
 
     return render_template('admin/indicadores.html',
+        kpis_admin=kpis_admin,
+        kpis_cio=kpis_cio,
+        kpis_externo=kpis_externo,
+        sin_respuesta=sin_respuesta,
+        enr_motor=enr_motor,
+        enr_no_motor=enr_no_motor,
         total_solicitados=total_solicitados,
         ejecutados=ejecutados,
         no_ejecutados=no_ejecutados,
-        sin_reporte_total=sin_reporte_total,
-        sin_reporte_justificados=sin_reporte_justificados,
-        sin_reporte_pendientes=sin_reporte_pendientes,
         pct_ejecucion=pct_ejecucion,
-        top_motivos=top_motivos,
-        total_no_ej_global=total_no_ej_global,
-        familias_cumplimiento=familias_cumplimiento,
-        historial_sync=historial_sync_enriched,
-        current_sync_id=sync_id,
-        donut_segments=donut_segments,
-        familias_chart=familias_chart,
-        ejec_verificadas=ejec_verificadas,
-        ejec_no_verificadas=ejec_no_verificadas,
-        proactividad_data=proactividad_data,
-        total_proactividad=total_proactividad,
-        # filtro de fechas
+        preset=preset,
         d_desde=d_desde,
         d_hasta=d_hasta,
-        preset=preset,
         mes_sel=mes_sel,
         rango_label=rango_label,
         meses_disponibles=meses_disponibles,
+        current_sync_id=sync_id,
     )
 
 
