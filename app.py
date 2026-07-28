@@ -2292,43 +2292,8 @@ def taller_flota():
 @app.route('/almacen')
 @almacen_required
 def almacen_dashboard():
-    conn = get_db()
-    sync_id = _current_sync_id(conn)
-
-    rows = conn.execute(
-        """SELECT e.vehiculo, MAX(e.familia) AS familia, MAX(e.categoria) AS categoria,
-                  GROUP_CONCAT(DISTINCT e.rutina) AS rutinas,
-                  MAX(r.timestamp) AS fecha_ejecucion
-           FROM equipos e
-           JOIN solicitudes s ON s.equipo_id = e.id
-           JOIN respuestas r  ON r.solicitud_id = s.id
-                             AND r.accion = 'ejecutado'
-                             AND (r.verificacion IS NULL OR r.verificacion = 'no_confirmada')
-           GROUP BY e.vehiculo
-           ORDER BY e.vehiculo"""
-    ).fetchall()
-
-    equipos_taller = [dict(row) for row in rows]
-    familias   = sorted({r['familia']   for r in equipos_taller if r['familia']})
-    categorias = sorted({r['categoria'] for r in equipos_taller if r['categoria']})
-
-    # Última sync de ubicaciones
-    last_ubic = conn.execute(
-        "SELECT sync_timestamp FROM ubicaciones_filtros ORDER BY id DESC LIMIT 1"
-    ).fetchone()
-    ultima_sync_ubic = last_ubic['sync_timestamp'] if last_ubic else None
-
-    total_ubicaciones = conn.execute("SELECT COUNT(*) AS c FROM ubicaciones_filtros").fetchone()['c']
-    conn.close()
-
-    return render_template('almacen/dashboard.html',
-        equipos=equipos_taller,
-        familias=familias,
-        categorias=categorias,
-        current_sync_id=sync_id,
-        ultima_sync_ubic=ultima_sync_ubic,
-        total_ubicaciones=total_ubicaciones,
-    )
+    # v2-almacen-simplificado — reemplaza dashboard viejo por redirect al lookup
+    return redirect(url_for('almacen_flota'))
 
 
 @app.route('/almacen/flota')
