@@ -3596,6 +3596,40 @@ def cio_solicitar():
     return redirect("/cio")
 
 
+
+# ---------------------------------------------------------------------------
+# v2 — Actualizar impacta_a de un motivo (KPI por dueño)
+# ---------------------------------------------------------------------------
+
+@app.route('/admin/motivos/<int:motivo_id>/impacta_a', methods=['POST'])
+@admin_required
+def admin_motivo_impacta_a(motivo_id):
+    """Actualiza el campo impacta_a de un motivo (admin/cio/externo)."""
+    data = request.get_json(force=True, silent=True) or {}
+    impacta_a = (data.get('impacta_a') or '').strip().lower()
+    if impacta_a not in ('admin', 'cio', 'externo'):
+        return jsonify({'success': False, 'error': 'Valor invalido (admin/cio/externo)'}), 400
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, codigo FROM catalogo_motivos WHERE id = ?", (motivo_id,)
+        ).fetchone()
+        if not row:
+            return jsonify({'success': False, 'error': 'Motivo no encontrado'}), 404
+        conn.execute(
+            "UPDATE catalogo_motivos SET impacta_a = ? WHERE id = ?",
+            (impacta_a, motivo_id)
+        )
+        _log_actividad(conn, current_user.id, 'admin_motivo_impacta_a',
+                       f'Motivo {row["codigo"]} (id={motivo_id}) impacta_a = {impacta_a}')
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({'success': True, 'impacta_a': impacta_a})
+
+
+
 if __name__ == '__main__':
     os.makedirs('data', exist_ok=True)
     os.makedirs('exports', exist_ok=True)

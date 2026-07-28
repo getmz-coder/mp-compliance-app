@@ -56,6 +56,12 @@
   .btn-agregar { padding: 8px 18px; background: var(--azul); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
   .btn-agregar:hover { background: #001f4e; }
 
+  .select-impacta { padding: 5px 10px; border: 1.5px solid #d1d5db; border-radius: 6px; font-size: 12.5px; font-family: inherit; background: #fff; cursor: pointer; outline: none; min-width: 100px; transition: border-color 0.15s; }
+  .select-impacta:focus { border-color: var(--cielo); }
+  .select-impacta:hover { border-color: #9ca3af; }
+  .imp-status { font-size: 11px; margin-left: 6px; }
+  .imp-status.ok { color: var(--verde); }
+  .imp-status.err { color: var(--rojo); }
   @media (max-width: 768px) { .motivos-page { padding: 14px 12px 40px; } .add-row { flex-direction: column; } }
 </style>
 {% endblock %}
@@ -85,6 +91,8 @@
             <th>Código</th>
             <th>Descripción</th>
             <th>Estado</th>
+            <th>Impacta a</th>
+            <th>Registro desde</th>
             <th></th>
           </tr>
         </thead>
@@ -97,6 +105,18 @@
             <td>
               <span class="badge-mot {{ 'badge-mot-si' if m.activo else 'badge-mot-no' }}"
                     id="badge-{{ m.id }}">{{ 'Activo' if m.activo else 'Inactivo' }}</span>
+            </td>
+            <td>
+              <select class="select-impacta" id="sel-imp-{{ m.id }}"
+                      onchange="guardarImpactaA({{ m.id }}, this)">
+                <option value="admin"   {% if m.impacta_a == 'admin' %}selected{% endif %}>Admin</option>
+                <option value="cio"     {% if m.impacta_a == 'cio' %}selected{% endif %}>CIO</option>
+                <option value="externo" {% if m.impacta_a == 'externo' or not m.impacta_a %}selected{% endif %}>Externo</option>
+              </select>
+              <span class="imp-status" id="imp-st-{{ m.id }}"></span>
+            </td>
+            <td style="font-size:12px;color:var(--gris);white-space:nowrap;">
+              {{ m.fecha_inicio_registro[:10] if m.fecha_inicio_registro else '—' }}
             </td>
             <td>
               <div class="td-acciones">
@@ -113,7 +133,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="padding:30px;text-align:center;color:var(--gris);">Sin motivos registrados.</td></tr>
+          <tr><td colspan="7" style="padding:30px;text-align:center;color:var(--gris);">Sin motivos registrados.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -210,6 +230,26 @@ function guardarEdicion(id) {
     document.getElementById('cell-desc-' + id).textContent   = desc;
     _restaurarBotonesAccion(id);
   }).catch(function(e){ alert('Error: ' + e); });
+}
+
+function guardarImpactaA(id, sel) {
+  var val = sel.value;
+  var st = document.getElementById('imp-st-' + id);
+  if (st) { st.textContent = 'Guardando...'; st.className = 'imp-status'; }
+  fetch('/admin/motivos/' + id + '/impacta_a', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken },
+    body: JSON.stringify({ impacta_a: val }),
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data.success) {
+      if (st) { st.textContent = 'Error'; st.className = 'imp-status err'; }
+      return;
+    }
+    if (st) { st.textContent = 'Guardado'; st.className = 'imp-status ok'; }
+    setTimeout(function() { if (st) st.textContent = ''; }, 2000);
+  }).catch(function() {
+    if (st) { st.textContent = 'Error de red'; st.className = 'imp-status err'; }
+  });
 }
 
 function toggleMotivo(id) {
