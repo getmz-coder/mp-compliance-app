@@ -4,610 +4,127 @@
 
 {% block styles %}
 <style>
-  .cio-page {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 28px 28px 120px;
-  }
+  .cio-page { max-width: 1400px; margin: 0 auto; padding: 28px 28px 60px; }
 
-  /* ── Page header ── */
-  .page-hdr {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .page-hdr-left h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--azul);
-    letter-spacing: -0.3px;
-  }
-  .page-hdr-left p {
-    font-size: 13px;
-    color: var(--gris);
-    margin-top: 3px;
-  }
-  .ultima-actualizacion {
-    font-size: 19px;
-    font-weight: 700;
-    color: #002D6E;
-    margin-top: 10px;
-    letter-spacing: -0.2px;
-  }
-  .ultima-sin-datos {
-    color: #9ca3af;
-    font-weight: 500;
-    font-size: 16px;
-  }
-  .sync-badge {
-    font-size: 11.5px;
-    color: var(--gris);
-    background: #fff;
-    border: 1px solid var(--borde);
-    padding: 4px 10px;
-    border-radius: 20px;
-    white-space: nowrap;
-  }
+  .page-hdr { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 8px; }
+  .page-hdr-left h1 { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
+  .page-hdr-left p { font-size: 13px; color: var(--gris); margin-top: 3px; }
+  .ultima-actualizacion { font-size: 19px; font-weight: 700; color: #002D6E; margin-top: 10px; letter-spacing: -0.2px; }
+  .ultima-sin-datos { color: #9ca3af; font-weight: 500; font-size: 16px; }
+  .sync-badge { font-size: 11.5px; color: var(--gris); background: #fff; border: 1px solid var(--borde); padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
 
-  /* ── KPI grid ── */
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  @media (max-width: 1000px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 700px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  .info-banner { background: #eff6ff; border-left: 4px solid var(--cielo); padding: 10px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #1e40af; }
 
-  .kpi-card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 20px 22px;
-    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
-    border-left: 4px solid transparent;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .kpi-card.kpi-blue   { border-color: var(--azul); }
-  .kpi-card.kpi-red    { border-color: var(--rojo); }
-  .kpi-card.kpi-amber  { border-color: var(--ambar); }
-  .kpi-card.kpi-green  { border-color: var(--verde); }
-  .kpi-card.kpi-sky    { border-color: var(--cielo); }
+  /* KPI grid — 4 cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
-  .kpi-value {
-    font-size: 32px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -1px;
-  }
-  .kpi-card.kpi-blue  .kpi-value { color: var(--azul); }
-  .kpi-card.kpi-red   .kpi-value { color: var(--rojo); }
-  .kpi-card.kpi-amber .kpi-value { color: var(--ambar); }
-  .kpi-card.kpi-green .kpi-value { color: var(--verde); }
-  .kpi-card.kpi-sky   .kpi-value { color: var(--cielo); }
+  .kpi-card { background: #fff; border-radius: 12px; padding: 20px 22px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); border-left: 4px solid transparent; display: flex; flex-direction: column; gap: 2px; }
+  .kpi-card.kpi-blue  { border-color: var(--azul); }
+  .kpi-card.kpi-red   { border-color: var(--rojo); }
+  .kpi-card.kpi-amber { border-color: var(--ambar); }
+  .kpi-card.kpi-orange{ border-color: #f97316; }
 
-  .kpi-label {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--gris);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-top: 4px;
-  }
-  .kpi-sub {
-    font-size: 12px;
-    color: #9ca3af;
-    margin-top: 2px;
-  }
+  .kpi-value { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+  .kpi-card.kpi-blue   .kpi-value { color: var(--azul); }
+  .kpi-card.kpi-red    .kpi-value { color: var(--rojo); }
+  .kpi-card.kpi-amber  .kpi-value { color: var(--ambar); }
+  .kpi-card.kpi-orange .kpi-value { color: #f97316; }
+  .kpi-label { font-size: 12.5px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; }
+  .kpi-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
 
-  /* ── Toolbar ── */
-  .toolbar {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 1px 8px rgba(0,45,110,0.07);
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-    flex-wrap: wrap;
-  }
-  .toolbar label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--gris);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-  }
-  .toolbar select, .toolbar input[type="text"] {
-    padding: 7px 12px;
-    border: 1.5px solid #d1d5db;
-    border-radius: 7px;
-    font-size: 13.5px;
-    color: var(--texto);
-    background: #fafafa;
-    outline: none;
-    transition: border-color 0.15s;
-    min-width: 160px;
-  }
-  .toolbar select:focus, .toolbar input[type="text"]:focus {
-    border-color: var(--cielo);
-    background: #fff;
-  }
+  /* Toolbar */
+  .toolbar { background: #fff; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,45,110,0.07); padding: 14px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .toolbar label { font-size: 12px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  .toolbar select, .toolbar input[type="text"] { padding: 7px 12px; border: 1.5px solid #d1d5db; border-radius: 7px; font-size: 13.5px; color: var(--texto); background: #fafafa; outline: none; min-width: 160px; }
+  .toolbar select:focus, .toolbar input[type="text"]:focus { border-color: var(--cielo); background: #fff; }
   .toolbar-search { position: relative; margin-left: auto; }
-  .toolbar-search svg {
-    position: absolute;
-    left: 10px; top: 50%;
-    transform: translateY(-50%);
-    width: 14px; height: 14px;
-    stroke: #9ca3af; fill: none;
-    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-    pointer-events: none;
-  }
+  .toolbar-search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: #9ca3af; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
   .toolbar-search input { padding-left: 32px !important; min-width: 200px; }
-  .toolbar-count {
-    font-size: 12px;
-    color: var(--gris);
-    white-space: nowrap;
-    padding: 6px 0;
-  }
+  .toolbar-count { font-size: 12px; color: var(--gris); white-space: nowrap; padding: 6px 0; }
 
-  /* ── Table card ── */
-  .table-card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 1px 8px rgba(0,45,110,0.08);
-    overflow: hidden;
-  }
+  /* Tabla */
+  .table-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,45,110,0.08); overflow: hidden; }
   .table-scroll { overflow-x: auto; }
-  table.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13.5px;
-  }
-  table.data-table thead tr {
-    background: #f8f9fb;
-    border-bottom: 2px solid var(--borde);
-  }
-  table.data-table th {
-    padding: 11px 14px;
-    text-align: left;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--gris);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    white-space: nowrap;
-  }
-  table.data-table th.th-check { width: 38px; text-align: center; }
-  table.data-table td {
-    padding: 10px 14px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-  }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.data-table thead tr { background: #f8f9fb; border-bottom: 2px solid var(--borde); }
+  table.data-table th { padding: 11px 14px; text-align: left; font-size: 11.5px; font-weight: 700; color: var(--gris); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+  table.data-table td { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
   table.data-table tbody tr:hover { background: #f8fafc; }
-  table.data-table tbody tr.row-solicitado  { background: #fefce8; }
-  table.data-table tbody tr.row-solicitado:hover { background: #fef9c3; }
-  table.data-table tbody tr.row-entregado   { background: #f0fdf4; }
-  table.data-table tbody tr.row-entregado:hover  { background: #dcfce7; }
-  table.data-table tbody tr.row-no-entregado { background: #fff7f7; }
-  table.data-table tbody tr.row-no-entregado:hover { background: #ffe4e6; }
 
-  .td-check { text-align: center; }
-  .td-check input[type="checkbox"] {
-    width: 16px; height: 16px;
-    accent-color: var(--azul);
-    cursor: pointer;
-  }
-  .dot-sol {
-    display: inline-block;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--ambar);
-    vertical-align: middle;
-  }
-
-  .vehiculo-link {
-    font-weight: 600;
-    color: var(--cielo);
-    text-decoration: none;
-    letter-spacing: 0.2px;
-  }
+  .vehiculo-link { font-weight: 600; color: var(--cielo); text-decoration: none; letter-spacing: 0.2px; }
   .vehiculo-link:hover { text-decoration: underline; }
 
-  .badge-estado {
-    display: inline-block;
-    padding: 3px 9px;
-    border-radius: 12px;
-    font-size: 11.5px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .badge-vencido { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
-  .badge-proximo { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .badge-estado { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .badge-vencido    { background:#fff2f2; color:#991b1b; border:1px solid #fca5a5; }
+  .badge-proximo    { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
   .badge-tolerancia { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
-  .badge-ot { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:10px; font-size:10.5px; font-weight:700; background:#f0f9ff; color:#0c4a6e; border:1px solid #bae6fd; white-space:nowrap; }
-  .badge-hoy     { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
-  .badge-default { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+  .badge-hoy        { background:#eff6ff; color:#1e40af; border:1px solid #93c5fd; }
+  .badge-default    { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+  .badge-ot         { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:10px; font-size:10.5px; font-weight:700; background:#f0f9ff; color:#0c4a6e; border:1px solid #bae6fd; white-space:nowrap; margin-left:4px; }
 
   .ind-pos  { color: var(--rojo);  font-weight: 600; }
   .ind-neg  { color: var(--verde); }
   .ind-zero { color: var(--gris); }
 
-  .rutina-cell {
-    max-width: 250px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .rutina-cell { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* ── Response buttons ── */
-  .resp-btns {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .btn-ent {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 11px;
-    background: var(--verde);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, transform 0.1s;
-  }
+  /* Botones respuesta */
+  .resp-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .btn-ent { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: var(--verde); color: #fff; border: none; border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s, transform 0.1s; }
   .btn-ent:hover  { background: #6d9a32; }
   .btn-ent:active { transform: scale(0.97); }
-
-  .btn-no {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 11px;
-    background: #fff;
-    color: var(--rojo);
-    border: 1.5px solid var(--rojo);
-    border-radius: 6px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s, transform 0.1s;
-  }
+  .btn-no { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; background: #fff; color: var(--rojo); border: 1.5px solid var(--rojo); border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
   .btn-no:hover  { background: var(--rojo); color: #fff; }
   .btn-no:active { transform: scale(0.97); }
 
-  /* ── Result badges ── */
-  .badge-resp-ent {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #86efac;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .badge-resp-no {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    background: #fff7f7;
-    color: #991b1b;
-    border: 1px solid #fca5a5;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .badge-solicitado-por {
+    display: inline-flex; align-items: center; padding: 2px 8px;
+    background: #eff6ff; color: var(--azul);
+    border: 1px solid #bfdbfe; border-radius: 10px;
+    font-size: 10.5px; font-weight: 700; margin-left: 6px;
   }
 
-  .badge-no-ej-prev {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 10px;
-    background: #fffbeb;
-    color: #92400e;
-    border: 1px solid #fde68a;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 600;
-    max-width: 220px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .empty-state {
-    padding: 60px 24px;
-    text-align: center;
-    color: var(--gris);
-  }
-  .empty-state svg {
-    width: 48px; height: 48px;
-    stroke: #d1d5db; fill: none;
-    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
-    margin-bottom: 16px;
-  }
+  .empty-state { padding: 60px 24px; text-align: center; color: var(--gris); }
+  .empty-state svg { width: 48px; height: 48px; stroke: #d1d5db; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 16px; }
   .empty-state h3 { font-size: 16px; color: #374151; margin-bottom: 6px; }
   .empty-state p  { font-size: 13.5px; }
 
-  /* ── Sticky action bar ── */
-  .action-bar {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--azul);
-    border-top: 3px solid var(--verde);
-    padding: 14px 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    z-index: 100;
-    transform: translateY(100%);
-    transition: transform 0.22s ease;
-    box-shadow: 0 -4px 20px rgba(0,45,110,0.25);
-  }
-  .action-bar.visible { transform: translateY(0); }
-  .action-bar-info { color: rgba(255,255,255,0.85); font-size: 14px; }
-  .action-bar-info strong { color: #fff; font-size: 16px; font-weight: 700; }
-
-  .btn-solicitar {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 28px;
-    background: var(--verde);
-    color: #fff;
-    font-size: 14.5px;
-    font-weight: 700;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    letter-spacing: 0.1px;
-    transition: background 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-  .btn-solicitar svg {
-    width: 16px; height: 16px;
-    stroke: currentColor; fill: none;
-    stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
-  }
-  .btn-solicitar:hover  { background: #6d9a32; }
-  .btn-solicitar:active { transform: scale(0.99); }
-
-  .btn-clear-sel {
-    background: none;
-    border: 1px solid rgba(255,255,255,0.3);
-    color: rgba(255,255,255,0.75);
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-clear-sel:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-  tr.row-selected       { background: #eff6ff !important; }
-  tr.row-selected:hover { background: #dbeafe !important; }
-
-  /* ── Modal ── */
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-  .modal-box {
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 20px 60px rgba(0,45,110,0.2);
-    width: 100%;
-    max-width: 480px;
-    overflow: hidden;
-    animation: modal-in 0.18s ease;
-  }
-  @keyframes modal-in {
-    from { transform: translateY(12px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  .modal-hdr {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 22px 14px;
-    border-bottom: 1px solid var(--borde);
-    background: #fff7f7;
-  }
-  .modal-hdr h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--rojo);
-  }
-  .modal-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: var(--gris);
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-    line-height: 1;
-    transition: background 0.12s;
-  }
+  /* Modal (retenemos solo el de no ejecutado + confirmar ejecutado) */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal-box { background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,45,110,0.2); width: 100%; max-width: 480px; overflow: hidden; animation: modal-in 0.18s ease; }
+  @keyframes modal-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px; border-bottom: 1px solid var(--borde); background: #fff7f7; }
+  .modal-hdr h3 { font-size: 16px; font-weight: 700; color: var(--rojo); }
+  .modal-close { background: none; border: none; font-size: 20px; color: var(--gris); cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
   .modal-close:hover { background: #f3f4f6; color: var(--texto); }
   .modal-body { padding: 20px 22px; }
-  .modal-body > p {
-    font-size: 13.5px;
-    color: var(--gris);
-    margin-bottom: 16px;
-  }
+  .modal-body > p { font-size: 13.5px; color: var(--gris); margin-bottom: 16px; }
   .form-group { margin-bottom: 16px; }
-  .form-group label {
-    display: block;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--gris);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 6px;
-  }
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 9px 12px;
-    border: 1.5px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 13.5px;
-    color: var(--texto);
-    background: #fafafa;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.15s;
-    resize: vertical;
-  }
-  .form-group select:focus,
-  .form-group textarea:focus {
-    border-color: var(--rojo);
-    background: #fff;
-  }
+  .form-group label { display: block; font-size: 12.5px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+  .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 13.5px; color: var(--texto); background: #fafafa; outline: none; font-family: inherit; resize: vertical; transition: border-color 0.15s; }
+  .form-group select:focus, .form-group textarea:focus { border-color: var(--rojo); background: #fff; }
   .form-group select.error { border-color: var(--rojo); background: #fff7f7; }
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 22px 18px;
-    border-top: 1px solid var(--borde);
-  }
-  .btn-modal-cancel {
-    padding: 9px 20px;
-    background: #f3f4f6;
-    color: var(--gris);
-    border: 1px solid #d1d5db;
-    border-radius: 7px;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid var(--borde); }
+  .btn-modal-cancel { padding: 9px 20px; background: #f3f4f6; color: var(--gris); border: 1px solid #d1d5db; border-radius: 7px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
   .btn-modal-cancel:hover { background: #e5e7eb; }
-  .btn-modal-confirm {
-    padding: 9px 22px;
-    background: var(--rojo);
-    color: #fff;
-    border: none;
-    border-radius: 7px;
-    font-size: 13.5px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-  }
-  .btn-modal-confirm:hover  { background: #b91c1c; }
-  .btn-modal-confirm:active { transform: scale(0.98); }
+  .btn-modal-confirm { padding: 9px 22px; background: var(--rojo); color: #fff; border: none; border-radius: 7px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .btn-modal-confirm:hover { background: #b91c1c; }
 
-  /* ── Toast ── */
-  .toast {
-    position: fixed;
-    bottom: 80px; right: 24px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #fff;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    z-index: 2000;
-    animation: toast-in 0.2s ease;
-    pointer-events: none;
-  }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 2000; animation: toast-in 0.2s ease; pointer-events: none; }
   .toast.toast-ok  { background: var(--verde); }
   .toast.toast-err { background: var(--rojo); }
-  @keyframes toast-in {
-    from { transform: translateY(10px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-
-  /* ── Días sin gestionar ── */
-  .badge-dias {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
-    margin-left: 5px;
-    vertical-align: middle;
-  }
-  .badge-dias-rojo {
-    background: #fff2f2;
-    color: #991b1b;
-    border: 1px solid #fca5a5;
-    animation: parpadeo 1.2s infinite;
-  }
-  .badge-dias-ambar {
-    background: #fffbeb;
-    color: #92400e;
-    border: 1px solid #fde68a;
-  }
-  @keyframes parpadeo {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.4; }
-  }
+  @keyframes toast-in { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
   @media (max-width: 768px) {
-    .cio-page { padding: 14px 12px 100px; }
+    .cio-page { padding: 14px 12px 40px; }
     .page-hdr { flex-direction: column; align-items: flex-start; }
     .ultima-actualizacion { font-size: 16px; }
     .kpi-grid { gap: 10px; }
-    .toolbar {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 6px;
-    }
-    .toolbar select,
-    .toolbar input[type="text"] { min-width: 0; width: 100%; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar select, .toolbar input[type="text"] { min-width: 0; width: 100%; }
     .toolbar-search { margin-left: 0; width: 100%; }
     .toolbar-search input { min-width: 0; width: 100%; padding-left: 32px !important; }
-    .toolbar-count { text-align: right; font-size: 11.5px; }
-    .action-bar {
-      flex-direction: column;
-      align-items: stretch;
-      padding: 12px 14px;
-      gap: 8px;
-    }
-    .action-bar-info { font-size: 13px; }
-    .btn-solicitar { width: 100%; justify-content: center; padding: 12px 16px; }
-    .btn-clear-sel { width: 100%; text-align: center; }
-    .modal-overlay { padding: 10px; }
-    .modal-box { max-width: 100%; }
-    .toast { bottom: 70px; left: 12px; right: 12px; text-align: center; }
-  }
-  @media (max-width: 480px) {
-    .kpi-grid { grid-template-columns: 1fr; }
   }
 </style>
 {% endblock %}
@@ -617,8 +134,8 @@
 
   <div class="page-hdr">
     <div class="page-hdr-left">
-      <h1>Equipos para Mantenimiento Preventivo</h1>
-      <p>Solicita vehículos a Operaciones y registra el resultado de cada entrega</p>
+      <h1>Equipos Solicitados por Planeación</h1>
+      <p>Responda si cada equipo fue ejecutado o no. Los checkboxes desaparecen al recibir respuesta.</p>
       {% if ultima_actualizacion %}
         <div class="ultima-actualizacion">Última actualización: {{ ultima_actualizacion }}</div>
       {% else %}
@@ -630,100 +147,64 @@
     {% endif %}
   </div>
 
-  <!-- KPI cards -->
+  <div class="info-banner">
+    <strong>Nuevo flujo:</strong> ahora es el planeador (admin) quien envía los equipos a este panel.
+    Su rol es responder <strong>Ejecutado</strong> o <strong>No ejecutado</strong> con motivo.
+    Los no motorizados están en la pestaña <a href="{{ url_for('cio_no_motorizados') }}" style="color:var(--azul);font-weight:700;">No Motorizados</a>.
+  </div>
+
   <div class="kpi-grid">
     <div class="kpi-card kpi-blue">
       <div class="kpi-value">{{ total }}</div>
-      <div class="kpi-label">Equipos en ciclo</div>
-      <div class="kpi-sub">requieren MP</div>
+      <div class="kpi-label">Solicitados</div>
+      <div class="kpi-sub">por planeación</div>
     </div>
     <div class="kpi-card kpi-red">
       <div class="kpi-value">{{ vencidos }}</div>
       <div class="kpi-label">Vencidos</div>
       <div class="kpi-sub">MP pendiente</div>
     </div>
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-value">{{ (total - vencidos - proximos) if (total - vencidos - proximos) > 0 else 0 }}</div>
+      <div class="kpi-label">En tolerancia</div>
+      <div class="kpi-sub">margen ≤ 10%</div>
+    </div>
     <div class="kpi-card kpi-amber">
       <div class="kpi-value">{{ proximos }}</div>
       <div class="kpi-label">Próximos</div>
-      <div class="kpi-sub">dentro del rango</div>
-    </div>
-    <div class="kpi-card kpi-green">
-      <div class="kpi-value">{{ ya_solicitados }}</div>
-      <div class="kpi-label">Solicitados</div>
-      <div class="kpi-sub">a Operaciones</div>
-    </div>
-    <div class="kpi-card kpi-sky" title="Vehículos solicitados que aún no tienen respuesta (ejecutado/no ejecutado)">
-      <div class="kpi-value">{{ pendientes_respuesta }}</div>
-      <div class="kpi-label">Pend. mi respuesta</div>
-      <div class="kpi-sub">sin ejecutado/no ej.</div>
-    </div>
-    <div class="kpi-card kpi-green">
-      <div class="kpi-value">{{ ejecutados_count }}</div>
-      <div class="kpi-label">Ejecutados</div>
-      <div class="kpi-sub">MP completado</div>
+      <div class="kpi-sub">se aproximan</div>
     </div>
   </div>
 
-  {% if total == 0 and ejecutados_count == 0 %}
-  <div class="table-card">
-    <div class="empty-state">
-      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      <h3>No hay equipos cargados</h3>
-      <p>El administrador debe sincronizar la programación MP antes de continuar.</p>
-    </div>
-  </div>
-
-  {% elif total == 0 %}
+  {% if total == 0 %}
   <div class="table-card">
     <div class="empty-state">
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      <h3>Todos los vehículos ejecutados</h3>
-      <p>Todos los vehículos solicitados en este ciclo ya fueron marcados como ejecutados.</p>
+      <h3>No hay equipos pendientes</h3>
+      <p>Planeación no ha enviado equipos al panel, o ya respondió todos los del ciclo actual.<br>
+         Revise su <a href="{{ url_for('cio_mis_solicitudes') }}" style="color:var(--cielo);font-weight:600;">historial</a>.</p>
     </div>
   </div>
 
   {% else %}
 
-  <!-- Filtros -->
   <div class="toolbar">
-    <label for="fil-categoria">Categoría</label>
-    <select id="fil-categoria">
-      <option value="">Todas las categorías</option>
-      {% for c in categorias %}
-        <option value="{{ c }}">{{ c }}</option>
-      {% endfor %}
-    </select>
-
     <label for="fil-familia">Familia</label>
     <select id="fil-familia">
       <option value="">Todas las familias</option>
-      {% for f in familias %}
-        <option value="{{ f }}">{{ f }}</option>
-      {% endfor %}
+      {% for f in familias %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
     </select>
 
     <label for="fil-estado">Estado MP</label>
     <select id="fil-estado">
       <option value="">Todos los estados</option>
-      {% for e in estados %}
-        <option value="{{ e }}">{{ e }}</option>
-      {% endfor %}
+      {% for e in estados %}<option value="{{ e }}">{{ e }}</option>{% endfor %}
     </select>
 
     <label for="fil-estado-veh">Estado Vehículo</label>
     <select id="fil-estado-veh">
       <option value="">Todos</option>
-      {% for ev in estados_vehiculo %}
-        <option value="{{ ev }}">{{ ev }}</option>
-      {% endfor %}
-    </select>
-
-    <label for="fil-sol">Solicitud</label>
-    <select id="fil-sol">
-      <option value="">Todos</option>
-      <option value="pendiente">Pendiente respuesta</option>
-      <option value="no_ejecutado">No ejecutado</option>
-      <option value="no-solicitado">No solicitado</option>
+      {% for ev in estados_vehiculo %}<option value="{{ ev }}">{{ ev }}</option>{% endfor %}
     </select>
 
     <div class="toolbar-search">
@@ -731,167 +212,110 @@
       <input type="text" id="fil-buscar" placeholder="Buscar vehículo..." autocomplete="off">
     </div>
 
-    <span class="toolbar-count" id="toolbar-count">{{ equipos|length }} vehículo(s) mostrados</span>
+    <span class="toolbar-count" id="toolbar-count">{{ equipos|length }} equipo(s)</span>
   </div>
 
-  <!-- Tabla -->
-  <form id="solicitar-form" method="POST" action="{{ url_for('cio_solicitar') }}">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <div class="table-card">
-      <div class="table-scroll">
-        <table class="data-table" id="equipos-table">
-          <thead>
-            <tr>
-              <th class="th-check">
-                <input type="checkbox" id="sel-all" title="Seleccionar todos visibles"
-                       style="width:16px;height:16px;accent-color:var(--azul);cursor:pointer;">
-              </th>
-              <th>Vehículo</th>
-              <th>Familia</th>
-              <th>Rutina(s)</th>
-              <th>Desviación</th>
-              <th>Ind. Desv.</th>
-              <th>Estado MP</th>
-              <th>Resultado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="equipos-body">
-            {% for equipo in equipos %}
-            {% set sol_state = equipo.sol_state %}
-            <tr
-              data-familia="{{ equipo.familia or '' }}"
-              data-categoria="{{ equipo.categoria or '' }}"
-              data-estado="{{ equipo.estado_mp or '' }}"
-              data-vehiculo="{{ equipo.vehiculo or '' }}"
-              data-estado-vehiculo="{{ equipo.estado_vehiculo or '' }}"
-              data-sol-estado="{{ sol_state or 'no-solicitado' }}"
-              data-rutina="{{ (equipo.rutinas_str or '')|truncate(60, True, '…') }}"
-              class="{% if sol_state == 'pendiente' %}row-solicitado{% elif sol_state == 'no_ejecutado' %}row-no-entregado{% endif %}"
-            >
-              <td class="td-check">
-                {% if sol_state == 'pendiente' %}
-                  <span class="dot-sol" title="Pendiente de respuesta"></span>
-                {% else %}
-                  <input type="checkbox" name="vehiculos" value="{{ equipo.vehiculo }}" class="row-check">
-                {% endif %}
-              </td>
-              <td>
-                <a href="{{ url_for('equipo_detalle', vehiculo=equipo.vehiculo) }}"
-                   class="vehiculo-link">{{ equipo.vehiculo }}</a>
-                {% if equipo.dias_sin_gestionar >= 3 %}
-                  <span class="badge-dias badge-dias-rojo"
-                        title="{{ equipo.dias_sin_gestionar }} días sin gestionar">
-                    ⚠ {{ equipo.dias_sin_gestionar }}d
-                  </span>
-                {% elif equipo.dias_sin_gestionar >= 1 %}
-                  <span class="badge-dias badge-dias-ambar"
-                        title="{{ equipo.dias_sin_gestionar }} días sin gestionar">
-                    {{ equipo.dias_sin_gestionar }}d
-                  </span>
-                {% endif %}
-              </td>
-              <td>{{ equipo.familia or '—' }}</td>
-              <td class="rutina-cell" title="{{ equipo.rutinas_str or '' }}">{{ equipo.rutinas_str or '—' }}</td>
-              <td>{{ equipo.desviacion or '—' }}</td>
-              <td>
-                {% if equipo.ind_desviacion is not none %}
-                  {% set ind_val = equipo.ind_desviacion|float %}
-                  <span class="{% if ind_val > 0 %}ind-pos{% elif ind_val < 0 %}ind-neg{% else %}ind-zero{% endif %}">
-                    {{ equipo.ind_desviacion|pct_desviacion }}
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-              <td>
-                {% set em = (equipo.estado_mp or '')|lower %}
-                {% if 'vencido' in em %}
-                  <span class="badge-estado badge-vencido">{{ equipo.estado_mp }}</span>
-                {% elif 'tolerancia' in em %}
-                  <span class="badge-estado badge-tolerancia">{{ equipo.estado_mp }}</span>
-                {% elif 'próximo' in em or 'proximo' in em %}
-                  <span class="badge-estado badge-proximo">{{ equipo.estado_mp }}</span>
-                {% elif 'hoy' in em %}
-                  <span class="badge-estado badge-hoy">{{ equipo.estado_mp }}</span>
-                {% else %}
-                  <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
-                {% endif %}
-                {% if equipo.tipo_ot %}
-                  <span class="badge-ot">🔧 {{ equipo.tipo_ot }}</span>
-                {% endif %}
-                {% if equipo.tipo_rutina == 'verificacion' %}
-                  <span style="display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;margin-top:2px;">🔄 Verificación</span>
-                {% endif %}
-              </td>
-              <td style="min-width:220px;">
-                {% if sol_state == 'pendiente' %}
-                  <div class="resp-btns" data-vehiculo="{{ equipo.vehiculo }}">
-                    <button type="button" class="btn-ent"
-                            onclick="responderEntregado('{{ equipo.vehiculo }}')">✓ Ejecutado</button>
-                    <button type="button" class="btn-no"
-                            onclick="abrirModal('{{ equipo.vehiculo }}')">✗ No ejecutado</button>
-                  </div>
-                {% elif sol_state == 'no_ejecutado' %}
-                  <div class="badge-no-ej-prev" title="{{ equipo.motivo_no_ej_str }}">
-                    ⚠ No ejecutado — {{ equipo.motivo_no_ej_str[:40] }}{% if equipo.motivo_no_ej_str|length > 40 %}…{% endif %}
-                  </div>
-                {% endif %}
-              </td>
-              <td>
-                <a href="{{ url_for('equipo_detalle', vehiculo=equipo.vehiculo) }}"
-                   style="color:var(--cielo);font-size:12px;text-decoration:none;">Ver →</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div id="no-results" style="display:none;">
-        <div class="empty-state" style="padding:40px 24px;">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <h3>Sin resultados</h3>
-          <p>Ningún vehículo coincide con los filtros aplicados.</p>
-        </div>
-      </div>
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="data-table" id="equipos-table">
+        <thead>
+          <tr>
+            <th>Vehículo</th>
+            <th>Familia</th>
+            <th>Rutina(s)</th>
+            <th>Desviación</th>
+            <th>Ind. Desv.</th>
+            <th>Estado MP</th>
+            <th style="min-width:220px;">Respuesta</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="equipos-body">
+          {% for equipo in equipos %}
+          <tr
+            data-familia="{{ equipo.familia or '' }}"
+            data-categoria="{{ equipo.categoria or '' }}"
+            data-estado="{{ equipo.estado_mp or '' }}"
+            data-vehiculo="{{ equipo.vehiculo or '' }}"
+            data-estado-vehiculo="{{ equipo.estado_vehiculo or '' }}"
+          >
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=equipo.vehiculo) }}"
+                 class="vehiculo-link">{{ equipo.vehiculo }}</a>
+              {% if equipo.solicitado_por_nombre %}
+                <span class="badge-solicitado-por" title="Solicitado por {{ equipo.solicitado_por_nombre }}">📌 {{ equipo.solicitado_por_nombre.split()[0] }}</span>
+              {% endif %}
+            </td>
+            <td>{{ equipo.familia or '—' }}</td>
+            <td class="rutina-cell" title="{{ equipo.rutinas_str or '' }}">{{ equipo.rutinas_str or '—' }}</td>
+            <td>{{ equipo.desviacion or '—' }}</td>
+            <td>
+              {% if equipo.ind_desviacion is not none %}
+                {% set ind_val = equipo.ind_desviacion|float %}
+                <span class="{% if ind_val > 0 %}ind-pos{% elif ind_val < 0 %}ind-neg{% else %}ind-zero{% endif %}">
+                  {{ equipo.ind_desviacion|pct_desviacion }}
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% set em = (equipo.estado_mp or '')|lower %}
+              {% if 'vencido' in em %}
+                <span class="badge-estado badge-vencido">{{ equipo.estado_mp }}</span>
+              {% elif 'tolerancia' in em %}
+                <span class="badge-estado badge-tolerancia">{{ equipo.estado_mp }}</span>
+              {% elif 'próximo' in em or 'proximo' in em %}
+                <span class="badge-estado badge-proximo">{{ equipo.estado_mp }}</span>
+              {% elif 'hoy' in em %}
+                <span class="badge-estado badge-hoy">{{ equipo.estado_mp }}</span>
+              {% else %}
+                <span class="badge-estado badge-default">{{ equipo.estado_mp or '—' }}</span>
+              {% endif %}
+              {% if equipo.tipo_ot %}<span class="badge-ot">🔧 {{ equipo.tipo_ot }}</span>{% endif %}
+              {% if equipo.tipo_rutina == 'verificacion' %}<span class="badge-estado badge-default" style="margin-left:4px;">🔄 Verif.</span>{% endif %}
+            </td>
+            <td>
+              <div class="resp-btns" data-vehiculo="{{ equipo.vehiculo }}">
+                <button type="button" class="btn-ent" onclick="responderEjecutado('{{ equipo.vehiculo }}')">✓ Ejecutado</button>
+                <button type="button" class="btn-no" onclick="abrirModal('{{ equipo.vehiculo }}')">✗ No ejecutado</button>
+              </div>
+            </td>
+            <td>
+              <a href="{{ url_for('equipo_detalle', vehiculo=equipo.vehiculo) }}"
+                 style="color:var(--cielo);font-size:12px;text-decoration:none;">Ver →</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </form>
-
-  <!-- Sticky action bar -->
-  <div class="action-bar" id="action-bar">
-    <div class="action-bar-info">
-      <strong id="sel-count">0</strong> vehículo(s) seleccionado(s) para solicitar a Operaciones
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <button type="button" class="btn-clear-sel" id="btn-clear">Limpiar selección</button>
-      <button type="button" class="btn-solicitar" id="btn-abrir-confirm">
-        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Solicitar Vehículos
-      </button>
+    <div id="no-results" style="display:none;">
+      <div class="empty-state" style="padding:40px 24px;">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <h3>Sin resultados</h3>
+        <p>Ningún equipo coincide con los filtros aplicados.</p>
+      </div>
     </div>
   </div>
 
   {% endif %}
-
 </div>
 
-<!-- ══ Modal: No ejecutado ══ -->
-<div id="modal-no-ent" class="modal-overlay" style="display:none;" onclick="overlayClick(event)">
+<!-- Modal No Ejecutado -->
+<div id="modal-no-ent" class="modal-overlay" style="display:none;" onclick="if(event.target===this)cerrarModal();">
   <div class="modal-box">
     <div class="modal-hdr">
       <h3>✗ Registrar No Ejecutado</h3>
       <button type="button" class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p>Indica el motivo por el que Operaciones no entregó el vehículo al taller.</p>
+      <p>Indica el motivo por el que no se pudo ejecutar el MP del vehículo <strong id="modal-no-veh"></strong>.</p>
       <div class="form-group">
         <label for="modal-motivo">Motivo <span style="color:var(--rojo)">*</span></label>
-        <select id="modal-motivo">
-          <option value="">— Selecciona un motivo —</option>
-        </select>
+        <select id="modal-motivo"><option value="">— Selecciona un motivo —</option></select>
       </div>
       <div class="form-group">
         <label for="modal-comentario">Comentario adicional <span style="color:#9ca3af;font-weight:400;text-transform:none;">(opcional)</span></label>
-        <textarea id="modal-comentario" rows="3"
-                  placeholder="Observación libre sobre la situación..."></textarea>
+        <textarea id="modal-comentario" rows="3" placeholder="Observación libre..."></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -901,247 +325,67 @@
   </div>
 </div>
 
-<!-- ══ Modal: Confirmar Ejecutado ══ -->
-<div id="modal-ejecutado" class="modal-overlay" style="display:none;" onclick="if(event.target===this)document.getElementById('modal-ejecutado').style.display='none';">
+<!-- Modal Confirmar Ejecutado -->
+<div id="modal-ejec" class="modal-overlay" style="display:none;" onclick="if(event.target===this)cerrarModalEjec();">
   <div class="modal-box" style="max-width:440px;">
     <div class="modal-hdr" style="background:#f0fdf4;">
       <h3 style="color:#166534;">✓ Confirmar Ejecutado</h3>
-      <button type="button" class="modal-close" onclick="document.getElementById('modal-ejecutado').style.display='none';" aria-label="Cerrar">✕</button>
+      <button type="button" class="modal-close" onclick="cerrarModalEjec()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p>¿Confirmar que Operaciones entregó el vehículo <strong id="modal-ejec-veh"></strong> al taller para ejecución del MP?</p>
+      <p>¿Confirma que el MP del vehículo <strong id="modal-ejec-veh"></strong> fue ejecutado?</p>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn-modal-cancel" onclick="document.getElementById('modal-ejecutado').style.display='none';">Cancelar</button>
-      <button type="button" id="btn-confirmar-ejec"
-              style="padding:9px 22px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;">
-        Confirmar Ejecutado
-      </button>
+      <button type="button" class="btn-modal-cancel" onclick="cerrarModalEjec()">Cancelar</button>
+      <button type="button" id="btn-confirmar-ejec" style="padding:9px 22px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;">Confirmar Ejecutado</button>
     </div>
   </div>
 </div>
 
-<!-- ══ Modal: Confirmar solicitud ══ -->
-<div id="modal-confirmar-sol" class="modal-overlay" style="display:none;" onclick="overlayClickConfirm(event)">
-  <div class="modal-box" style="max-width:520px;">
-    <div class="modal-hdr" style="background:#eff6ff;">
-      <h3 style="color:var(--azul);">
-        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--cielo);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;margin-right:6px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Confirmar Solicitud
-      </h3>
-      <button type="button" class="modal-close" onclick="cerrarModalConfirm()" aria-label="Cerrar">✕</button>
-    </div>
-    <div class="modal-body">
-      <p id="confirm-resumen-titulo" style="font-size:15px;font-weight:700;color:var(--azul);margin-bottom:12px;"></p>
-      <div id="confirm-familias" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;"></div>
-      <p style="font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px;">Vehículos seleccionados</p>
-      <div id="confirm-lista-vehiculos"
-           style="max-height:220px;overflow-y:auto;border:1px solid var(--borde);border-radius:8px;background:#f8f9fb;">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn-modal-cancel" onclick="cerrarModalConfirm()">Cancelar</button>
-      <button type="button" id="btn-confirmar-sol"
-              style="padding:9px 22px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:700;cursor:pointer;transition:background 0.15s;">
-        Confirmar Solicitud
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast container -->
 <div id="toast-container"></div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function () {
-  /* ── Selection / filtros ── */
-  var checks    = document.querySelectorAll('.row-check');
-  var selAll    = document.getElementById('sel-all');
-  var countEl   = document.getElementById('sel-count');
-  var bar       = document.getElementById('action-bar');
-  var btnClear  = document.getElementById('btn-clear');
-  var filCat    = document.getElementById('fil-categoria');
-  var filFam    = document.getElementById('fil-familia');
-  var filEst    = document.getElementById('fil-estado');
-  var filEstVeh = document.getElementById('fil-estado-veh');
-  var filSol    = document.getElementById('fil-sol');
-  var filBus    = document.getElementById('fil-buscar');
   var rows      = document.querySelectorAll('#equipos-body tr');
   var noRes     = document.getElementById('no-results');
   var toolCount = document.getElementById('toolbar-count');
-
-  var btnSolicitar = document.getElementById('btn-abrir-confirm');
-
-  function updateCounter() {
-    var n = document.querySelectorAll('.row-check:checked').length;
-    if (countEl) countEl.textContent = n;
-    if (bar) bar.classList.toggle('visible', n > 0);
-    // H-NEW-11: Actualizar texto del botón con contador
-    if (btnSolicitar) {
-      btnSolicitar.querySelector('span') && btnSolicitar.querySelector('span').remove();
-      var label = n > 0 ? 'Solicitar ' + n + ' vehículo' + (n > 1 ? 's' : '') : 'Solicitar Vehículos';
-      btnSolicitar.childNodes[btnSolicitar.childNodes.length - 1].textContent = '\n        ' + label + '\n      ';
-      btnSolicitar.disabled = n === 0;
-      btnSolicitar.style.opacity = n === 0 ? '0.5' : '1';
-    }
-  }
+  var filFam    = document.getElementById('fil-familia');
+  var filEst    = document.getElementById('fil-estado');
+  var filEstVeh = document.getElementById('fil-estado-veh');
+  var filBus    = document.getElementById('fil-buscar');
 
   function applyFilters() {
-    var cat    = filCat    ? filCat.value.toLowerCase()    : '';
     var fam    = filFam    ? filFam.value.toLowerCase()    : '';
     var est    = filEst    ? filEst.value.toLowerCase()    : '';
     var estVeh = filEstVeh ? filEstVeh.value.toLowerCase() : '';
-    var solEst = filSol    ? filSol.value                  : '';
     var bus    = filBus    ? filBus.value.trim().toLowerCase() : '';
     var visible = 0;
-
     rows.forEach(function (tr) {
-      if (tr.dataset.solEstado === 'ejecutado') { tr.style.display = 'none'; return; }
-      var rowCat    = (tr.dataset.categoria      || '').toLowerCase();
-      var rowFam    = (tr.dataset.familia        || '').toLowerCase();
-      var rowEst    = (tr.dataset.estado         || '').toLowerCase();
+      if (tr.dataset.responded === '1') { tr.style.display = 'none'; return; }
+      var rowFam    = (tr.dataset.familia || '').toLowerCase();
+      var rowEst    = (tr.dataset.estado || '').toLowerCase();
       var rowEstVeh = (tr.dataset.estadoVehiculo || '').toLowerCase();
-      var rowVeh    = (tr.dataset.vehiculo       || '').toLowerCase();
-      var rowSolEst = (tr.dataset.solEstado      || '');
+      var rowVeh    = (tr.dataset.vehiculo || '').toLowerCase();
       var ok = true;
-      if (cat    && rowCat !== cat)              ok = false;
-      if (fam    && rowFam !== fam)              ok = false;
-      if (est    && !rowEst.includes(est))       ok = false;
-      if (estVeh && rowEstVeh !== estVeh)        ok = false;
-      if (bus    && !rowVeh.includes(bus))       ok = false;
-      if (solEst && rowSolEst !== solEst)        ok = false;
+      if (fam    && rowFam !== fam) ok = false;
+      if (est    && !rowEst.includes(est)) ok = false;
+      if (estVeh && rowEstVeh !== estVeh) ok = false;
+      if (bus    && !rowVeh.includes(bus)) ok = false;
       tr.style.display = ok ? '' : 'none';
       if (ok) visible++;
     });
-
     if (noRes)     noRes.style.display = visible === 0 ? '' : 'none';
-    if (toolCount) toolCount.textContent = visible + ' vehículo(s) mostrados';
+    if (toolCount) toolCount.textContent = visible + ' equipo(s)';
   }
 
-  checks.forEach(function (cb) {
-    cb.addEventListener('change', function () {
-      var tr = cb.closest('tr');
-      if (tr) tr.classList.toggle('row-selected', cb.checked);
-      updateCounter();
-      if (selAll) selAll.indeterminate = true;
-    });
-  });
-
-  if (selAll) {
-    selAll.addEventListener('change', function () {
-      rows.forEach(function (tr) {
-        if (tr.style.display === 'none') return;
-        var cb = tr.querySelector('.row-check');
-        if (!cb) return;
-        cb.checked = selAll.checked;
-        tr.classList.toggle('row-selected', selAll.checked);
-      });
-      selAll.indeterminate = false;
-      updateCounter();
-    });
-  }
-
-  if (btnClear) {
-    btnClear.addEventListener('click', function () {
-      checks.forEach(function (cb) {
-        cb.checked = false;
-        var tr = cb.closest('tr');
-        if (tr) tr.classList.remove('row-selected');
-      });
-      if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
-      updateCounter();
-    });
-  }
-
-  if (filCat)    filCat.addEventListener('change', applyFilters);
   if (filFam)    filFam.addEventListener('change', applyFilters);
   if (filEst)    filEst.addEventListener('change', applyFilters);
   if (filEstVeh) filEstVeh.addEventListener('change', applyFilters);
-  if (filSol)    filSol.addEventListener('change', applyFilters);
   if (filBus)    filBus.addEventListener('input',  applyFilters);
 
-  /* ── Modal confirmación solicitud ── */
-  var btnAbrirConfirm = document.getElementById('btn-abrir-confirm');
-  var modalConfirm    = document.getElementById('modal-confirmar-sol');
-  var btnConfirmarSol = document.getElementById('btn-confirmar-sol');
-
-  function cerrarModalConfirm() {
-    if (modalConfirm) { modalConfirm.style.display = 'none'; document.body.style.overflow = ''; }
-  }
-  window.cerrarModalConfirm = cerrarModalConfirm;
-  window.overlayClickConfirm = function (e) {
-    if (e.target === modalConfirm) cerrarModalConfirm();
-  };
-
-  if (btnAbrirConfirm) {
-    btnAbrirConfirm.addEventListener('click', function () {
-      var checked = document.querySelectorAll('.row-check:checked');
-      if (checked.length === 0) {
-        mostrarToast('Selecciona al menos un vehículo antes de solicitar.', 'err');
-        return;
-      }
-      var byFamily = {};
-      var vehiculosInfo = [];
-      checked.forEach(function (cb) {
-        var tr = cb.closest('tr');
-        var veh = tr ? (tr.dataset.vehiculo || cb.value) : cb.value;
-        var fam = tr ? (tr.dataset.familia || '—') : '—';
-        var rut = tr ? (tr.dataset.rutina || '—') : '—';
-        byFamily[fam] = (byFamily[fam] || 0) + 1;
-        vehiculosInfo.push({ veh: veh, fam: fam, rut: rut });
-      });
-      /* Título */
-      var tituloEl = document.getElementById('confirm-resumen-titulo');
-      if (tituloEl) tituloEl.textContent = 'Vas a solicitar ' + checked.length + ' equipo(s):';
-      /* Chips por familia */
-      var famsEl = document.getElementById('confirm-familias');
-      if (famsEl) {
-        famsEl.innerHTML = '';
-        Object.keys(byFamily).sort().forEach(function (fam) {
-          var chip = document.createElement('span');
-          chip.style.cssText = 'display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:#eff6ff;color:#002D6E;border:1px solid #bfdbfe;';
-          chip.textContent = byFamily[fam] + ' ' + (fam || '—');
-          famsEl.appendChild(chip);
-        });
-      }
-      /* Lista de vehículos */
-      var listaEl = document.getElementById('confirm-lista-vehiculos');
-      if (listaEl) {
-        listaEl.innerHTML = '';
-        vehiculosInfo.forEach(function (v) {
-          var row = document.createElement('div');
-          row.style.cssText = 'padding:8px 14px;border-bottom:1px solid #f3f4f6;display:flex;flex-direction:column;gap:1px;';
-          row.innerHTML = '<span style="font-weight:600;font-size:13px;color:#002D6E;">' + escHtml(v.veh) + '</span>'
-                        + '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(v.rut) + '</span>';
-          listaEl.appendChild(row);
-        });
-        /* Quitar borde del último */
-        var lastRow = listaEl.lastElementChild;
-        if (lastRow) lastRow.style.borderBottom = 'none';
-      }
-      modalConfirm.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    });
-  }
-
-  if (btnConfirmarSol) {
-    btnConfirmarSol.addEventListener('click', function () {
-      cerrarModalConfirm();
-      var form = document.getElementById('solicitar-form');
-      if (form) form.submit();
-    });
-    btnConfirmarSol.addEventListener('mouseover', function () { this.style.background = '#6d9a32'; });
-    btnConfirmarSol.addEventListener('mouseout',  function () { this.style.background = 'var(--verde)'; });
-  }
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { cerrarModal(); cerrarModalConfirm(); }
-  });
-
-  /* ── Toast ── */
+  // === Toast ===
   function mostrarToast(msg, tipo) {
     var c = document.getElementById('toast-container');
     var t = document.createElement('div');
@@ -1155,24 +399,22 @@
     }, 3000);
   }
 
-  /* ── Modal state ── */
+  // === Modales ===
+  var motivosCache = null;
   var currentVehiculo = null;
-  var motivosCache    = null;
-
-  window.overlayClick = function (e) {
-    if (e.target === document.getElementById('modal-no-ent')) cerrarModal();
-  };
+  var pendingEjecVeh = null;
 
   function cargarMotivos(callback) {
     if (motivosCache) { callback(motivosCache); return; }
     fetch('/cio/motivos')
       .then(function (r) { return r.json(); })
       .then(function (data) { motivosCache = data; callback(data); })
-      .catch(function () { mostrarToast('Error al cargar motivos.', 'err'); });
+      .catch(function () { mostrarToast('Error al cargar motivos', 'err'); });
   }
 
   window.abrirModal = function (vehiculo) {
     currentVehiculo = vehiculo;
+    document.getElementById('modal-no-veh').textContent = vehiculo;
     cargarMotivos(function (motivos) {
       var sel = document.getElementById('modal-motivo');
       sel.innerHTML = '<option value="">— Selecciona un motivo —</option>';
@@ -1184,8 +426,7 @@
       });
       sel.classList.remove('error');
       document.getElementById('modal-comentario').value = '';
-      var modal = document.getElementById('modal-no-ent');
-      modal.style.display = 'flex';
+      document.getElementById('modal-no-ent').style.display = 'flex';
       document.body.style.overflow = 'hidden';
       sel.focus();
     });
@@ -1197,18 +438,42 @@
     currentVehiculo = null;
   };
 
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
+  window.responderEjecutado = function (vehiculo) {
+    pendingEjecVeh = vehiculo;
+    document.getElementById('modal-ejec-veh').textContent = vehiculo;
+    document.getElementById('modal-ejec').style.display = 'flex';
+  };
 
-  /* ── Responder (fetch) ── */
-  function enviarRespuesta(vehiculo, accion, motivoId, motivoDesc, comentario) {
+  window.cerrarModalEjec = function () {
+    document.getElementById('modal-ejec').style.display = 'none';
+    pendingEjecVeh = null;
+  };
+
+  document.getElementById('btn-confirmar-ejec').addEventListener('click', function () {
+    if (!pendingEjecVeh) return;
+    cerrarModalEjec();
+    enviarRespuesta(pendingEjecVeh, 'ejecutado', null, null);
+    pendingEjecVeh = null;
+  });
+
+  window.confirmarNoEjecutado = function () {
+    var sel = document.getElementById('modal-motivo');
+    var motivoId = sel.value;
+    if (!motivoId) {
+      sel.classList.add('error');
+      sel.focus();
+      setTimeout(function () { sel.classList.remove('error'); }, 1800);
+      return;
+    }
+    var comentario = document.getElementById('modal-comentario').value.trim() || null;
+    var veh = currentVehiculo;
+    cerrarModal();
+    enviarRespuesta(veh, 'no_ejecutado', motivoId, comentario);
+  };
+
+  function enviarRespuesta(vehiculo, accion, motivoId, comentario) {
     var payload = { vehiculo: vehiculo, accion: accion };
-    if (motivoId)   payload.motivo_id       = parseInt(motivoId, 10);
+    if (motivoId)   payload.motivo_id = parseInt(motivoId, 10);
     if (comentario) payload.comentario_libre = comentario;
 
     fetch('/cio/responder', {
@@ -1219,96 +484,38 @@
     .then(function (r) { return r.json(); })
     .then(function (data) {
       if (!data.success) {
-        mostrarToast(data.error || 'Error al registrar.', 'err');
+        mostrarToast(data.error || 'Error al registrar', 'err');
         return;
       }
-
-      var container = document.querySelector('.resp-btns[data-vehiculo="' + escHtml(vehiculo) + '"]');
-      if (!container) return;
-      var tr = container.closest('tr');
-
-      if (accion === 'ejecutado') {
-        /* ocultar la fila — vehículo ejecutado no aparece más */
-        if (tr) {
-          tr.style.display = 'none';
-          tr.dataset.solEstado = 'ejecutado';
-        }
-        /* actualizar KPI ejecutados */
-        var kpiEj = document.querySelector('.kpi-card.kpi-sky .kpi-value');
-        if (kpiEj) kpiEj.textContent = parseInt(kpiEj.textContent || '0', 10) + 1;
-        /* actualizar contador visible */
-        applyFilters();
-        mostrarToast('Ejecutado registrado. El vehículo salió del panel.', 'ok');
-      } else {
-        var label     = (data.motivo_desc) || comentario || 'Sin motivo';
-        var labelCorto = label.length > 40 ? label.substring(0, 40) + '…' : label;
-        /* mostrar badge no ejecutado + checkbox para re-solicitar */
-        var td = container.parentNode;
-        container.outerHTML = '<div class="badge-no-ej-prev" title="' + escHtml(label) + '">⚠ No ejecutado — ' + escHtml(labelCorto) + '</div>';
-        /* agregar checkbox en la celda de selección */
-        if (tr) {
-          tr.classList.remove('row-solicitado');
-          tr.classList.add('row-no-entregado');
-          tr.dataset.solEstado = 'no_ejecutado';
-          var tdCheck = tr.querySelector('.td-check');
-          if (tdCheck) {
-            tdCheck.innerHTML = '<input type="checkbox" name="vehiculos" value="' + escHtml(vehiculo) + '" class="row-check">';
-            var newCb = tdCheck.querySelector('.row-check');
-            if (newCb) {
-              newCb.addEventListener('change', function () {
-                tr.classList.toggle('row-selected', newCb.checked);
-                updateCounter();
-                if (selAll) selAll.indeterminate = true;
-              });
-            }
-          }
-        }
-        mostrarToast('No ejecutado registrado correctamente.', 'ok');
+      // Ocultar la fila — ya respondida, sale de la vista
+      var tr = document.querySelector('tr[data-vehiculo="' + vehiculo + '"]');
+      if (tr) {
+        tr.dataset.responded = '1';
+        tr.style.display = 'none';
       }
+      // Actualizar KPI Total
+      var kpiTotal = document.querySelector('.kpi-card.kpi-blue .kpi-value');
+      if (kpiTotal) {
+        var n = parseInt(kpiTotal.textContent || '0', 10);
+        if (n > 0) kpiTotal.textContent = n - 1;
+      }
+      applyFilters();
+      mostrarToast(accion === 'ejecutado' ? 'Ejecutado registrado' : 'No ejecutado registrado', 'ok');
     })
-    .catch(function () {
-      mostrarToast('Error de conexión. Intenta nuevamente.', 'err');
-    });
+    .catch(function () { mostrarToast('Error de conexión', 'err'); });
   }
 
-  var _pendingEjecVeh = null;
-  window.responderEntregado = function (vehiculo) {
-    _pendingEjecVeh = vehiculo;
-    document.getElementById('modal-ejec-veh').textContent = vehiculo;
-    document.getElementById('modal-ejecutado').style.display = 'flex';
-  };
-  document.getElementById('btn-confirmar-ejec').addEventListener('click', function () {
-    if (!_pendingEjecVeh) return;
-    document.getElementById('modal-ejecutado').style.display = 'none';
-    enviarRespuesta(_pendingEjecVeh, 'ejecutado', null, null, null);
-    _pendingEjecVeh = null;
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { cerrarModal(); cerrarModalEjec(); }
   });
-
-  window.confirmarNoEjecutado = function () {
-    var sel      = document.getElementById('modal-motivo');
-    var motivoId = sel.value;
-    if (!motivoId) {
-      sel.classList.add('error');
-      sel.focus();
-      setTimeout(function () { sel.classList.remove('error'); }, 1800);
-      return;
-    }
-    var motivoDesc = sel.options[sel.selectedIndex].textContent;
-    var comentario = document.getElementById('modal-comentario').value.trim() || null;
-    var veh        = currentVehiculo;
-    cerrarModal();
-    enviarRespuesta(veh, 'no_ejecutado', motivoId, motivoDesc, comentario);
-  };
-
 })();
 </script>
 {% endblock %}
 
 {% block help_tips %}
-<li>Aquí ve los equipos con Mantenimiento Preventivo vencido o próximo</li>
-<li>Los equipos pendientes de respuesta aparecen primero</li>
-<li>Seleccione equipos con los checkboxes y presione <strong>Solicitar</strong> para pedirlos a Operaciones</li>
-<li>Use los botones <strong>&#10003; Ejecutado</strong> / <strong>&#10007; No ejecutado</strong> para registrar el resultado</li>
-<li>Los filtros de Categoría, Familia, Estado y búsqueda le ayudan a encontrar equipos</li>
-<li>Click en un vehículo para ver su ficha completa con filtros</li>
+<li>Solo aparecen los equipos motorizados que planeación le envió</li>
+<li>Los no motorizados están en la pestaña separada — no requieren respuesta formal</li>
+<li>Al hacer clic en Ejecutado o No ejecutado la fila desaparece del panel</li>
+<li>Consulte su historial completo en Mis Solicitudes</li>
+<li>Los equipos sin responder al final del día se cierran como "sin respuesta" y afectan el KPI del CIO</li>
 {% endblock %}

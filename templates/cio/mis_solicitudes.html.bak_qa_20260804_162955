@@ -388,9 +388,9 @@
     <div class="empty-state">
       <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       <h3>Sin solicitudes aún</h3>
-      <p>Cuando el planeador envíe equipos a su panel y usted responda, aparecerán aquí.<br>
-         Revise los equipos pendientes en <a href="{{ url_for('cio_dashboard') }}"
-         style="color:var(--cielo);font-weight:600;">Equipos MP</a>.</p>
+      <p>Ve a <a href="{{ url_for('cio_dashboard') }}"
+                  style="color:var(--cielo);font-weight:600;">Equipos MP</a>
+         para seleccionar equipos y solicitar a Operaciones.</p>
     </div>
   </div>
   {% endif %}

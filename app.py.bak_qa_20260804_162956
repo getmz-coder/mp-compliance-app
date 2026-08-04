@@ -3489,6 +3489,14 @@ def cio_no_motorizados():
 # Se retira en FASE 3 cuando se rediseñe el CIO. No debe ser invocado en el nuevo flujo.
 # ---------------------------------------------------------------------------
 
+@app.route("/cio/solicitar", methods=["POST", "GET"])
+@login_required
+def cio_solicitar():
+    flash("Esta acción se retiró. Ahora es el planeador (admin) quien envía las solicitudes.", "error")
+    return redirect("/cio")
+
+
+
 # ---------------------------------------------------------------------------
 # v2 — Actualizar impacta_a de un motivo (KPI por dueño)
 # ---------------------------------------------------------------------------

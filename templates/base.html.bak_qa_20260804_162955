@@ -485,12 +485,15 @@
       {% elif current_user.rol == 'cio' %}
         <a href="{{ url_for('cio_dashboard') }}"
            {% if request.endpoint == 'cio_dashboard' %}class="active"{% endif %}>Equipos MP</a>
-        <a href="{{ url_for('cio_no_motorizados') }}"
-           {% if request.endpoint == 'cio_no_motorizados' %}class="active"{% endif %}>No Motorizados</a>
         <a href="{{ url_for('cio_mis_solicitudes') }}"
            {% if request.endpoint == 'cio_mis_solicitudes' %}class="active"{% endif %}>Mis Solicitudes</a>
         <a href="{{ url_for('admin_historial') }}"
            {% if request.endpoint == 'admin_historial' %}class="active"{% endif %}>Historial</a>
+        <a href="{{ url_for('taller_flota') }}"
+           {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
+      {% elif current_user.rol == 'tecnico' %}
+        <a href="{{ url_for('taller') }}"
+           {% if request.endpoint == 'taller' %}class="active"{% endif %}>Equipos en Taller</a>
         <a href="{{ url_for('taller_flota') }}"
            {% if request.endpoint == 'taller_flota' %}class="active"{% endif %}>Consulta Filtros</a>
       {% elif current_user.rol == 'almacen' %}
