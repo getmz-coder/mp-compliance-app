@@ -242,8 +242,8 @@
 <div class="sol-page">
 
   <div class="page-hdr">
-    <h1>Mis Respuestas</h1>
-    <p>Historial de sus respuestas a las solicitudes enviadas por Planeación</p>
+    <h1>Mis Solicitudes</h1>
+    <p>Historial de equipos solicitados a Operaciones con el resultado de cada entrega</p>
   </div>
 
   {% if solicitudes %}

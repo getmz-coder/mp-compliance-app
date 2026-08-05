@@ -852,20 +852,23 @@
 (function () {
   var filCat  = document.getElementById('adm-fil-cat');
   var filFam  = document.getElementById('adm-fil-fam');
+  var filBus  = document.getElementById('adm-fil-bus');
   var rows    = document.querySelectorAll('#adm-equipos-body tr');
   var noRes   = document.getElementById('adm-no-results');
   var counter = document.getElementById('adm-count');
 
-  if (!filCat && !filFam) return;
+  if (!filCat) return;
 
   function applyFilters() {
-    var cat = filCat ? filCat.value.toLowerCase() : '';
-    var fam = filFam ? filFam.value.toLowerCase() : '';
+    var cat = filCat.value.toLowerCase();
+    var fam = filFam.value.toLowerCase();
+    var bus = filBus.value.trim().toLowerCase();
     var visible = 0;
     rows.forEach(function (tr) {
       var ok = true;
       if (cat && (tr.dataset.categoria || '').toLowerCase() !== cat) ok = false;
       if (fam && (tr.dataset.familia   || '').toLowerCase() !== fam) ok = false;
+      if (bus && !(tr.dataset.vehiculo || '').toLowerCase().includes(bus)) ok = false;
       tr.style.display = ok ? '' : 'none';
       if (ok) visible++;
     });
@@ -873,8 +876,9 @@
     if (counter) counter.textContent   = visible + ' equipo(s)';
   }
 
-  if (filCat) filCat.addEventListener('change', applyFilters);
-  if (filFam) filFam.addEventListener('change', applyFilters);
+  filCat.addEventListener('change', applyFilters);
+  filFam.addEventListener('change', applyFilters);
+  filBus.addEventListener('input',  applyFilters);
 
   // Highlight mode: URL param ?highlight=vencidos_sin_sol
   var urlParams = new URLSearchParams(window.location.search);

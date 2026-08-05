@@ -181,10 +181,7 @@ def _aplicar_corte_diario(cur, sync_id, ahora):
     )
     resultado['ejec_no_motor_cerradas'] = cur.rowcount
 
-    # 3. Limpiar checks de no motorizados del ciclo anterior
-    cur.execute("DELETE FROM no_motor_checks WHERE sync_id != ?", (sync_id,))
-
-    # 4. Registrar el corte en ciclos_diarios
+    # 3. Registrar el corte en ciclos_diarios
     cur.execute(
         """INSERT INTO ciclos_diarios
                (sync_id, fecha_corte, solicitudes_pendientes_cerradas,
@@ -477,25 +474,15 @@ def sync_programacion(filepath):
         # v2 — clasificar por categoría de vehículo
         tipo_cat = _tipo_categoria_from(prev.get('categoria'))
 
-        # v3 — si NO había solicitud previa del admin → 'sin_planeacion' (proactivo CIO)
-        had_solicitud = cur.execute(
-            """SELECT 1 FROM solicitudes s
-               JOIN equipos e ON e.id = s.equipo_id
-               WHERE UPPER(e.vehiculo) = ? AND s.sync_id = ?
-               LIMIT 1""",
-            (vehiculo.upper(), prev_sync_id)
-        ).fetchone()
-        estado_nr = 'pendiente' if had_solicitud else 'sin_planeacion'
-
         cur.execute(
             """INSERT INTO ejecuciones_no_reportadas
                    (vehiculo, familia, rutina, ind_desviacion_anterior,
                     ind_desviacion_nuevo, sync_id_anterior, sync_id_nuevo,
                     estado, tipo_categoria, timestamp)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?)""",
             (vehiculo, prev['familia'], prev['rutina'],
              prev['ind'], min(new_inds),
-             prev_sync_id, sync_id, estado_nr, tipo_cat, ahora_nr)
+             prev_sync_id, sync_id, tipo_cat, ahora_nr)
         )
         no_reportadas += 1
         if tipo_cat == 'motorizado':

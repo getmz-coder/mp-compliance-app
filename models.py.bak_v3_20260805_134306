@@ -217,16 +217,6 @@ def init_db():
             timestamp               DATETIME
         );
 
-        
-        CREATE TABLE IF NOT EXISTS no_motor_checks (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            equipo_id  INTEGER REFERENCES equipos(id),
-            usuario_id INTEGER REFERENCES usuarios(id),
-            sync_id    INTEGER NOT NULL,
-            timestamp  DATETIME NOT NULL,
-            UNIQUE(equipo_id, usuario_id, sync_id)
-        );
-
         CREATE TABLE IF NOT EXISTS ciclos_diarios (
             id                              INTEGER PRIMARY KEY AUTOINCREMENT,
             sync_id                         INTEGER NOT NULL,
@@ -337,21 +327,6 @@ def _migrate_ejecuciones_no_reportadas(conn):
         cur.execute(
             "ALTER TABLE ejecuciones_no_reportadas ADD COLUMN tipo_categoria VARCHAR(20) DEFAULT 'motorizado'"
         )
-
-
-def _migrate_no_motor_checks(conn):
-    """v3 - crea tabla no_motor_checks si no existe (en DBs existentes)."""
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS no_motor_checks (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            equipo_id  INTEGER REFERENCES equipos(id),
-            usuario_id INTEGER REFERENCES usuarios(id),
-            sync_id    INTEGER NOT NULL,
-            timestamp  DATETIME NOT NULL,
-            UNIQUE(equipo_id, usuario_id, sync_id)
-        )
-    """)
 
 
 def seed_motivos():

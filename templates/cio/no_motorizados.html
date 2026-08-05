@@ -9,81 +9,40 @@
     --ambar: #E67E22; --fondo: #F0F2F5; --gris: #6b7280;
     --rojo: #dc2626;
   }
-
   .nm-page { max-width: 1100px; margin: 28px auto 60px; padding: 0 20px; }
-
-  .back-link {
-    display: inline-flex; align-items: center; gap: 5px;
-    color: var(--cielo); text-decoration: none; font-size: 13px;
-    font-weight: 500; margin-bottom: 14px;
-  }
+  .back-link { display: inline-flex; align-items: center; gap: 5px; color: var(--cielo); text-decoration: none; font-size: 13px; font-weight: 500; margin-bottom: 14px; }
   .back-link:hover { text-decoration: underline; }
   .back-link svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-
   .page-title { font-size: 22px; font-weight: 700; color: var(--azul); letter-spacing: -0.3px; }
   .page-sub { font-size: 13.5px; color: var(--gris); margin-top: 5px; line-height: 1.5; }
-
-  .info-banner {
-    background: #eff6ff; border-left: 4px solid var(--cielo);
-    padding: 12px 18px; margin-top: 16px; border-radius: 8px;
-    font-size: 13px; color: #1e40af;
-  }
-
-  .card {
-    background: #fff; border-radius: 12px;
-    box-shadow: 0 2px 16px rgba(0, 45, 110, 0.09);
-    margin-top: 20px; overflow: hidden;
-  }
-  .card-header {
-    padding: 16px 22px 14px; border-bottom: 1px solid #f3f4f6;
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  }
+  .info-banner { background: #eff6ff; border-left: 4px solid var(--cielo); padding: 12px 18px; margin-top: 16px; border-radius: 8px; font-size: 13px; color: #1e40af; }
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0, 45, 110, 0.09); margin-top: 20px; overflow: hidden; }
+  .card-header { padding: 16px 22px 14px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .card-header h2 { font-size: 15px; font-weight: 700; color: var(--azul); margin: 0; }
-
-  .kpi-mini {
-    margin-left: auto; display: flex; gap: 10px; font-size: 13px; color: var(--gris);
-  }
+  .kpi-mini { margin-left: auto; display: flex; gap: 10px; font-size: 13px; color: var(--gris); }
   .kpi-mini b { color: var(--azul); }
-
   .tbl-wrap { overflow-x: auto; }
   .nm-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .nm-tbl thead th {
-    background: var(--azul); color: #fff;
-    padding: 10px 12px; font-weight: 600; font-size: 12px;
-    text-align: left; position: sticky; top: 0; z-index: 2;
-  }
-  .nm-tbl tbody td {
-    padding: 8px 12px; border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-  }
+  .nm-tbl thead th { background: var(--azul); color: #fff; padding: 10px 12px; font-weight: 600; font-size: 12px; text-align: left; position: sticky; top: 0; z-index: 2; }
+  .nm-tbl tbody td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
   .nm-tbl tbody tr:hover td { background: #f0f7ff; }
   .nm-tbl tbody tr.checked td { background: #f0fdf4; color: #6b7280; }
   .nm-tbl tbody tr.checked:hover td { background: #e6f7de; }
-
-  .chip {
-    display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 700;
-    border-radius: 10px;
-  }
+  .chip { display: inline-block; padding: 2px 8px; font-size: 11px; font-weight: 700; border-radius: 10px; }
   .chip-vencido-t { background: #fee2e2; color: var(--rojo); }
   .chip-vencido-m { background: #fee2e2; color: var(--rojo); }
   .chip-tolerancia { background: #fef3c7; color: #92400e; }
   .chip-proximo { background: #fffbeb; color: #a16207; }
-
-  .chk-local {
-    width: 18px; height: 18px; cursor: pointer;
-    accent-color: var(--verde);
-  }
-
-  .empty-state {
-    text-align: center; padding: 40px 24px;
-    color: var(--gris); font-size: 13.5px;
-  }
+  .chk-local { width: 18px; height: 18px; cursor: pointer; accent-color: var(--verde); }
+  .chk-status { font-size: 10.5px; margin-left: 4px; color: transparent; }
+  .chk-status.ok { color: var(--verde); }
+  .chk-status.err { color: var(--rojo); }
+  .empty-state { text-align: center; padding: 40px 24px; color: var(--gris); font-size: 13.5px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="nm-page">
-
   <a href="{{ url_for('dashboard_redirect') }}" class="back-link">
     <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     Volver al inicio
@@ -92,12 +51,11 @@
   <h1 class="page-title">Equipos No Motorizados</h1>
   <p class="page-sub">
     Listado de equipos no motorizados en zona de riesgo del ciclo actual.
-    Los checks son de uso interno del CIO — no se guardan en el sistema.
+    <strong>Los checks se guardan por usuario y se reinician con el corte diario del sync (≥ 20 hr).</strong>
   </p>
 
   <div class="info-banner">
-    <strong>Importante:</strong> Los no motorizados no requieren solicitud formal de admin.
-    Marque los checks para su propio seguimiento; se reinician al recargar.
+    <strong>Nota:</strong> los no motorizados no requieren solicitud formal de admin. Marque los checks para su propio control — persisten mientras dure el ciclo del día.
   </div>
 
   <div class="card">
@@ -105,7 +63,7 @@
       <h2>Equipos no motorizados en zona de riesgo</h2>
       <div class="kpi-mini">
         <span>Total: <b>{{ equipos|length }}</b></span>
-        <span>Marcados: <b id="nm-marcados">0</b></span>
+        <span>Marcados: <b id="nm-marcados">{{ checked_ids|length }}</b></span>
       </div>
     </div>
 
@@ -125,9 +83,13 @@
         </thead>
         <tbody>
           {% for e in equipos %}
-          <tr data-id="{{ e.id }}">
+          <tr data-id="{{ e.id }}" class="{{ 'checked' if e.id in checked_ids else '' }}">
             <td style="text-align:center;">
-              <input type="checkbox" class="chk-local" onchange="marcar(this)">
+              <input type="checkbox" class="chk-local"
+                     data-equipo="{{ e.id }}"
+                     {% if e.id in checked_ids %}checked{% endif %}
+                     onchange="marcar(this)">
+              <span class="chk-status" id="cst-{{ e.id }}">✓</span>
             </td>
             <td><strong>{{ e.vehiculo }}</strong></td>
             <td>{{ e.familia or '—' }}</td>
@@ -146,13 +108,10 @@
         </tbody>
       </table>
       {% else %}
-      <div class="empty-state">
-        <p>No hay equipos no motorizados en zona de riesgo en el ciclo actual.</p>
-      </div>
+      <div class="empty-state"><p>No hay equipos no motorizados en zona de riesgo en el ciclo actual.</p></div>
       {% endif %}
     </div>
   </div>
-
 </div>
 {% endblock %}
 
@@ -160,14 +119,39 @@
 <script>
 function marcar(cb) {
   var tr = cb.closest('tr');
-  if (cb.checked) tr.classList.add('checked');
-  else tr.classList.remove('checked');
+  var st = document.getElementById('cst-' + cb.dataset.equipo);
+  if (cb.checked) tr.classList.add('checked'); else tr.classList.remove('checked');
 
-  var marcadosEl = document.getElementById('nm-marcados');
-  if (marcadosEl) {
+  fetch('{{ url_for("cio_no_motor_toggle") }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken() },
+    body: JSON.stringify({ equipo_id: parseInt(cb.dataset.equipo, 10), checked: cb.checked })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (!data.success) {
+      // Revertir
+      cb.checked = !cb.checked;
+      if (cb.checked) tr.classList.add('checked'); else tr.classList.remove('checked');
+      if (st) { st.className = 'chk-status err'; st.textContent = '✗'; }
+      return;
+    }
+    if (st) {
+      st.className = 'chk-status ok';
+      st.textContent = '✓';
+      setTimeout(function(){ if (st) { st.className = 'chk-status'; st.textContent = '✓'; } }, 1200);
+    }
+    // Recalcular marcados
     var total = document.querySelectorAll('#nm-tbl tbody input:checked').length;
-    marcadosEl.textContent = total;
-  }
+    var el = document.getElementById('nm-marcados');
+    if (el) el.textContent = total;
+  })
+  .catch(function(){
+    // Revertir en error de red
+    cb.checked = !cb.checked;
+    if (cb.checked) tr.classList.add('checked'); else tr.classList.remove('checked');
+    if (st) { st.className = 'chk-status err'; st.textContent = '✗'; }
+  });
 }
 </script>
 {% endblock %}
