@@ -539,7 +539,7 @@
     <div class="kpi-card kpi-amber">
       <div class="kpi-value">{{ solicitados }}</div>
       <div class="kpi-label">Solicitados</div>
-      <div class="kpi-sub">por Planeación</div>
+      <div class="kpi-sub">por CIO a Operaciones</div>
     </div>
     <div class="kpi-card kpi-green">
       <div class="kpi-value">{{ respondidos }}</div>
@@ -549,7 +549,7 @@
     <div class="kpi-card kpi-red">
       <div class="kpi-value">{{ pendientes }}</div>
       <div class="kpi-label">Pendientes</div>
-      <div class="kpi-sub">esperando respuesta del CIO</div>
+      <div class="kpi-sub">sin respuesta del CIO</div>
     </div>
   </div>
 

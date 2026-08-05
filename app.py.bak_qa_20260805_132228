@@ -233,7 +233,7 @@ def tecnico_required(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if current_user.rol not in ('almacen', 'admin', 'superadmin'):
+        if current_user.rol not in ('tecnico', 'almacen', 'admin', 'superadmin'):
             flash('Acceso restringido.', 'error')
             return redirect(url_for('dashboard_redirect'))
         return f(*args, **kwargs)
@@ -1182,7 +1182,7 @@ def admin_export():
 @admin_required
 def admin_usuarios():
     is_superadmin = current_user.rol == 'superadmin'
-    valid_roles_create = ('admin', 'cio', 'almacen', 'superadmin') if is_superadmin else ('admin', 'cio', 'almacen')
+    valid_roles_create = ('admin', 'cio', 'tecnico', 'almacen', 'superadmin') if is_superadmin else ('admin', 'cio', 'tecnico', 'almacen')
 
     if request.method == 'POST':
         action = request.form.get('action', '')
